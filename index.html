@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>고객컨설팅 마스터과정 운영관리</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- 상단 헤더 -->
+  <header class="top-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="logo-mark" aria-hidden="true">H</div>
+        <div class="brand-text">
+          <span class="brand-main">Hyundai Marine &amp; Fire Insurance</span>
+          <span class="brand-sub">고객컨설팅 마스터과정 운영관리</span>
+        </div>
+      </div>
+      <nav class="top-nav">
+        <a href="#dashboard" class="active">대시보드</a>
+        <a href="#students">교육생 관리</a>
+        <a href="#stats">통계</a>
+        <a href="#settings">설정</a>
+      </nav>
+      <div class="header-actions">
+        <span id="connection-status" class="conn-badge">연결중...</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 좌측 사이드 메뉴 -->
+    <aside class="sidebar">
+      <div class="side-section">
+        <h3>소속 선택</h3>
+        <button class="side-select" id="btn-select-region">
+          <span class="label">지역단</span>
+          <span class="value" id="sel-region-text">전체</span>
+        </button>
+        <button class="side-select" id="btn-select-center">
+          <span class="label">비전센터</span>
+          <span class="value" id="sel-center-text">전체</span>
+        </button>
+        <button class="side-select" id="btn-select-branch">
+          <span class="label">지점</span>
+          <span class="value" id="sel-branch-text">전체</span>
+        </button>
+        <button class="side-select ghost" id="btn-reset-filter">필터 초기화</button>
+      </div>
+
+      <div class="side-section">
+        <h3>마스터과정 기수</h3>
+        <select id="filter-cohort" class="side-input">
+          <option value="">전체 기수</option>
+          <option value="1">1기</option>
+          <option value="2">2기</option>
+          <option value="3">3기</option>
+          <option value="4">4기</option>
+          <option value="5">5기</option>
+        </select>
+      </div>
+
+      <div class="side-section">
+        <h3>빠른 작업</h3>
+        <button class="btn-primary block" id="btn-open-add">교육생 등록</button>
+        <button class="btn-outline block" id="btn-export-csv">CSV 내보내기</button>
+      </div>
+
+      <div class="side-section stats-mini">
+        <h3>현황 요약</h3>
+        <div class="mini-row">
+          <span>전체 교육생</span>
+          <strong id="mini-total">0</strong>
+        </div>
+        <div class="mini-row">
+          <span>선택 지역단</span>
+          <strong id="mini-region">0</strong>
+        </div>
+        <div class="mini-row">
+          <span>선택 지점</span>
+          <strong id="mini-branch">0</strong>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="main">
+      <section class="page-title">
+        <h1>고객컨설팅 마스터과정 운영관리</h1>
+        <p class="desc">전국 지역단 / 비전센터 / 지점 교육생 실적을 실시간으로 관리합니다.</p>
+      </section>
+
+      <!-- 상단 KPI 카드 -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">전체 교육생</div>
+          <div class="kpi-value" id="kpi-total">0</div>
+          <div class="kpi-sub" id="kpi-total-sub">명</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">기준실적 합계</div>
+          <div class="kpi-value" id="kpi-base">0</div>
+          <div class="kpi-sub">건</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">목표실적 합계</div>
+          <div class="kpi-value" id="kpi-target">0</div>
+          <div class="kpi-sub">건</div>
+        </div>
+        <div class="kpi-card highlight">
+          <div class="kpi-label">아너스실적 합계</div>
+          <div class="kpi-value" id="kpi-honors">0</div>
+          <div class="kpi-sub">건</div>
+        </div>
+      </section>
+
+      <!-- 지점별 현황 -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>지점별 교육생 현황</h2>
+          <div class="panel-tools">
+            <input type="search" id="search-box" placeholder="사번, 이름, 지점 검색" />
+          </div>
+        </div>
+        <div id="branch-group-list" class="branch-group-list">
+          <!-- 지점별 그룹이 동적으로 렌더링됩니다 -->
+          <div class="empty-state">등록된 교육생이 없습니다. 좌측 [교육생 등록] 버튼으로 추가하세요.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 조직 선택 팝업 -->
+  <div class="modal" id="modal-org" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="modal-org-title">지역단 선택</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="search" id="org-search" placeholder="검색..." class="modal-search" />
+        <ul class="org-list" id="org-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 교육생 등록/수정 팝업 -->
+  <div class="modal" id="modal-add" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel wide">
+      <div class="modal-head">
+        <h3>교육생 등록 / 수정</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs">
+          <button class="tab active" data-tab="single">단건 입력</button>
+          <button class="tab" data-tab="bulk">붙여넣기(여러명)</button>
+        </div>
+
+        <!-- 단건 입력 -->
+        <div class="tab-panel" data-panel="single">
+          <div class="form-grid">
+            <label>지역단
+              <button type="button" class="picker-btn" id="form-region-btn">
+                <span id="form-region-text">선택</span>
+              </button>
+            </label>
+            <label>비전센터
+              <button type="button" class="picker-btn" id="form-center-btn">
+                <span id="form-center-text">선택</span>
+              </button>
+            </label>
+            <label>지점
+              <button type="button" class="picker-btn" id="form-branch-btn">
+                <span id="form-branch-text">선택</span>
+              </button>
+            </label>
+            <label>마스터과정 기수
+              <select id="form-cohort">
+                <option value="">선택</option>
+                <option>1기</option>
+                <option>2기</option>
+                <option>3기</option>
+                <option>4기</option>
+                <option>5기</option>
+              </select>
+            </label>
+            <label>사번 <span class="req">*</span>
+              <input type="text" id="form-empno" placeholder="예: 12345678" />
+            </label>
+            <label>교육생 이름
+              <input type="text" id="form-name" placeholder="이름" />
+            </label>
+            <label>연락처
+              <input type="text" id="form-phone" placeholder="010-0000-0000" />
+            </label>
+            <label>기준실적
+              <input type="number" id="form-base" placeholder="0" />
+            </label>
+            <label>목표실적
+              <input type="number" id="form-target" placeholder="0" />
+            </label>
+            <label>아너스실적
+              <input type="number" id="form-honors" placeholder="0" />
+            </label>
+          </div>
+          <p class="form-hint">* 사번을 기준으로 저장되며, 동일 사번 입력 시 기존 데이터가 업데이트됩니다.</p>
+        </div>
+
+        <!-- 여러명 붙여넣기 -->
+        <div class="tab-panel" data-panel="bulk" hidden>
+          <p class="form-hint">엑셀/시트에서 아래 순서대로 복사하여 붙여넣으세요. (TAB 또는 쉼표 구분)</p>
+          <div class="bulk-header">
+            지역단 | 비전센터 | 지점 | 기수 | 사번 | 이름 | 연락처 | 기준실적 | 목표실적 | 아너스실적
+          </div>
+          <textarea id="form-bulk" rows="10" placeholder="예) 서울지역단	강남비전센터	강남지점	3기	12345678	홍길동	010-1234-5678	10	20	5"></textarea>
+          <p class="form-hint">동일 사번은 업데이트, 신규 사번은 신규 등록됩니다.</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-outline" data-close>취소</button>
+        <button class="btn-primary" id="btn-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 알림 토스트 -->
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
+  <script type="module" src="js/firebase-config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
