@@ -1,9 +1,30 @@
 /* 고객컨설팅 마스터과정 운영관리 - 메인 앱 로직 */
 
 (function () {
+  const LS_KEY = "cmf.filter.v1";
+  const DEFAULT_REGION = "호남지역단";
+
+  function loadFilter() {
+    const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+      if (saved && typeof saved === "object") {
+        return { ...base, ...saved, q: "" };
+      }
+    } catch (e) {}
+    return base;
+  }
+
+  function persistFilter() {
+    const { region, center, branch, cohort } = state.filter;
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ region, center, branch, cohort }));
+    } catch (e) {}
+  }
+
   const state = {
     students: [],
-    filter: { region: "", center: "", branch: "", cohort: "", q: "" },
+    filter: loadFilter(),
     form: { region: "", center: "", branch: "" },
     orgPickerTarget: null // 'filter-region' | 'form-region' 등
   };
@@ -79,7 +100,8 @@
     }
 
     const filtered = opts.filter((o) => o.toLowerCase().includes((q || "").toLowerCase()));
-    if (target.startsWith("filter-")) {
+    // 지역단은 필수 선택이므로 '전체' 옵션 없음. 비전센터/지점만 '전체' 허용.
+    if (target.startsWith("filter-") && !target.endsWith("region")) {
       const li = document.createElement("li");
       li.textContent = "전체";
       li.addEventListener("click", () => selectOrg(""));
@@ -102,6 +124,12 @@
     const field = target.split("-")[1]; // region | center | branch
     const scope = isFilter ? state.filter : state.form;
 
+    // 필터의 지역단은 비울 수 없음 (필수 선택)
+    if (isFilter && field === "region" && !name) {
+      closeModal("#modal-org");
+      return;
+    }
+
     scope[field] = name;
     // 상위 변경 시 하위 초기화
     if (field === "region") { scope.center = ""; scope.branch = ""; }
@@ -109,11 +137,11 @@
 
     syncOrgLabels();
     closeModal("#modal-org");
-    if (isFilter) render();
+    if (isFilter) { persistFilter(); render(); }
   }
 
   function syncOrgLabels() {
-    $("#sel-region-text").textContent = state.filter.region || "전체";
+    $("#sel-region-text").textContent = state.filter.region || DEFAULT_REGION;
     $("#sel-center-text").textContent = state.filter.center || "전체";
     $("#sel-branch-text").textContent = state.filter.branch || "전체";
     $("#form-region-text").textContent = state.form.region || "선택";
@@ -157,7 +185,9 @@
   function renderBranchGroups(list) {
     const container = $("#branch-group-list");
     if (list.length === 0) {
-      container.innerHTML = `<div class="empty-state">등록된 교육생이 없습니다. 좌측 [교육생 등록] 버튼으로 추가하세요.</div>`;
+      const f = state.filter;
+      const path = [f.region, f.center, f.branch].filter(Boolean).join(" > ");
+      container.innerHTML = `<div class="empty-state">[${escapeHtml(path)}] 에 등록된 교육생이 없습니다.</div>`;
       return;
     }
     const groups = {};
@@ -287,18 +317,74 @@
     if (!raw) { toast("붙여넣을 데이터가 없습니다.", "error"); return false; }
     const lines = raw.split(/\r?\n/).filter((l) => l.trim());
     let ok = 0, fail = 0;
+    const errors = [];
     for (const line of lines) {
       const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-      const [region, center, branch, cohort, empNo, name, phone, base, target, honors] = cols.map((c) => (c || "").trim());
-      if (!empNo) { fail++; continue; }
-      await window.DataAPI.save({
+      const [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cols.map((c) => (c || "").trim());
+      if (!empNo) { fail++; errors.push("사번 누락: " + line.slice(0, 30)); continue; }
+      const rec = {
         region, center, branch, cohort, empNo, name, phone,
         base: Number(base || 0), target: Number(target || 0), honors: Number(honors || 0)
-      });
-      ok++;
+      };
+      if (tenureMonths) rec.tenureMonths = Number(tenureMonths);
+      try {
+        await window.DataAPI.save(rec);
+        ok++;
+      } catch (err) {
+        fail++;
+        errors.push(`${empNo}: ${err.message}`);
+        console.error("[bulk save] 실패:", empNo, err);
+      }
     }
-    toast(`${ok}건 저장, ${fail}건 실패`, fail ? "error" : "success");
-    return true;
+    const msg = `${ok}건 저장, ${fail}건 실패` + (errors.length ? ` — ${errors[0]}` : "");
+    toast(msg, fail ? "error" : "success");
+    if (fail) console.warn("[bulk save] 전체 실패 목록:", errors);
+    return ok > 0;
+  }
+
+  // ========== 시드 파일 불러오기 ==========
+  async function openSeedPicker() {
+    openModal("#modal-seed");
+    const list = $("#seed-list");
+    list.innerHTML = `<li class="disabled">불러오는 중...</li>`;
+    try {
+      const res = await fetch("seed_data/index.json", { cache: "no-cache" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const seeds = (data && data.seeds) || [];
+      list.innerHTML = "";
+      if (seeds.length === 0) {
+        list.innerHTML = `<li class="disabled">등록된 시드 파일이 없습니다.</li>`;
+        return;
+      }
+      seeds.forEach((seed) => {
+        const li = document.createElement("li");
+        const countText = seed.count ? `${seed.count}명` : "";
+        li.innerHTML = `<strong>${escapeHtml(seed.label)}</strong>` +
+          `<div style="font-size:12px;color:#999;margin-top:2px;">${escapeHtml(seed.file)}${countText ? " · " + countText : ""}</div>`;
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => loadSeed(seed));
+        list.appendChild(li);
+      });
+    } catch (err) {
+      console.error("[seed] 목록 로드 실패:", err);
+      list.innerHTML = `<li class="disabled">시드 목록 로드 실패: ${escapeHtml(err.message)}<br><small>로컬에서 file:// 로 여신 경우 CORS로 차단됩니다. 웹서버로 접속하세요.</small></li>`;
+    }
+  }
+
+  async function loadSeed(seed) {
+    try {
+      const res = await fetch("seed_data/" + seed.file, { cache: "no-cache" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      $("#form-bulk").value = text.trim();
+      closeModal("#modal-seed");
+      switchTab("bulk");
+      toast(`[${seed.label}] 불러옴. [저장] 버튼을 눌러 등록하세요.`, "success");
+    } catch (err) {
+      console.error("[seed] 파일 로드 실패:", err);
+      toast("시드 파일 로드 실패: " + err.message, "error");
+    }
   }
 
   async function removeStudent(empNo) {
@@ -331,14 +417,16 @@
     $("#btn-select-center").addEventListener("click", () => openOrgPicker("filter-center"));
     $("#btn-select-branch").addEventListener("click", () => openOrgPicker("filter-branch"));
     $("#btn-reset-filter").addEventListener("click", () => {
-      state.filter = { region: "", center: "", branch: "", cohort: "", q: "" };
+      state.filter = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
       $("#filter-cohort").value = "";
       $("#search-box").value = "";
       syncOrgLabels();
+      persistFilter();
       render();
     });
     $("#filter-cohort").addEventListener("change", (e) => {
       state.filter.cohort = e.target.value;
+      persistFilter();
       render();
     });
     $("#search-box").addEventListener("input", (e) => {
@@ -369,6 +457,9 @@
     // 탭 전환
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
+    // 시드 파일 불러오기
+    $("#btn-load-seed").addEventListener("click", openSeedPicker);
+
     // 저장
     $("#btn-save").addEventListener("click", async () => {
       const activeTab = document.querySelector(".tab.active").dataset.tab;
@@ -391,6 +482,8 @@
 
   function init() {
     bindEvents();
+    // localStorage에서 복원된 필터값을 UI에 반영
+    $("#filter-cohort").value = state.filter.cohort || "";
     syncOrgLabels();
     window.DataAPI.subscribe((list) => {
       state.students = list || [];
