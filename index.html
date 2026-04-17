@@ -34,18 +34,18 @@
     <aside class="sidebar">
       <div class="side-section">
         <h3>소속 선택</h3>
-        <button class="side-select" id="btn-select-region">
-          <span class="label">지역단</span>
-          <span class="value" id="sel-region-text">전체</span>
-        </button>
-        <button class="side-select" id="btn-select-center">
-          <span class="label">비전센터</span>
-          <span class="value" id="sel-center-text">전체</span>
-        </button>
-        <button class="side-select" id="btn-select-branch">
-          <span class="label">지점</span>
-          <span class="value" id="sel-branch-text">전체</span>
-        </button>
+        <label class="side-label" for="sel-region">지역단</label>
+        <select class="side-input" id="sel-region">
+          <option value="">전체 지역단</option>
+        </select>
+        <label class="side-label" for="sel-center">비전센터</label>
+        <select class="side-input" id="sel-center">
+          <option value="">전체 비전센터</option>
+        </select>
+        <label class="side-label" for="sel-branch">지점</label>
+        <select class="side-input" id="sel-branch">
+          <option value="">전체 지점</option>
+        </select>
         <button class="side-select ghost" id="btn-reset-filter">필터 초기화</button>
       </div>
 

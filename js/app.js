@@ -24,11 +24,10 @@
   function openModal(id) { $(id).hidden = false; }
   function closeModal(id) { $(id).hidden = true; }
 
-  // ========== 조직 선택 팝업 ==========
+  // ========== 조직 선택 팝업 (등록/수정 폼 전용) ==========
   function openOrgPicker(target) {
     state.orgPickerTarget = target;
     const titleMap = {
-      "filter-region": "지역단 선택", "filter-center": "비전센터 선택", "filter-branch": "지점 선택",
       "form-region": "지역단 선택", "form-center": "비전센터 선택", "form-branch": "지점 선택"
     };
     $("#modal-org-title").textContent = titleMap[target] || "선택";
@@ -39,8 +38,7 @@
   }
 
   function getOrgOptions(target) {
-    const isFilter = target.startsWith("filter-");
-    const scope = isFilter ? state.filter : state.form;
+    const scope = state.form;
     const data = window.ORG_DATA;
     if (target.endsWith("region")) {
       return data.regions.map((r) => r.name);
@@ -66,25 +64,16 @@
     const opts = getOrgOptions(target);
     list.innerHTML = "";
 
-    if (target.endsWith("center") && !(target.startsWith("filter") ? state.filter.region : state.form.region)) {
+    if (target.endsWith("center") && !state.form.region) {
       list.innerHTML = `<li class="disabled">먼저 지역단을 선택하세요.</li>`;
       return;
     }
-    if (target.endsWith("branch")) {
-      const scope = target.startsWith("filter") ? state.filter : state.form;
-      if (!scope.region || !scope.center) {
-        list.innerHTML = `<li class="disabled">먼저 지역단/비전센터를 선택하세요.</li>`;
-        return;
-      }
+    if (target.endsWith("branch") && (!state.form.region || !state.form.center)) {
+      list.innerHTML = `<li class="disabled">먼저 지역단/비전센터를 선택하세요.</li>`;
+      return;
     }
 
     const filtered = opts.filter((o) => o.toLowerCase().includes((q || "").toLowerCase()));
-    if (target.startsWith("filter-")) {
-      const li = document.createElement("li");
-      li.textContent = "전체";
-      li.addEventListener("click", () => selectOrg(""));
-      list.appendChild(li);
-    }
     filtered.forEach((name) => {
       const li = document.createElement("li");
       li.textContent = name;
@@ -92,33 +81,77 @@
       list.appendChild(li);
     });
     if (filtered.length === 0 && opts.length > 0) {
-      list.innerHTML += `<li class="disabled">검색 결과가 없습니다.</li>`;
+      list.innerHTML = `<li class="disabled">검색 결과가 없습니다.</li>`;
     }
   }
 
   function selectOrg(name) {
     const target = state.orgPickerTarget;
-    const isFilter = target.startsWith("filter-");
     const field = target.split("-")[1]; // region | center | branch
-    const scope = isFilter ? state.filter : state.form;
-
-    scope[field] = name;
-    // 상위 변경 시 하위 초기화
-    if (field === "region") { scope.center = ""; scope.branch = ""; }
-    if (field === "center") { scope.branch = ""; }
-
+    state.form[field] = name;
+    if (field === "region") { state.form.center = ""; state.form.branch = ""; }
+    if (field === "center") { state.form.branch = ""; }
     syncOrgLabels();
     closeModal("#modal-org");
-    if (isFilter) render();
   }
 
   function syncOrgLabels() {
-    $("#sel-region-text").textContent = state.filter.region || "전체";
-    $("#sel-center-text").textContent = state.filter.center || "전체";
-    $("#sel-branch-text").textContent = state.filter.branch || "전체";
     $("#form-region-text").textContent = state.form.region || "선택";
     $("#form-center-text").textContent = state.form.center || "선택";
     $("#form-branch-text").textContent = state.form.branch || "선택";
+    syncFilterSelects();
+  }
+
+  // ========== 사이드바 드롭다운 (지역단 > 비전센터 > 지점) ==========
+  function fillSelect(el, opts, placeholder, selected) {
+    const frag = document.createDocumentFragment();
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = placeholder;
+    frag.appendChild(ph);
+    opts.forEach((name) => {
+      const o = document.createElement("option");
+      o.value = name;
+      o.textContent = name;
+      if (name === selected) o.selected = true;
+      frag.appendChild(o);
+    });
+    el.innerHTML = "";
+    el.appendChild(frag);
+  }
+
+  function syncFilterSelects() {
+    const data = window.ORG_DATA;
+    const regionSel = $("#sel-region");
+    const centerSel = $("#sel-center");
+    const branchSel = $("#sel-branch");
+
+    // 지역단
+    const regions = data.regions.map((r) => r.name);
+    fillSelect(regionSel, regions, "전체 지역단", state.filter.region);
+
+    // 비전센터: 지역단 선택 시에만 활성화
+    if (state.filter.region) {
+      const reg = data.regions.find((r) => r.name === state.filter.region);
+      const centers = reg ? reg.centers.map((c) => c.name) : [];
+      fillSelect(centerSel, centers, "전체 비전센터", state.filter.center);
+      centerSel.disabled = false;
+    } else {
+      fillSelect(centerSel, [], "지역단을 먼저 선택", "");
+      centerSel.disabled = true;
+    }
+
+    // 지점: 비전센터 선택 시에만 활성화
+    if (state.filter.region && state.filter.center) {
+      const reg = data.regions.find((r) => r.name === state.filter.region);
+      const ctr = reg && reg.centers.find((c) => c.name === state.filter.center);
+      const branches = ctr ? ctr.branches : [];
+      fillSelect(branchSel, branches, "전체 지점", state.filter.branch);
+      branchSel.disabled = false;
+    } else {
+      fillSelect(branchSel, [], "비전센터를 먼저 선택", "");
+      branchSel.disabled = true;
+    }
   }
 
   // ========== 필터링 / 렌더링 ==========
@@ -326,15 +359,29 @@
 
   // ========== 초기화 ==========
   function bindEvents() {
-    // 사이드바 필터
-    $("#btn-select-region").addEventListener("click", () => openOrgPicker("filter-region"));
-    $("#btn-select-center").addEventListener("click", () => openOrgPicker("filter-center"));
-    $("#btn-select-branch").addEventListener("click", () => openOrgPicker("filter-branch"));
+    // 사이드바 필터 (드롭다운 cascade)
+    $("#sel-region").addEventListener("change", (e) => {
+      state.filter.region = e.target.value;
+      state.filter.center = "";
+      state.filter.branch = "";
+      syncFilterSelects();
+      render();
+    });
+    $("#sel-center").addEventListener("change", (e) => {
+      state.filter.center = e.target.value;
+      state.filter.branch = "";
+      syncFilterSelects();
+      render();
+    });
+    $("#sel-branch").addEventListener("change", (e) => {
+      state.filter.branch = e.target.value;
+      render();
+    });
     $("#btn-reset-filter").addEventListener("click", () => {
       state.filter = { region: "", center: "", branch: "", cohort: "", q: "" };
       $("#filter-cohort").value = "";
       $("#search-box").value = "";
-      syncOrgLabels();
+      syncFilterSelects();
       render();
     });
     $("#filter-cohort").addEventListener("change", (e) => {
