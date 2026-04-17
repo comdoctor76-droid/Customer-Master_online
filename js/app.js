@@ -317,20 +317,74 @@
     if (!raw) { toast("붙여넣을 데이터가 없습니다.", "error"); return false; }
     const lines = raw.split(/\r?\n/).filter((l) => l.trim());
     let ok = 0, fail = 0;
+    const errors = [];
     for (const line of lines) {
       const cols = line.includes("\t") ? line.split("\t") : line.split(",");
       const [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cols.map((c) => (c || "").trim());
-      if (!empNo) { fail++; continue; }
+      if (!empNo) { fail++; errors.push("사번 누락: " + line.slice(0, 30)); continue; }
       const rec = {
         region, center, branch, cohort, empNo, name, phone,
         base: Number(base || 0), target: Number(target || 0), honors: Number(honors || 0)
       };
       if (tenureMonths) rec.tenureMonths = Number(tenureMonths);
-      await window.DataAPI.save(rec);
-      ok++;
+      try {
+        await window.DataAPI.save(rec);
+        ok++;
+      } catch (err) {
+        fail++;
+        errors.push(`${empNo}: ${err.message}`);
+        console.error("[bulk save] 실패:", empNo, err);
+      }
     }
-    toast(`${ok}건 저장, ${fail}건 실패`, fail ? "error" : "success");
-    return true;
+    const msg = `${ok}건 저장, ${fail}건 실패` + (errors.length ? ` — ${errors[0]}` : "");
+    toast(msg, fail ? "error" : "success");
+    if (fail) console.warn("[bulk save] 전체 실패 목록:", errors);
+    return ok > 0;
+  }
+
+  // ========== 시드 파일 불러오기 ==========
+  async function openSeedPicker() {
+    openModal("#modal-seed");
+    const list = $("#seed-list");
+    list.innerHTML = `<li class="disabled">불러오는 중...</li>`;
+    try {
+      const res = await fetch("seed_data/index.json", { cache: "no-cache" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const seeds = (data && data.seeds) || [];
+      list.innerHTML = "";
+      if (seeds.length === 0) {
+        list.innerHTML = `<li class="disabled">등록된 시드 파일이 없습니다.</li>`;
+        return;
+      }
+      seeds.forEach((seed) => {
+        const li = document.createElement("li");
+        const countText = seed.count ? `${seed.count}명` : "";
+        li.innerHTML = `<strong>${escapeHtml(seed.label)}</strong>` +
+          `<div style="font-size:12px;color:#999;margin-top:2px;">${escapeHtml(seed.file)}${countText ? " · " + countText : ""}</div>`;
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => loadSeed(seed));
+        list.appendChild(li);
+      });
+    } catch (err) {
+      console.error("[seed] 목록 로드 실패:", err);
+      list.innerHTML = `<li class="disabled">시드 목록 로드 실패: ${escapeHtml(err.message)}<br><small>로컬에서 file:// 로 여신 경우 CORS로 차단됩니다. 웹서버로 접속하세요.</small></li>`;
+    }
+  }
+
+  async function loadSeed(seed) {
+    try {
+      const res = await fetch("seed_data/" + seed.file, { cache: "no-cache" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      $("#form-bulk").value = text.trim();
+      closeModal("#modal-seed");
+      switchTab("bulk");
+      toast(`[${seed.label}] 불러옴. [저장] 버튼을 눌러 등록하세요.`, "success");
+    } catch (err) {
+      console.error("[seed] 파일 로드 실패:", err);
+      toast("시드 파일 로드 실패: " + err.message, "error");
+    }
   }
 
   async function removeStudent(empNo) {
@@ -402,6 +456,9 @@
 
     // 탭 전환
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+
+    // 시드 파일 불러오기
+    $("#btn-load-seed").addEventListener("click", openSeedPicker);
 
     // 저장
     $("#btn-save").addEventListener("click", async () => {
