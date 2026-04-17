@@ -104,6 +104,9 @@ window.DataAPI = {
       honors: Number(student.honors || 0),
       updatedAt: serverTimestamp()
     };
+    if (student.tenureMonths !== undefined && student.tenureMonths !== "") {
+      record.tenureMonths = Number(student.tenureMonths) || 0;
+    }
     await setDoc(doc(db, "students", empNo), record, { merge: true });
   },
 

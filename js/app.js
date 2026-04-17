@@ -1,9 +1,30 @@
 /* 고객컨설팅 마스터과정 운영관리 - 메인 앱 로직 */
 
 (function () {
+  const LS_KEY = "cmf.filter.v1";
+  const DEFAULT_REGION = "호남지역단";
+
+  function loadFilter() {
+    const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+      if (saved && typeof saved === "object") {
+        return { ...base, ...saved, q: "" };
+      }
+    } catch (e) {}
+    return base;
+  }
+
+  function persistFilter() {
+    const { region, center, branch, cohort } = state.filter;
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ region, center, branch, cohort }));
+    } catch (e) {}
+  }
+
   const state = {
     students: [],
-    filter: { region: "", center: "", branch: "", cohort: "", q: "" },
+    filter: loadFilter(),
     form: { region: "", center: "", branch: "" },
     orgPickerTarget: null // 'filter-region' | 'form-region' 등
   };
@@ -79,7 +100,8 @@
     }
 
     const filtered = opts.filter((o) => o.toLowerCase().includes((q || "").toLowerCase()));
-    if (target.startsWith("filter-")) {
+    // 지역단은 필수 선택이므로 '전체' 옵션 없음. 비전센터/지점만 '전체' 허용.
+    if (target.startsWith("filter-") && !target.endsWith("region")) {
       const li = document.createElement("li");
       li.textContent = "전체";
       li.addEventListener("click", () => selectOrg(""));
@@ -102,6 +124,12 @@
     const field = target.split("-")[1]; // region | center | branch
     const scope = isFilter ? state.filter : state.form;
 
+    // 필터의 지역단은 비울 수 없음 (필수 선택)
+    if (isFilter && field === "region" && !name) {
+      closeModal("#modal-org");
+      return;
+    }
+
     scope[field] = name;
     // 상위 변경 시 하위 초기화
     if (field === "region") { scope.center = ""; scope.branch = ""; }
@@ -109,11 +137,11 @@
 
     syncOrgLabels();
     closeModal("#modal-org");
-    if (isFilter) render();
+    if (isFilter) { persistFilter(); render(); }
   }
 
   function syncOrgLabels() {
-    $("#sel-region-text").textContent = state.filter.region || "전체";
+    $("#sel-region-text").textContent = state.filter.region || DEFAULT_REGION;
     $("#sel-center-text").textContent = state.filter.center || "전체";
     $("#sel-branch-text").textContent = state.filter.branch || "전체";
     $("#form-region-text").textContent = state.form.region || "선택";
@@ -157,7 +185,9 @@
   function renderBranchGroups(list) {
     const container = $("#branch-group-list");
     if (list.length === 0) {
-      container.innerHTML = `<div class="empty-state">등록된 교육생이 없습니다. 좌측 [교육생 등록] 버튼으로 추가하세요.</div>`;
+      const f = state.filter;
+      const path = [f.region, f.center, f.branch].filter(Boolean).join(" > ");
+      container.innerHTML = `<div class="empty-state">[${escapeHtml(path)}] 에 등록된 교육생이 없습니다.</div>`;
       return;
     }
     const groups = {};
@@ -333,14 +363,16 @@
     $("#btn-select-center").addEventListener("click", () => openOrgPicker("filter-center"));
     $("#btn-select-branch").addEventListener("click", () => openOrgPicker("filter-branch"));
     $("#btn-reset-filter").addEventListener("click", () => {
-      state.filter = { region: "", center: "", branch: "", cohort: "", q: "" };
+      state.filter = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
       $("#filter-cohort").value = "";
       $("#search-box").value = "";
       syncOrgLabels();
+      persistFilter();
       render();
     });
     $("#filter-cohort").addEventListener("change", (e) => {
       state.filter.cohort = e.target.value;
+      persistFilter();
       render();
     });
     $("#search-box").addEventListener("input", (e) => {
@@ -393,6 +425,8 @@
 
   function init() {
     bindEvents();
+    // localStorage에서 복원된 필터값을 UI에 반영
+    $("#filter-cohort").value = state.filter.cohort || "";
     syncOrgLabels();
     window.DataAPI.subscribe((list) => {
       state.students = list || [];
