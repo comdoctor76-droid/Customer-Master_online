@@ -434,6 +434,39 @@
 
     // CSV
     $("#btn-export-csv").addEventListener("click", exportCSV);
+
+    // 호남지역단 초기 데이터 일괄 등록
+    $("#btn-seed-honam").addEventListener("click", seedHonam);
+  }
+
+  async function seedHonam() {
+    const seed = window.HN_SEED_STUDENTS;
+    if (!Array.isArray(seed) || seed.length === 0) {
+      toast("시드 데이터를 찾을 수 없습니다.", "error");
+      return;
+    }
+    const msg = `호남지역단 교육생 ${seed.length}명을 Firebase에 일괄 등록합니다.\n` +
+      `동일 사번이 이미 있으면 데이터가 덮어쓰기됩니다. 계속하시겠습니까?`;
+    if (!confirm(msg)) return;
+
+    const btn = $("#btn-seed-honam");
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = "등록 중...";
+
+    let ok = 0, fail = 0;
+    for (const stu of seed) {
+      try {
+        await window.DataAPI.save(stu);
+        ok++;
+      } catch (e) {
+        console.error("[seed] 실패:", stu.empNo, stu.name, e);
+        fail++;
+      }
+    }
+    btn.disabled = false;
+    btn.textContent = orig;
+    toast(`호남지역단 ${ok}명 등록 완료${fail ? ` (${fail}건 실패)` : ""}`, fail ? "error" : "success");
   }
 
   function init() {

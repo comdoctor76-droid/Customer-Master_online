@@ -75,7 +75,17 @@ body {
 .top-nav a:hover { background: var(--orange-light); color: var(--orange-dark); }
 .top-nav a.active { background: var(--orange); color: #fff; }
 
-.header-actions { margin-left: auto; }
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.hdr-contact {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: var(--orange-light);
+  border: 1px solid var(--orange);
+  border-radius: 6px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
 .conn-badge {
   background: var(--orange-light);
   color: var(--orange-dark);
