@@ -289,12 +289,14 @@
     let ok = 0, fail = 0;
     for (const line of lines) {
       const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-      const [region, center, branch, cohort, empNo, name, phone, base, target, honors] = cols.map((c) => (c || "").trim());
+      const [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cols.map((c) => (c || "").trim());
       if (!empNo) { fail++; continue; }
-      await window.DataAPI.save({
+      const rec = {
         region, center, branch, cohort, empNo, name, phone,
         base: Number(base || 0), target: Number(target || 0), honors: Number(honors || 0)
-      });
+      };
+      if (tenureMonths) rec.tenureMonths = Number(tenureMonths);
+      await window.DataAPI.save(rec);
       ok++;
     }
     toast(`${ok}건 저장, ${fail}건 실패`, fail ? "error" : "success");
