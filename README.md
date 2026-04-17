@@ -51,11 +51,14 @@ python3 -m http.server 8000
 
 ## Firebase 연동 (전국 실시간 공유)
 
-1. https://console.firebase.google.com 에서 프로젝트 생성
-2. Firestore Database 생성 (프로덕션 또는 테스트 모드)
-3. 웹 앱 등록 후 config 값을 복사
-4. `js/firebase-config.js` 의 `FIREBASE_CONFIG` 에 붙여넣기
-5. Firestore 보안 규칙 설정 예시:
+본 저장소에는 Firebase 프로젝트 `customer-master-online` 설정이 이미 적용되어 있습니다.
+GitHub Pages 등 정적 호스팅에 배포하면 전국에서 실시간으로 데이터가 동기화됩니다.
+
+### Firestore 초기 설정이 필요한 경우
+
+1. https://console.firebase.google.com → `customer-master-online` 프로젝트 선택
+2. Build → Firestore Database → 데이터베이스 만들기
+3. 보안 규칙 탭에서 아래 규칙 적용:
 
 ```
 rules_version = '2';
@@ -67,6 +70,15 @@ service cloud.firestore {
   }
 }
 ```
+
+4. Authentication → Sign-in method → 도메인 승인 목록에 배포 도메인 추가
+   (예: `<계정>.github.io`)
+
+### 데이터 실시간 동작 방식
+
+- 저장 : `students/{사번}` 문서에 `setDoc(..., {merge:true})` 로 upsert
+- 조회 : `onSnapshot` 으로 전체 콜렉션 실시간 구독 (추가/수정/삭제 즉시 반영)
+- 오프라인 : `enableIndexedDbPersistence` 로 네트워크 단절 시 로컬 캐시 유지, 재접속 시 자동 동기화
 
 > 실제 운영 시에는 Firebase Authentication 으로 사내 계정 인증을 걸고,
 > 규칙에 `request.auth != null` 조건을 추가하는 것을 권장합니다.
