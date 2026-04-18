@@ -1283,6 +1283,31 @@
       e.target.closest(".modal").hidden = true;
     }));
 
+    // 상단 탭 네비게이션
+    $$(".top-nav a").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        const href = a.getAttribute("href") || "";
+        $$(".top-nav a").forEach((x) => x.classList.remove("active"));
+        a.classList.add("active");
+
+        if (href === "#dashboard") {
+          const el = document.getElementById("dashboard");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (href === "#students") {
+          const el = document.getElementById("student-detail-panel");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (!state.selectedEmpNo) {
+              toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
+            }
+          }
+        } else if (href === "#stats" || href === "#settings") {
+          toast("준비중입니다.", "");
+        }
+      });
+    });
+
     // 등록 버튼
     $("#btn-open-add").addEventListener("click", () => {
       resetForm();
