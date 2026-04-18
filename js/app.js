@@ -1532,8 +1532,151 @@
     const list = filteredStudents();
     renderKPIs(list);
     renderSidebarStudentList(list);
+    renderStats(list);
     // 선택된 교육생 정보가 갱신되면 상세도 다시 그리기
     if (state.selectedEmpNo) renderStudentDetail();
+  }
+
+  // ========== 통계 렌더링 ==========
+  function renderStats(list) {
+    const body = $("#stats-body");
+    const scope = $("#stats-scope");
+    if (!body) return;
+    const f = state.filter;
+    const scopeText = [f.region, f.center, f.branch, f.cohort].filter(Boolean).join(" · ") || "전체";
+    if (scope) scope.textContent = scopeText;
+
+    if (!list.length) {
+      body.innerHTML = `<div class="empty-state">조건에 맞는 교육생이 없습니다.</div>`;
+      return;
+    }
+
+    // 비전센터별 인원·실적 합계
+    const byCenter = {};
+    list.forEach((s) => {
+      const k = s.center || "(미지정)";
+      if (!byCenter[k]) byCenter[k] = { count: 0, base: 0, target: 0, honors: 0 };
+      byCenter[k].count++;
+      byCenter[k].base += Number(s.base || 0);
+      byCenter[k].target += Number(s.target || 0);
+      byCenter[k].honors += Number(s.honors || 0);
+    });
+
+    // 지점별 인원
+    const byBranch = {};
+    list.forEach((s) => {
+      const k = s.branch || "(미지정)";
+      byBranch[k] = (byBranch[k] || 0) + 1;
+    });
+
+    // 기수별 인원
+    const byCohort = {};
+    list.forEach((s) => {
+      const k = s.cohort || "(미지정)";
+      byCohort[k] = (byCohort[k] || 0) + 1;
+    });
+
+    // 평균실적 상위 10명
+    const top10 = list.slice().sort((a, b) => Number(b.base || 0) - Number(a.base || 0)).slice(0, 10);
+
+    const maxCenter = Math.max(...Object.values(byCenter).map((v) => v.count), 1);
+    const maxBranch = Math.max(...Object.values(byBranch), 1);
+    const maxCohort = Math.max(...Object.values(byCohort), 1);
+    const totalBase = list.reduce((a, s) => a + Number(s.base || 0), 0);
+    const totalHonors = list.reduce((a, s) => a + Number(s.honors || 0), 0);
+    const avgBase = Math.round(totalBase / list.length);
+    const avgHonors = Math.round(totalHonors / list.length);
+
+    body.innerHTML = `
+      <div class="stats-grid">
+        <div class="stats-card">
+          <div class="stats-card-head">평균 실적</div>
+          <div class="stats-big">${avgBase.toLocaleString()} <span>원</span></div>
+          <div class="stats-sub">교육생 1인당</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-head">평균 순증목표</div>
+          <div class="stats-big">${avgHonors.toLocaleString()} <span>원</span></div>
+          <div class="stats-sub">교육생 1인당</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-head">비전센터 수</div>
+          <div class="stats-big">${Object.keys(byCenter).length} <span>곳</span></div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-head">지점 수</div>
+          <div class="stats-big">${Object.keys(byBranch).length} <span>곳</span></div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stats-block">
+          <h3>비전센터별 분포</h3>
+          ${Object.entries(byCenter)
+            .sort((a, b) => b[1].count - a[1].count)
+            .map(([name, v]) => `
+              <div class="stats-bar-row">
+                <div class="sbr-label">${escapeHtml(name)}</div>
+                <div class="sbr-track">
+                  <div class="sbr-fill" style="width:${(v.count / maxCenter * 100).toFixed(1)}%"></div>
+                </div>
+                <div class="sbr-val">${v.count}명</div>
+              </div>
+            `).join("")}
+        </div>
+
+        <div class="stats-block">
+          <h3>기수별 분포</h3>
+          ${Object.entries(byCohort)
+            .sort((a, b) => (a[0] || "").localeCompare(b[0] || ""))
+            .map(([name, cnt]) => `
+              <div class="stats-bar-row">
+                <div class="sbr-label">${escapeHtml(name)}</div>
+                <div class="sbr-track">
+                  <div class="sbr-fill blue" style="width:${(cnt / maxCohort * 100).toFixed(1)}%"></div>
+                </div>
+                <div class="sbr-val">${cnt}명</div>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+
+      <div class="stats-block">
+        <h3>지점별 분포 (${Object.keys(byBranch).length}개 지점)</h3>
+        ${Object.entries(byBranch)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, cnt]) => `
+            <div class="stats-bar-row">
+              <div class="sbr-label">${escapeHtml(name)}</div>
+              <div class="sbr-track">
+                <div class="sbr-fill amber" style="width:${(cnt / maxBranch * 100).toFixed(1)}%"></div>
+              </div>
+              <div class="sbr-val">${cnt}명</div>
+            </div>
+          `).join("")}
+      </div>
+
+      <div class="stats-block">
+        <h3>평균실적 상위 ${top10.length}명</h3>
+        <table class="stats-table">
+          <thead><tr>
+            <th>#</th><th>이름</th><th>지점</th><th>기수</th><th class="r">평균실적</th><th class="r">순증목표</th>
+          </tr></thead>
+          <tbody>
+            ${top10.map((s, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td><strong>${escapeHtml(s.name || "")}</strong></td>
+                <td>${escapeHtml(s.branch || "")}</td>
+                <td>${escapeHtml(s.cohort || "")}</td>
+                <td class="r">${Number(s.base || 0).toLocaleString()}</td>
+                <td class="r">${Number(s.honors || 0).toLocaleString()}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   // ========== 폼 ==========
@@ -1887,7 +2030,10 @@
               toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
             }
           }
-        } else if (href === "#stats" || href === "#settings") {
+        } else if (href === "#stats") {
+          const el = document.getElementById("stats-panel");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (href === "#settings") {
           toast("준비중입니다.", "");
         }
       });
