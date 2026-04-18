@@ -424,6 +424,19 @@ body {
   font-size: 12px;
   resize: vertical;
 }
+.bulk-progress {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--orange-light);
+  color: var(--orange-dark);
+  border: 1px solid #ffd9a8;
+}
+.bulk-progress[hidden] { display: none; }
+.bulk-progress.success { background: #e6f6ec; color: var(--success); border-color: #b8e0c2; }
+.bulk-progress.error { background: #fde8e8; color: var(--danger); border-color: #f4b9b9; }
 
 /* 토스트 */
 .toast {
