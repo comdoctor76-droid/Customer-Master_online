@@ -24,9 +24,12 @@ import {
   getFirestore,
   collection,
   doc,
+  addDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
+  query,
+  orderBy,
   serverTimestamp,
   writeBatch,
   enableIndexedDbPersistence
@@ -163,6 +166,43 @@ window.DataAPI = {
     const id = normalizeEmpNo(empNo);
     if (!id) return;
     await deleteDoc(doc(db, "students", id));
+  },
+
+  // ========== 면담 기록 ==========
+  // 특정 교육생의 면담 기록 실시간 구독
+  subscribeConsultations(empNo, callback) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) { callback([]); return () => {}; }
+    const ref = collection(db, "students", id, "consultations");
+    const q = query(ref, orderBy("date", "desc"));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        callback(list);
+      },
+      (err) => { console.error("[Firebase] 면담 구독 오류:", err); callback([]); }
+    );
+  },
+
+  // 면담 기록 추가
+  async addConsultation(empNo, entry) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) throw new Error("사번이 비어있습니다.");
+    const record = {
+      date: entry.date || new Date().toISOString().slice(0, 10),
+      content: entry.content || "",
+      createdAt: serverTimestamp()
+    };
+    await addDoc(collection(db, "students", id, "consultations"), record);
+  },
+
+  // 면담 기록 삭제
+  async removeConsultation(empNo, consultationId) {
+    const id = normalizeEmpNo(empNo);
+    if (!id || !consultationId) return;
+    await deleteDoc(doc(db, "students", id, "consultations", consultationId));
   }
 };
 

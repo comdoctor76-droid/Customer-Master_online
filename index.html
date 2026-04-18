@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>고객컨설팅 마스터과정 운영관리</title>
-  <link rel="stylesheet" href="css/style.css?v=20260418b" />
+  <link rel="stylesheet" href="css/style.css?v=20260418c" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -32,23 +32,39 @@
   <div class="layout">
     <!-- 좌측 사이드 메뉴 -->
     <aside class="sidebar">
+      <!-- 1. 메인 액션 (50/50) -->
+      <div class="side-section actions-row">
+        <button class="btn-primary half" id="btn-open-add">교육생 등록</button>
+        <button class="btn-outline half" id="btn-export-csv">내보내기</button>
+      </div>
+
+      <!-- 2. 전체 교육생 -->
+      <div class="side-section total-stat">
+        <span class="label">전체 교육생</span>
+        <strong id="mini-total">0</strong>
+        <span class="unit">명</span>
+      </div>
+
+      <!-- 3. 소속 선택 (인라인 드롭다운) -->
       <div class="side-section">
         <h3>소속 선택</h3>
-        <button class="side-select" id="btn-select-region">
-          <span class="label">지역단</span>
-          <span class="value" id="sel-region-text">전체</span>
-        </button>
-        <button class="side-select" id="btn-select-center">
-          <span class="label">비전센터</span>
-          <span class="value" id="sel-center-text">전체</span>
-        </button>
-        <button class="side-select" id="btn-select-branch">
-          <span class="label">지점</span>
-          <span class="value" id="sel-branch-text">전체</span>
-        </button>
+        <label class="side-field">지역단
+          <select id="filter-region-select" class="side-input"></select>
+        </label>
+        <label class="side-field">비전센터
+          <select id="filter-center-select" class="side-input" disabled>
+            <option value="">전체</option>
+          </select>
+        </label>
+        <label class="side-field">지점
+          <select id="filter-branch-select" class="side-input" disabled>
+            <option value="">전체</option>
+          </select>
+        </label>
         <button class="side-select ghost" id="btn-reset-filter">필터 초기화</button>
       </div>
 
+      <!-- 4. 마스터과정 기수 -->
       <div class="side-section">
         <h3>마스터과정 기수</h3>
         <select id="filter-cohort" class="side-input">
@@ -61,25 +77,11 @@
         </select>
       </div>
 
-      <div class="side-section">
-        <h3>빠른 작업</h3>
-        <button class="btn-primary block" id="btn-open-add">교육생 등록</button>
-        <button class="btn-outline block" id="btn-export-csv">CSV 내보내기</button>
-      </div>
-
-      <div class="side-section stats-mini">
-        <h3>현황 요약</h3>
-        <div class="mini-row">
-          <span>전체 교육생</span>
-          <strong id="mini-total">0</strong>
-        </div>
-        <div class="mini-row">
-          <span>선택 지역단</span>
-          <strong id="mini-region">0</strong>
-        </div>
-        <div class="mini-row">
-          <span>선택 지점</span>
-          <strong id="mini-branch">0</strong>
+      <!-- 5. 지점별 교육생 명단 -->
+      <div class="side-section side-students">
+        <h3>지점별 교육생</h3>
+        <div id="sidebar-student-list" class="sidebar-student-list">
+          <div class="empty-mini">조건에 맞는 교육생 없음</div>
         </div>
       </div>
     </aside>
@@ -115,17 +117,16 @@
         </div>
       </section>
 
-      <!-- 지점별 현황 -->
-      <section class="panel">
+      <!-- 교육생 면담 관리 -->
+      <section class="panel" id="student-detail-panel">
         <div class="panel-head">
-          <h2>지점별 교육생 현황</h2>
+          <h2 id="detail-title">교육생 면담 관리</h2>
           <div class="panel-tools">
             <input type="search" id="search-box" placeholder="사번, 이름, 지점 검색" />
           </div>
         </div>
-        <div id="branch-group-list" class="branch-group-list">
-          <!-- 지점별 그룹이 동적으로 렌더링됩니다 -->
-          <div class="empty-state">등록된 교육생이 없습니다. 좌측 [교육생 등록] 버튼으로 추가하세요.</div>
+        <div id="student-detail-body">
+          <div class="empty-state">좌측 [지점별 교육생] 목록에서 교육생을 선택하면 면담 관리를 시작할 수 있습니다.</div>
         </div>
       </section>
     </main>
@@ -279,8 +280,8 @@
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260418b"></script>
-  <script src="js/data.js?v=20260418b"></script>
-  <script src="js/app.js?v=20260418b"></script>
+  <script type="module" src="js/firebase-config.js?v=20260418c"></script>
+  <script src="js/data.js?v=20260418c"></script>
+  <script src="js/app.js?v=20260418c"></script>
 </body>
 </html>

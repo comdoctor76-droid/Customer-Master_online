@@ -26,7 +26,10 @@
     students: [],
     filter: loadFilter(),
     form: { region: "", center: "", branch: "" },
-    orgPickerTarget: null // 'filter-region' | 'form-region' 등
+    orgPickerTarget: null, // 'filter-region' | 'form-region' 등
+    selectedEmpNo: null,
+    consultations: [],
+    consultUnsub: null
   };
 
   // ========== 유틸 ==========
@@ -141,10 +144,57 @@
   }
 
   function syncOrgLabels() {
-    $("#sel-region-text").textContent = state.filter.region || DEFAULT_REGION;
-    $("#sel-center-text").textContent = state.filter.center || "전체";
-    $("#sel-branch-text").textContent = state.filter.branch || "전체";
+    syncFilterOrgSelects();
     syncFormOrgSelects();
+  }
+
+  // ========== 사이드바 필터 인라인 셀렉트 ==========
+  function populateFilterRegionSelect() {
+    const sel = $("#filter-region-select");
+    if (!sel) return;
+    const data = window.ORG_DATA;
+    sel.innerHTML = data.regions
+      .map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`)
+      .join("");
+  }
+
+  function populateFilterCenterSelect() {
+    const sel = $("#filter-center-select");
+    if (!sel) return;
+    const data = window.ORG_DATA;
+    const reg = state.filter.region ? data.regions.find((r) => r.name === state.filter.region) : null;
+    if (!reg) {
+      sel.innerHTML = `<option value="">전체</option>`;
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = `<option value="">전체</option>` +
+      reg.centers.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+  }
+
+  function populateFilterBranchSelect() {
+    const sel = $("#filter-branch-select");
+    if (!sel) return;
+    const data = window.ORG_DATA;
+    const reg = state.filter.region ? data.regions.find((r) => r.name === state.filter.region) : null;
+    const ctr = reg && state.filter.center ? reg.centers.find((c) => c.name === state.filter.center) : null;
+    if (!ctr) {
+      sel.innerHTML = `<option value="">전체</option>`;
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = `<option value="">전체</option>` +
+      ctr.branches.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("");
+  }
+
+  function syncFilterOrgSelects() {
+    populateFilterCenterSelect();
+    populateFilterBranchSelect();
+    const r = $("#filter-region-select"); if (r) r.value = state.filter.region || "";
+    const c = $("#filter-center-select"); if (c) c.value = state.filter.center || "";
+    const b = $("#filter-branch-select"); if (b) b.value = state.filter.branch || "";
   }
 
   // ========== 단건 입력 폼의 지역단/비전센터/지점 select ==========
@@ -218,22 +268,15 @@
     $("#kpi-base").textContent = sum("base").toLocaleString();
     $("#kpi-target").textContent = sum("target").toLocaleString();
     $("#kpi-honors").textContent = sum("honors").toLocaleString();
-
     $("#mini-total").textContent = state.students.length;
-    $("#mini-region").textContent = state.filter.region
-      ? state.students.filter((s) => s.region === state.filter.region).length
-      : state.students.length;
-    $("#mini-branch").textContent = state.filter.branch
-      ? state.students.filter((s) => s.branch === state.filter.branch).length
-      : 0;
   }
 
-  function renderBranchGroups(list) {
-    const container = $("#branch-group-list");
+  // 사이드바 지점별 교육생 명단 — 클릭하면 면담관리 패널로 이동
+  function renderSidebarStudentList(list) {
+    const container = $("#sidebar-student-list");
+    if (!container) return;
     if (list.length === 0) {
-      const f = state.filter;
-      const path = [f.region, f.center, f.branch].filter(Boolean).join(" > ");
-      container.innerHTML = `<div class="empty-state">[${escapeHtml(path)}] 에 등록된 교육생이 없습니다.</div>`;
+      container.innerHTML = `<div class="empty-mini">조건에 맞는 교육생 없음</div>`;
       return;
     }
     const groups = {};
@@ -243,58 +286,153 @@
       groups[key].push(s);
     });
 
-    container.innerHTML = "";
-    Object.keys(groups).sort().forEach((branch) => {
-      const rows = groups[branch];
-      const first = rows[0];
-      const el = document.createElement("div");
-      el.className = "branch-group";
-      el.innerHTML = `
-        <div class="branch-group-head">
-          <div>
-            <span class="title">${escapeHtml(branch)}</span>
-            <span class="sub">${escapeHtml(first.region || "")} · ${escapeHtml(first.center || "")}</span>
+    container.innerHTML = Object.keys(groups).sort().map((branch) => {
+      const rows = groups[branch].slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      return `
+        <div class="branch-mini">
+          <div class="branch-mini-head">
+            <span class="branch-name">${escapeHtml(branch)}</span>
+            <span class="branch-cnt">${rows.length}</span>
           </div>
-          <div class="count">${rows.length}명</div>
-        </div>
-        <div class="branch-group-body">
-          <table class="student-table">
-            <thead>
-              <tr>
-                <th>사번</th><th>이름</th><th>기수</th><th>연락처</th>
-                <th>기준실적</th><th>목표실적</th><th>아너스실적</th><th>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map((s) => `
-                <tr>
-                  <td><strong>${escapeHtml(s.empNo)}</strong></td>
-                  <td>${escapeHtml(s.name || "")}</td>
-                  <td>${escapeHtml(s.cohort || "")}</td>
-                  <td>${escapeHtml(s.phone || "")}</td>
-                  <td>${Number(s.base || 0).toLocaleString()}</td>
-                  <td>${Number(s.target || 0).toLocaleString()}</td>
-                  <td>${Number(s.honors || 0).toLocaleString()}</td>
-                  <td class="row-actions">
-                    <button data-act="edit" data-emp="${escapeHtml(s.empNo)}">수정</button>
-                    <button data-act="del" data-emp="${escapeHtml(s.empNo)}">삭제</button>
-                  </td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
+          <ul class="student-mini-list">
+            ${rows.map((s) => `
+              <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}">
+                <span class="s-name">${escapeHtml(s.name || "(이름 미입력)")}</span>
+                <span class="s-phone">${escapeHtml(s.phone || "")}</span>
+              </li>
+            `).join("")}
+          </ul>
         </div>
       `;
-      container.appendChild(el);
-    });
+    }).join("");
 
-    container.querySelectorAll("button[data-act]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const empNo = btn.dataset.emp;
-        if (btn.dataset.act === "edit") openEditForm(empNo);
-        else if (btn.dataset.act === "del") removeStudent(empNo);
-      });
+    container.querySelectorAll("li[data-emp]").forEach((li) => {
+      li.addEventListener("click", () => selectStudent(li.dataset.emp));
     });
+  }
+
+  // ========== 교육생 선택 → 면담 관리 ==========
+  function selectStudent(empNo) {
+    state.selectedEmpNo = empNo;
+    // 기존 구독 해제
+    if (state.consultUnsub) { state.consultUnsub(); state.consultUnsub = null; }
+    state.consultations = [];
+    renderSidebarStudentList(filteredStudents());
+    renderStudentDetail();
+    // 면담 기록 실시간 구독
+    if (window.DataAPI && typeof window.DataAPI.subscribeConsultations === "function") {
+      state.consultUnsub = window.DataAPI.subscribeConsultations(empNo, (list) => {
+        state.consultations = list;
+        renderConsultations();
+      });
+    }
+  }
+
+  function renderStudentDetail() {
+    const body = $("#student-detail-body");
+    const title = $("#detail-title");
+    if (!body) return;
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    if (!s) {
+      title.textContent = "교육생 면담 관리";
+      body.innerHTML = `<div class="empty-state">좌측 [지점별 교육생] 목록에서 교육생을 선택하면 면담 관리를 시작할 수 있습니다.</div>`;
+      return;
+    }
+    title.textContent = `${s.name || "(이름 없음)"} — 면담 관리`;
+    body.innerHTML = `
+      <div class="detail-grid">
+        <div class="detail-card">
+          <h3>교육생 정보</h3>
+          <table class="detail-info">
+            <tr><th>사번</th><td>${escapeHtml(s.empNo)}</td></tr>
+            <tr><th>이름</th><td>${escapeHtml(s.name || "")}</td></tr>
+            <tr><th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
+            <tr><th>지역단</th><td>${escapeHtml(s.region || "")}</td></tr>
+            <tr><th>비전센터</th><td>${escapeHtml(s.center || "")}</td></tr>
+            <tr><th>지점</th><td>${escapeHtml(s.branch || "")}</td></tr>
+            <tr><th>기수</th><td>${escapeHtml(s.cohort || "")}</td></tr>
+            <tr><th>기준실적</th><td>${Number(s.base || 0).toLocaleString()}</td></tr>
+            <tr><th>목표실적</th><td>${Number(s.target || 0).toLocaleString()}</td></tr>
+            <tr><th>아너스실적</th><td>${Number(s.honors || 0).toLocaleString()}</td></tr>
+          </table>
+          <div class="detail-actions">
+            <button class="btn-outline" id="btn-detail-edit">교육생 정보 수정</button>
+            <button class="btn-outline danger" id="btn-detail-del">교육생 삭제</button>
+          </div>
+        </div>
+        <div class="detail-card">
+          <h3>면담 기록 추가</h3>
+          <div class="consult-form">
+            <label>일자
+              <input type="date" id="consult-date" value="${new Date().toISOString().slice(0,10)}">
+            </label>
+            <label>면담 내용
+              <textarea id="consult-content" rows="4" placeholder="면담 내용을 입력하세요"></textarea>
+            </label>
+            <button class="btn-primary" id="btn-consult-add">면담 등록</button>
+          </div>
+        </div>
+        <div class="detail-card consult-history-card">
+          <h3>면담 기록</h3>
+          <div id="consult-history" class="consult-history">
+            <div class="empty-mini">면담 기록 불러오는 중...</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    $("#btn-detail-edit").addEventListener("click", () => openEditForm(s.empNo));
+    $("#btn-detail-del").addEventListener("click", () => removeStudent(s.empNo));
+    $("#btn-consult-add").addEventListener("click", addConsultation);
+    renderConsultations();
+  }
+
+  function renderConsultations() {
+    const container = $("#consult-history");
+    if (!container) return;
+    if (state.consultations.length === 0) {
+      container.innerHTML = `<div class="empty-mini">등록된 면담 기록이 없습니다.</div>`;
+      return;
+    }
+    container.innerHTML = state.consultations.map((c) => `
+      <div class="consult-entry">
+        <div class="consult-head">
+          <span class="consult-date">${escapeHtml(c.date || "")}</span>
+          <button class="consult-del" data-id="${escapeHtml(c.id)}" title="삭제">×</button>
+        </div>
+        <div class="consult-body">${escapeHtml(c.content || "")}</div>
+      </div>
+    `).join("");
+    container.querySelectorAll(".consult-del").forEach((btn) => {
+      btn.addEventListener("click", () => removeConsultation(btn.dataset.id));
+    });
+  }
+
+  async function addConsultation() {
+    const empNo = state.selectedEmpNo;
+    if (!empNo) return;
+    const date = $("#consult-date").value;
+    const content = $("#consult-content").value.trim();
+    if (!content) { toast("면담 내용을 입력하세요.", "error"); return; }
+    try {
+      await window.DataAPI.addConsultation(empNo, { date, content });
+      $("#consult-content").value = "";
+      toast("면담 기록이 등록되었습니다.", "success");
+    } catch (err) {
+      console.error(err);
+      toast("면담 등록 실패: " + err.message, "error");
+    }
+  }
+
+  async function removeConsultation(id) {
+    if (!confirm("이 면담 기록을 삭제하시겠습니까?")) return;
+    try {
+      await window.DataAPI.removeConsultation(state.selectedEmpNo, id);
+      toast("삭제되었습니다.", "success");
+    } catch (err) {
+      console.error(err);
+      toast("삭제 실패: " + err.message, "error");
+    }
   }
 
   function escapeHtml(s) {
@@ -306,7 +444,9 @@
   function render() {
     const list = filteredStudents();
     renderKPIs(list);
-    renderBranchGroups(list);
+    renderSidebarStudentList(list);
+    // 선택된 교육생 정보가 갱신되면 상세도 다시 그리기
+    if (state.selectedEmpNo) renderStudentDetail();
   }
 
   // ========== 폼 ==========
@@ -596,10 +736,28 @@
 
   // ========== 초기화 ==========
   function bindEvents() {
-    // 사이드바 필터
-    $("#btn-select-region").addEventListener("click", () => openOrgPicker("filter-region"));
-    $("#btn-select-center").addEventListener("click", () => openOrgPicker("filter-center"));
-    $("#btn-select-branch").addEventListener("click", () => openOrgPicker("filter-branch"));
+    // 사이드바 인라인 셀렉트
+    populateFilterRegionSelect();
+    $("#filter-region-select").addEventListener("change", (e) => {
+      state.filter.region = e.target.value;
+      state.filter.center = "";
+      state.filter.branch = "";
+      syncFilterOrgSelects();
+      persistFilter();
+      render();
+    });
+    $("#filter-center-select").addEventListener("change", (e) => {
+      state.filter.center = e.target.value;
+      state.filter.branch = "";
+      syncFilterOrgSelects();
+      persistFilter();
+      render();
+    });
+    $("#filter-branch-select").addEventListener("change", (e) => {
+      state.filter.branch = e.target.value;
+      persistFilter();
+      render();
+    });
     $("#btn-reset-filter").addEventListener("click", () => {
       state.filter = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
       $("#filter-cohort").value = "";
@@ -622,9 +780,6 @@
     $$("[data-close]").forEach((el) => el.addEventListener("click", (e) => {
       e.target.closest(".modal").hidden = true;
     }));
-
-    // 조직 검색
-    $("#org-search").addEventListener("input", (e) => renderOrgList(e.target.value));
 
     // 등록 버튼
     $("#btn-open-add").addEventListener("click", () => {
