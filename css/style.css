@@ -1,21 +1,46 @@
 /* 고객컨설팅 마스터과정 운영관리 - 스타일
- * 주 컬러: 현대해상 오렌지 계열
+ * 디자인 시스템: 면담일지 MASTER 과정 (오렌지 + 네이비)
  */
 
 :root {
-  --orange: #ff7a00;
-  --orange-dark: #e56a00;
-  --orange-light: #fff3e6;
-  --ink: #1a1a1a;
-  --ink-2: #4a4a4a;
-  --ink-3: #7a7a7a;
-  --line: #e5e7eb;
-  --bg: #f6f7fb;
-  --white: #ffffff;
-  --danger: #d64545;
-  --success: #2b9348;
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --radius: 10px;
+  /* Primary 오렌지 */
+  --orange: #E8651A;
+  --orange-l: #F5905A;
+  --orange-light: #FFF3EC;
+  --orange-dark: #B84E10;
+
+  /* Navy */
+  --navy: #1A2744;
+  --navy-2: #2C3F6E;
+
+  /* Gray */
+  --ink: #1A1A1A;
+  --ink-2: #444;
+  --ink-3: #777;
+  --line: #D5D5D5;
+  --line-soft: #EAEEF5;
+  --bg: #ECEEF2;
+  --bg-soft: #F6F6F6;
+  --white: #FFFFFF;
+
+  /* Accent */
+  --danger: #C62828;
+  --danger-bg: #FFEBEE;
+  --success: #2E7D32;
+  --success-bg: #E8F5E9;
+  --amber: #E65100;
+  --amber-bg: #FFF8E1;
+  --blue: #1565C0;
+  --blue-bg: #E3F2FD;
+  --purple: #7B1FA2;
+  --purple-bg: #EDE7F6;
+
+  /* Effects */
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 6px 28px rgba(0, 0, 0, 0.14);
+  --radius: 12px;
+  --radius-s: 8px;
+  --radius-xs: 6px;
 }
 
 * { box-sizing: border-box; }
@@ -25,7 +50,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ============ 헤더 ============ */
