@@ -207,6 +207,16 @@ window.DataAPI = {
       hap: toNum(entry.hap),
       exp: toNum(entry.exp),
       coach: (entry.coach || "").trim(),
+      clients: Array.isArray(entry.clients) ? entry.clients.slice(0, 5).map((c) => ({
+        name: (c.name || "").trim(),
+        types: Array.isArray(c.types) ? c.types : [],
+        consult: Array.isArray(c.consult) ? c.consult : [],
+        material: Array.isArray(c.material) ? c.material : [],
+        amount: Array.isArray(c.amount) ? c.amount : [],
+        amountDirect: (c.amountDirect || "").toString(),
+        bj: Array.isArray(c.bj) ? c.bj : [],
+        memo: (c.memo || "").toString()
+      })) : [],
       createdAt: serverTimestamp()
     };
     await addDoc(collection(db, "students", id, "consultations"), record);
