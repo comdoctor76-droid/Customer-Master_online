@@ -227,6 +227,45 @@ window.DataAPI = {
     await addDoc(collection(db, "students", id, "consultations"), record);
   },
 
+  // 면담 기록 수정 (Phase 4)
+  async updateConsultation(empNo, consultationId, entry) {
+    const id = normalizeEmpNo(empNo);
+    if (!id || !consultationId) throw new Error("필수 식별자 누락");
+    const toNum = (v) => {
+      if (v === undefined || v === null || v === "") return 0;
+      const n = Number(String(v).replace(/[,\s]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+    const patch = {
+      date: entry.date || new Date().toISOString().slice(0, 10),
+      seq: String(entry.seq || "").trim(),
+      ins: toNum(entry.ins),
+      tgt: toNum(entry.tgt),
+      pct: toNum(entry.pct),
+      curAct: toNum(entry.curAct),
+      plan: toNum(entry.plan),
+      hap: toNum(entry.hap),
+      exp: toNum(entry.exp),
+      coach: (entry.coach || "").trim(),
+      clients: Array.isArray(entry.clients) ? entry.clients.slice(0, 5).map((c) => ({
+        name: (c.name || "").trim(),
+        types: Array.isArray(c.types) ? c.types : [],
+        consult: Array.isArray(c.consult) ? c.consult : [],
+        material: Array.isArray(c.material) ? c.material : [],
+        amount: Array.isArray(c.amount) ? c.amount : [],
+        amountDirect: (c.amountDirect || "").toString(),
+        bj: Array.isArray(c.bj) ? c.bj : [],
+        memo: (c.memo || "").toString()
+      })) : [],
+      calcAvg: (entry.calcAvg || "").toString(),
+      calcBaseTgt: (entry.calcBaseTgt || "").toString(),
+      calcTgt: (entry.calcTgt || "").toString(),
+      calcComment: (entry.calcComment || "").toString(),
+      updatedAt: serverTimestamp()
+    };
+    await setDoc(doc(db, "students", id, "consultations", consultationId), patch, { merge: true });
+  },
+
   // 면담 기록 삭제
   async removeConsultation(empNo, consultationId) {
     const id = normalizeEmpNo(empNo);

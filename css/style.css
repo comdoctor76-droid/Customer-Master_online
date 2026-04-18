@@ -860,6 +860,45 @@ body {
   transition: all 0.15s;
 }
 .consult-del:hover { color: var(--danger); border-color: var(--danger); background: #fff; }
+.consult-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.consult-edit {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.consult-edit:hover { border-color: var(--orange); color: var(--orange); }
+.consult-entry.editing {
+  border-left-color: var(--blue);
+  background: var(--blue-bg);
+  box-shadow: 0 0 0 2px var(--blue);
+}
+.edit-badge {
+  display: inline-block;
+  background: var(--blue);
+  color: #fff;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.btn-primary.editing {
+  background: var(--blue);
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.3);
+}
+.btn-primary.editing:hover { background: var(--blue-dk, #0D47A1); }
 .consult-body { font-size: 13px; color: var(--ink); white-space: pre-wrap; line-height: 1.55; }
 .consult-summary {
   display: flex;
