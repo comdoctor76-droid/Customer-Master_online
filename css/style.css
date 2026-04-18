@@ -1469,6 +1469,105 @@ body {
 .nt-amt { font-size: 22px; font-weight: 900; color: var(--amber); }
 .nt-max { margin-top: 10px; padding: 10px; background: var(--success-bg); color: var(--success); border-radius: var(--radius-s); font-weight: 700; text-align: center; }
 
+/* ============ 통계 패널 ============ */
+#stats-panel { margin-bottom: 20px; }
+.stats-hint { color: rgba(255, 255, 255, 0.7); font-size: 12px; }
+.stats-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.stats-card {
+  padding: 14px 16px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-s);
+  border-left: 3px solid var(--orange);
+}
+.stats-card-head { font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.4px; }
+.stats-big { font-size: 22px; font-weight: 900; color: var(--ink); margin-top: 4px; letter-spacing: -0.5px; }
+.stats-big span { font-size: 12px; color: var(--ink-3); font-weight: 700; margin-left: 2px; }
+.stats-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.stats-block {
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  padding: 14px;
+}
+.stats-block h3 {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--orange);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--orange-light);
+}
+.stats-bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 60px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.sbr-label {
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sbr-track {
+  background: var(--bg-soft);
+  border-radius: 999px;
+  height: 14px;
+  overflow: hidden;
+  position: relative;
+}
+.sbr-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), var(--orange-l));
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+.sbr-fill.blue { background: linear-gradient(90deg, var(--blue), #42A5F5); }
+.sbr-fill.amber { background: linear-gradient(90deg, var(--amber), #FFA726); }
+.sbr-val { text-align: right; font-weight: 800; color: var(--ink-2); }
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.stats-table th {
+  background: var(--bg-soft);
+  font-weight: 700;
+  color: var(--ink-2);
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+}
+.stats-table th.r, .stats-table td.r { text-align: right; }
+.stats-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.stats-table tr:last-child td { border-bottom: none; }
+.stats-table tbody tr:hover td { background: var(--orange-light); }
+
+@media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-row { grid-template-columns: 1fr; }
+}
+
 /* 중복 사번 확인 모달 */
 .dup-compare {
   display: grid;
