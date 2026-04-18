@@ -4,6 +4,13 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
 
+  // 상담고객 태그 선택지
+  const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
+  const CS = ["관계형성", "보장분석", "리모델링"];            // 상담단계 (단일)
+  const MT = ["스마트제안서", "메디컬보장분석", "행복보장분석"]; // 활용자료 (복수)
+  const AM = ["5만원↑", "10만원↑", "15만원↑", "20만원↑"];  // 제안금액 (단일)
+  const BJ = ["건강체", "간편", "어린이", "운전자", "기타", "재물"]; // 보종 (단일)
+
   function loadFilter() {
     const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
     try {
@@ -33,7 +40,9 @@
     // Phase 1 interview form
     tgtAutoMode: true,       // ins→tgt 자동 계산 on/off
     editingConsultId: null,  // Phase 4용 예약 (이번엔 사용 안 함)
-    lastDetailEmpNo: null    // 마지막으로 완전 렌더한 교육생 (폼 보존용)
+    lastDetailEmpNo: null,   // 마지막으로 완전 렌더한 교육생 (폼 보존용)
+    // Phase 2 clients
+    crData: []               // 현재 폼의 상담고객 배열 (최대 5)
   };
 
   // ========== 유틸 ==========
@@ -481,6 +490,14 @@
           </div>
         </div>
 
+        <div class="iv-clients">
+          <div class="iv-clients-head">
+            <span class="iv-clients-title">주간 활동 점검 — 상담고객</span>
+            <button type="button" class="btn-outline small" id="btn-cr-add">+ 고객 추가 (최대 5)</button>
+          </div>
+          <div id="cr-rows"></div>
+        </div>
+
         <div class="iv-field iv-coach">
           <label>핵심 코칭포인트 / 후속조치 / 다음주 계획 <em>*</em></label>
           <textarea id="iv-coach" rows="5" placeholder="핵심 코칭포인트, 후속조치, 다음주 계획을 상세히 기록하세요"></textarea>
@@ -505,6 +522,169 @@
       if (s) autoFillInterviewForm(s);
     });
     $("#btn-iv-save").addEventListener("click", saveInterview);
+    $("#btn-cr-add").addEventListener("click", addCR);
+    renderCR(); // 초기 빈 상태
+  }
+
+  // ========== 상담고객 (최대 5) ==========
+  function initCR(list) {
+    state.crData = Array.isArray(list) ? JSON.parse(JSON.stringify(list)) : [];
+    renderCR();
+    calcExpFromAmounts();
+  }
+
+  function addCR() {
+    if (state.crData.length >= 5) {
+      toast("최대 5명까지 입력 가능합니다.", "error");
+      return;
+    }
+    state.crData.push({
+      name: "", types: [], consult: [], material: [],
+      amount: [], amountDirect: "", bj: [], memo: ""
+    });
+    renderCR();
+  }
+
+  function removeCR(idx) {
+    state.crData.splice(idx, 1);
+    renderCR();
+    calcExpFromAmounts();
+  }
+
+  function ckBtn(ri, field, val, sel, radio) {
+    const on = (sel || []).includes(val);
+    return `<span class="cr-ck${on ? ' on' : ''}" data-ri="${ri}" data-field="${field}" data-val="${escapeHtml(val)}" data-radio="${radio ? '1' : '0'}">` +
+      `<span class="cr-ck-b">${on ? '✓' : ''}</span>${escapeHtml(val)}</span>`;
+  }
+
+  function renderCR() {
+    const el = $("#cr-rows");
+    if (!el) return;
+    if (!state.crData.length) {
+      el.innerHTML = `<div class="cr-empty">상담고객을 추가하세요 (최대 5명)</div>`;
+      return;
+    }
+    el.innerHTML = state.crData.map((c, i) => `
+      <div class="cr" data-ri="${i}">
+        <div class="cr-top">
+          <span class="cr-num">고객 ${i + 1}</span>
+          <input class="cr-name" data-ri="${i}" placeholder="성명" value="${escapeHtml(c.name || "")}">
+          <button type="button" class="cr-del" data-ri="${i}" title="삭제">✕</button>
+        </div>
+        <div class="cr-secs">
+          <div class="cr-sec">
+            <div class="cr-sl">고객유형 <span class="cr-hint">(단일)</span></div>
+            ${CT.map((t) => ckBtn(i, "types", t, c.types, true)).join("")}
+          </div>
+          <div class="cr-sec">
+            <div class="cr-sl">상담단계 <span class="cr-hint">(단일)</span></div>
+            ${CS.map((t) => ckBtn(i, "consult", t, c.consult, true)).join("")}
+          </div>
+          <div class="cr-sec">
+            <div class="cr-sl">활용자료 <span class="cr-hint">(복수)</span></div>
+            ${MT.map((t) => ckBtn(i, "material", t, c.material, false)).join("")}
+          </div>
+          <div class="cr-sec">
+            <div class="cr-sl">제안금액 <span class="cr-hint">(단일 또는 직접입력)</span></div>
+            ${AM.map((t) => ckBtn(i, "amount", t, c.amount, true)).join("")}
+            <input class="cr-direct" data-ri="${i}" placeholder="직접입력(만원)" value="${escapeHtml(c.amountDirect || "")}">
+          </div>
+          <div class="cr-sec">
+            <div class="cr-sl">보종 <span class="cr-hint">(단일)</span></div>
+            ${BJ.map((t) => ckBtn(i, "bj", t, c.bj, true)).join("")}
+          </div>
+        </div>
+        <div class="cr-memo-wrap">
+          <div class="cr-sl">면담 내용</div>
+          <textarea class="cr-memo" data-ri="${i}" rows="2" placeholder="이 고객과의 면담 내용을 입력하세요">${escapeHtml(c.memo || "")}</textarea>
+        </div>
+      </div>
+    `).join("");
+
+    // Event delegation
+    el.querySelectorAll(".cr-name").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const ri = Number(e.target.dataset.ri);
+        state.crData[ri].name = e.target.value;
+      });
+    });
+    el.querySelectorAll(".cr-direct").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const ri = Number(e.target.dataset.ri);
+        state.crData[ri].amountDirect = e.target.value;
+        calcExpFromAmounts();
+      });
+    });
+    el.querySelectorAll(".cr-memo").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const ri = Number(e.target.dataset.ri);
+        state.crData[ri].memo = e.target.value;
+      });
+    });
+    el.querySelectorAll(".cr-del").forEach((btn) => {
+      btn.addEventListener("click", () => removeCR(Number(btn.dataset.ri)));
+    });
+    el.querySelectorAll(".cr-ck").forEach((span) => {
+      span.addEventListener("click", () => {
+        const ri = Number(span.dataset.ri);
+        const field = span.dataset.field;
+        const val = span.dataset.val;
+        const radio = span.dataset.radio === "1";
+        togCk(ri, field, val, span, radio);
+      });
+    });
+  }
+
+  function togCk(ri, field, val, el, radio) {
+    const rec = state.crData[ri];
+    if (!rec[field]) rec[field] = [];
+    const arr = rec[field];
+    const idx = arr.indexOf(val);
+    if (radio) {
+      // 같은 섹션의 다른 칩 해제
+      const sec = el.closest(".cr-sec");
+      if (sec) sec.querySelectorAll(".cr-ck").forEach((c) => {
+        c.classList.remove("on");
+        const b = c.querySelector(".cr-ck-b"); if (b) b.textContent = "";
+      });
+      rec[field] = [];
+      if (idx < 0) {
+        rec[field] = [val];
+        el.classList.add("on");
+        el.querySelector(".cr-ck-b").textContent = "✓";
+      }
+    } else {
+      if (idx >= 0) {
+        arr.splice(idx, 1);
+        el.classList.remove("on");
+        el.querySelector(".cr-ck-b").textContent = "";
+      } else {
+        arr.push(val);
+        el.classList.add("on");
+        el.querySelector(".cr-ck-b").textContent = "✓";
+      }
+    }
+    if (field === "amount") calcExpFromAmounts();
+  }
+
+  // 제안금액 합산 → 주간예상실적(천원) 자동 세팅
+  function calcExpFromAmounts() {
+    const parseAmt = (s) => {
+      const m = String(s || "").match(/(\d+)/);
+      return m ? parseInt(m[1], 10) * 10 : 0; // 만원 → 천원
+    };
+    let total = 0;
+    state.crData.forEach((c) => {
+      const sel = c.amount || [];
+      if (sel.length) {
+        total += parseAmt(sel[0]);
+      } else if (c.amountDirect) {
+        const v = parseFloat(String(c.amountDirect).replace(/[^0-9.]/g, ""));
+        if (!isNaN(v)) total += v * 10; // 만원 → 천원
+      }
+    });
+    const expEl = $("#iv-exp");
+    if (expEl) expEl.value = total || "";
   }
 
   function updateIvTitle() {
@@ -611,6 +791,7 @@
     const thint = $("#iv-tgt-hint"); if (thint) thint.textContent = "평균+20만원 자동";
     const phint = $("#iv-pct-hint"); if (phint) phint.textContent = "";
     state.tgtAutoMode = true;
+    initCR([]); // 상담고객 리셋
     updateIvTitle();
   }
 
@@ -632,7 +813,17 @@
       plan: num("iv-plan"),
       hap: num("iv-hap"),
       exp: num("iv-exp"),
-      coach: read("iv-coach")
+      coach: read("iv-coach"),
+      clients: (state.crData || []).map((c) => ({
+        name: (c.name || "").trim(),
+        types: c.types || [],
+        consult: c.consult || [],
+        material: c.material || [],
+        amount: c.amount || [],
+        amountDirect: c.amountDirect || "",
+        bj: c.bj || [],
+        memo: c.memo || ""
+      }))
     };
   }
 
@@ -696,6 +887,28 @@
       if (c.hap)    badges.push(`<span class="cs-badge">행복 ${fmt(c.hap)}</span>`);
       if (c.exp)    badges.push(`<span class="cs-badge">예상 ${fmt(c.exp)}</span>`);
       const body = c.coach || c.content || "";
+      const clients = Array.isArray(c.clients) ? c.clients.filter((cl) => cl.name || cl.memo || (cl.amount && cl.amount.length)) : [];
+      const clientHtml = clients.length ? `
+        <div class="consult-clients">
+          <div class="cc-title">상담고객 ${clients.length}명</div>
+          ${clients.map((cl) => {
+            const tags = [
+              ...(cl.types || []), ...(cl.consult || []),
+              ...(cl.material || []), ...(cl.amount || []),
+              ...(cl.bj || [])
+            ];
+            const amt = cl.amountDirect ? `${cl.amountDirect}만원(직접)` : "";
+            return `
+              <div class="cc-row">
+                <span class="cc-name">${escapeHtml(cl.name || "(무기명)")}</span>
+                ${tags.length ? `<span class="cc-tags">${tags.map((t) => `<span class="cc-tag">${escapeHtml(t)}</span>`).join("")}</span>` : ""}
+                ${amt ? `<span class="cc-amt">${escapeHtml(amt)}</span>` : ""}
+                ${cl.memo ? `<div class="cc-memo">${escapeHtml(cl.memo)}</div>` : ""}
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : "";
       return `
         <div class="consult-entry">
           <div class="consult-head">
@@ -703,6 +916,7 @@
             <button class="consult-del" data-id="${escapeHtml(c.id)}" title="삭제">×</button>
           </div>
           ${badges.length ? `<div class="consult-summary">${badges.join("")}</div>` : ""}
+          ${clientHtml}
           ${body ? `<div class="consult-body">${escapeHtml(body)}</div>` : ""}
         </div>
       `;
