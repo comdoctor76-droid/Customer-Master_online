@@ -28,6 +28,7 @@ import {
   deleteDoc,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
   enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -108,6 +109,53 @@ window.DataAPI = {
       record.tenureMonths = Number(student.tenureMonths) || 0;
     }
     await setDoc(doc(db, "students", empNo), record, { merge: true });
+  },
+
+  // 여러건 일괄 저장 — writeBatch 로 한 번의 네트워크 호출에 묶어서 처리
+  // Firestore 제한: 배치 1개당 최대 500개 작업
+  async saveMany(students) {
+    const errors = [];
+    const valid = [];
+    students.forEach((student, idx) => {
+      const empNo = normalizeEmpNo(student.empNo);
+      if (!empNo) { errors.push({ idx, empNo: student.empNo, message: "사번 누락" }); return; }
+      const record = {
+        region: student.region || "",
+        center: student.center || "",
+        branch: student.branch || "",
+        cohort: student.cohort || "",
+        empNo,
+        name: student.name || "",
+        phone: student.phone || "",
+        base: Number(student.base || 0),
+        target: Number(student.target || 0),
+        honors: Number(student.honors || 0),
+        updatedAt: serverTimestamp()
+      };
+      if (student.tenureMonths !== undefined && student.tenureMonths !== "") {
+        record.tenureMonths = Number(student.tenureMonths) || 0;
+      }
+      valid.push({ empNo, record });
+    });
+
+    let committed = 0;
+    const CHUNK = 450; // 500 한도보다 안전 마진
+    for (let i = 0; i < valid.length; i += CHUNK) {
+      const slice = valid.slice(i, i + CHUNK);
+      const batch = writeBatch(db);
+      slice.forEach(({ empNo, record }) => {
+        batch.set(doc(db, "students", empNo), record, { merge: true });
+      });
+      try {
+        await batch.commit();
+        committed += slice.length;
+      } catch (err) {
+        slice.forEach(({ empNo }) => {
+          errors.push({ empNo, message: err.message || String(err) });
+        });
+      }
+    }
+    return { committed, errors };
   },
 
   // 사번 기준 삭제

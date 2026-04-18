@@ -363,29 +363,47 @@
       return { ok: 0, fail: 0, total: 0 };
     }
 
-    // 2. 저장 (병렬 5개씩)
+    // 2. 저장 — writeBatch 일괄 (1회 네트워크 호출)
     const btn = $("#btn-save");
     const origLabel = btn.textContent;
     btn.disabled = true;
     btn.textContent = "저장중...";
-    setBulkProgress(`저장 시작... 총 ${records.length}건`);
+    setBulkProgress(`서버에 ${records.length}건 일괄 전송중...`);
 
     let ok = 0, fail = 0;
     const failMsgs = [];
-    const concurrency = 5;
-    for (let i = 0; i < records.length; i += concurrency) {
-      const chunk = records.slice(i, i + concurrency);
-      setBulkProgress(`저장중... ${i}/${records.length}`);
-      const results = await Promise.allSettled(chunk.map((r) => window.DataAPI.save(r)));
-      results.forEach((r, j) => {
-        if (r.status === "fulfilled") ok++;
-        else {
-          fail++;
-          const msg = `${chunk[j].empNo}: ${r.reason && r.reason.message || r.reason}`;
-          failMsgs.push(msg);
-          console.error("[bulk save] 실패:", chunk[j].empNo, r.reason);
-        }
-      });
+
+    if (typeof window.DataAPI.saveMany === "function") {
+      // 일괄 저장 경로
+      try {
+        const { committed, errors } = await window.DataAPI.saveMany(records);
+        ok = committed;
+        fail = errors.length;
+        errors.forEach((e) => {
+          failMsgs.push(`${e.empNo}: ${e.message}`);
+          console.error("[bulk save] 실패:", e.empNo, e.message);
+        });
+      } catch (err) {
+        fail = records.length;
+        failMsgs.push(err.message || String(err));
+        console.error("[bulk save] 일괄 저장 실패:", err);
+      }
+    } else {
+      // 폴백: 5건씩 병렬
+      const concurrency = 5;
+      for (let i = 0; i < records.length; i += concurrency) {
+        const chunk = records.slice(i, i + concurrency);
+        setBulkProgress(`저장중... ${i}/${records.length}`);
+        const results = await Promise.allSettled(chunk.map((r) => window.DataAPI.save(r)));
+        results.forEach((r, j) => {
+          if (r.status === "fulfilled") ok++;
+          else {
+            fail++;
+            failMsgs.push(`${chunk[j].empNo}: ${r.reason && r.reason.message || r.reason}`);
+            console.error("[bulk save] 실패:", chunk[j].empNo, r.reason);
+          }
+        });
+      }
     }
 
     btn.disabled = false;
