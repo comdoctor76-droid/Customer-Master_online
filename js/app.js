@@ -663,15 +663,14 @@
         if (activeTab === "single") {
           const ok = await saveSingle();
           if (ok) {
+            closeModal("#modal-add");
             toast("저장되었습니다.", "success");
-            // 토스트가 잠시 보인 뒤 등록 모달 닫기
-            setTimeout(() => closeModal("#modal-add"), 1200);
           }
         } else {
           // 벌크: 결과를 모달 안에 표시하고, 전부 성공할 때만 자동 닫음
           const { ok, fail } = await saveBulk();
           if (ok > 0 && fail === 0) {
-            setTimeout(() => closeModal("#modal-add"), 800);
+            closeModal("#modal-add");
           }
         }
       } catch (err) {
