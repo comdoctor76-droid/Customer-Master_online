@@ -261,13 +261,30 @@ body {
 .side-field {
   display: flex;
   flex-direction: column;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--ink-2);
-  gap: 5px;
-  margin-bottom: 10px;
+  gap: 4px;
+  margin-bottom: 8px;
+  min-width: 0;
 }
-.side-field:last-of-type { margin-bottom: 8px; }
+.side-field:last-of-type { margin-bottom: 0; }
+
+/* 필터 2열 그리드 */
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 8px;
+}
+.filter-grid .side-field { margin-bottom: 0; }
+.filter-grid .side-input {
+  font-size: 12px;
+  padding: 7px 8px;
+}
+.filter-grid #btn-reset-filter {
+  padding: 7px 8px;
+  font-size: 12px;
+}
 
 /* 사이드바 지점별 교육생 명단 */
 .side-students h3 { margin-bottom: 10px; }

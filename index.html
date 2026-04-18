@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260418o" />
+  <link rel="stylesheet" href="css/style.css?v=20260418p" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -48,36 +48,40 @@
         <span class="unit">명</span>
       </div>
 
-      <!-- 3. 소속 선택 (인라인 드롭다운) -->
+      <!-- 3. 필터 (2열 그리드: 지역단/비전센터/지점/검색/기수/초기화) -->
       <div class="side-section">
-        <h3>소속 선택</h3>
-        <label class="side-field">지역단
-          <select id="filter-region-select" class="side-input"></select>
-        </label>
-        <label class="side-field">비전센터
-          <select id="filter-center-select" class="side-input" disabled>
-            <option value="">전체</option>
-          </select>
-        </label>
-        <label class="side-field">지점
-          <select id="filter-branch-select" class="side-input" disabled>
-            <option value="">전체</option>
-          </select>
-        </label>
-        <button class="side-select ghost" id="btn-reset-filter">필터 초기화</button>
-      </div>
-
-      <!-- 4. 마스터과정 기수 -->
-      <div class="side-section">
-        <h3>마스터과정 기수</h3>
-        <select id="filter-cohort" class="side-input">
-          <option value="">전체 기수</option>
-          <option value="1기">1기</option>
-          <option value="2기">2기</option>
-          <option value="3기">3기</option>
-          <option value="4기">4기</option>
-          <option value="5기">5기</option>
-        </select>
+        <h3>필터</h3>
+        <div class="filter-grid">
+          <label class="side-field">지역단
+            <select id="filter-region-select" class="side-input"></select>
+          </label>
+          <label class="side-field">비전센터
+            <select id="filter-center-select" class="side-input" disabled>
+              <option value="">전체</option>
+            </select>
+          </label>
+          <label class="side-field">지점
+            <select id="filter-branch-select" class="side-input" disabled>
+              <option value="">전체</option>
+            </select>
+          </label>
+          <label class="side-field">이름·사번 검색
+            <input type="search" id="search-box-side" class="side-input" placeholder="이름 또는 사번">
+          </label>
+          <label class="side-field">과정 기수
+            <select id="filter-cohort" class="side-input">
+              <option value="">전체</option>
+              <option value="1기">1기</option>
+              <option value="2기">2기</option>
+              <option value="3기">3기</option>
+              <option value="4기">4기</option>
+              <option value="5기">5기</option>
+            </select>
+          </label>
+          <label class="side-field">&nbsp;
+            <button class="side-select ghost" id="btn-reset-filter">필터 초기화</button>
+          </label>
+        </div>
       </div>
 
       <!-- 5. 지점별 교육생 명단 -->
@@ -178,9 +182,6 @@
       <section class="panel view-panel" id="student-detail-panel" data-view="students">
         <div class="panel-head">
           <h2 id="detail-title">교육생 면담 관리</h2>
-          <div class="panel-tools">
-            <input type="search" id="search-box" placeholder="사번, 이름, 지점 검색" />
-          </div>
         </div>
         <div id="student-detail-body">
           <div class="empty-state">좌측 [지점별 교육생] 목록에서 교육생을 선택하면 면담 관리를 시작할 수 있습니다.</div>
@@ -337,8 +338,8 @@
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260418c"></script>
-  <script src="js/data.js?v=20260418c"></script>
-  <script src="js/app.js?v=20260418c"></script>
+  <script type="module" src="js/firebase-config.js?v=20260418p"></script>
+  <script src="js/data.js?v=20260418p"></script>
+  <script src="js/app.js?v=20260418p"></script>
 </body>
 </html>

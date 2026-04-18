@@ -1989,7 +1989,7 @@
     $("#btn-reset-filter").addEventListener("click", () => {
       state.filter = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
       $("#filter-cohort").value = "";
-      $("#search-box").value = "";
+      $("#search-box-side").value = "";
       syncOrgLabels();
       persistFilter();
       render();
@@ -1999,7 +1999,7 @@
       persistFilter();
       render();
     });
-    $("#search-box").addEventListener("input", (e) => {
+    $("#search-box-side").addEventListener("input", (e) => {
       state.filter.q = e.target.value;
       render();
     });
