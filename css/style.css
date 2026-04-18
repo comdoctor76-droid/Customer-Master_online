@@ -878,6 +878,19 @@ body {
   transition: all 0.15s;
 }
 .consult-edit:hover { border-color: var(--orange); color: var(--orange); }
+.consult-print {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.consult-print:hover { border-color: var(--navy); color: var(--navy); background: #F5F7FF; }
 .consult-entry.editing {
   border-left-color: var(--blue);
   background: var(--blue-bg);
