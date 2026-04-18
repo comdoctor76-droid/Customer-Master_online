@@ -1018,10 +1018,14 @@
 
   function autoFillInterviewForm(s) {
     if (!s) return;
-    // 차수: 이미 저장된 면담 수 + 1
+    // 차수: 기존 최대 차수 + 1 (숫자 파싱 후 비교, 문자열 정렬 회피)
     const seqEl = $("#iv-seq");
     if (seqEl && !seqEl.value) {
-      seqEl.value = String(state.consultations.length + 1);
+      const maxSeq = state.consultations.reduce((m, c) => {
+        const n = parseInt(c.seq, 10);
+        return Number.isFinite(n) && n > m ? n : m;
+      }, 0);
+      seqEl.value = String(maxSeq + 1);
       updateIvTitle();
     }
 
