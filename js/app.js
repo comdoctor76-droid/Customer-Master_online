@@ -144,9 +144,55 @@
     $("#sel-region-text").textContent = state.filter.region || DEFAULT_REGION;
     $("#sel-center-text").textContent = state.filter.center || "전체";
     $("#sel-branch-text").textContent = state.filter.branch || "전체";
-    $("#form-region-text").textContent = state.form.region || "선택";
-    $("#form-center-text").textContent = state.form.center || "선택";
-    $("#form-branch-text").textContent = state.form.branch || "선택";
+    syncFormOrgSelects();
+  }
+
+  // ========== 단건 입력 폼의 지역단/비전센터/지점 select ==========
+  function populateRegionSelect() {
+    const sel = $("#form-region-select");
+    if (!sel) return;
+    const data = window.ORG_DATA;
+    sel.innerHTML = `<option value="">선택</option>` +
+      data.regions.map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`).join("");
+  }
+
+  function populateCenterSelect() {
+    const sel = $("#form-center-select");
+    if (!sel) return;
+    const data = window.ORG_DATA;
+    const reg = state.form.region ? data.regions.find((r) => r.name === state.form.region) : null;
+    if (!reg) {
+      sel.innerHTML = `<option value="">선택</option>`;
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = `<option value="">선택</option>` +
+      reg.centers.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+  }
+
+  function populateBranchSelect() {
+    const sel = $("#form-branch-select");
+    if (!sel) return;
+    const data = window.ORG_DATA;
+    const reg = state.form.region ? data.regions.find((r) => r.name === state.form.region) : null;
+    const ctr = reg && state.form.center ? reg.centers.find((c) => c.name === state.form.center) : null;
+    if (!ctr) {
+      sel.innerHTML = `<option value="">선택</option>`;
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = `<option value="">선택</option>` +
+      ctr.branches.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("");
+  }
+
+  function syncFormOrgSelects() {
+    populateCenterSelect();
+    populateBranchSelect();
+    const r = $("#form-region-select"); if (r) r.value = state.form.region || "";
+    const c = $("#form-center-select"); if (c) c.value = state.form.center || "";
+    const b = $("#form-branch-select"); if (b) b.value = state.form.branch || "";
   }
 
   // ========== 필터링 / 렌더링 ==========
@@ -526,10 +572,22 @@
       openModal("#modal-add");
     });
 
-    // 폼 조직 선택
-    $("#form-region-btn").addEventListener("click", () => openOrgPicker("form-region"));
-    $("#form-center-btn").addEventListener("click", () => openOrgPicker("form-center"));
-    $("#form-branch-btn").addEventListener("click", () => openOrgPicker("form-branch"));
+    // 폼 조직 선택 (네이티브 드롭다운)
+    populateRegionSelect();
+    $("#form-region-select").addEventListener("change", (e) => {
+      state.form.region = e.target.value;
+      state.form.center = "";
+      state.form.branch = "";
+      syncFormOrgSelects();
+    });
+    $("#form-center-select").addEventListener("change", (e) => {
+      state.form.center = e.target.value;
+      state.form.branch = "";
+      syncFormOrgSelects();
+    });
+    $("#form-branch-select").addEventListener("change", (e) => {
+      state.form.branch = e.target.value;
+    });
 
     // 탭 전환
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
