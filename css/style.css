@@ -132,46 +132,74 @@ body {
 .sidebar {
   background: var(--white);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 16px;
   box-shadow: var(--shadow);
   position: sticky;
-  top: 90px;
+  top: 80px;
 }
-.side-section { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.side-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.side-section:first-child { padding-top: 0; }
 .side-section:last-child { border-bottom: none; }
 .side-section h3 {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  color: var(--ink-3);
+  color: var(--orange);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
   margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.side-section h3::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--orange-light);
 }
 .side-select {
   width: 100%;
-  background: #fafafa;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  padding: 9px 12px;
   cursor: pointer;
-  margin-bottom: 8px;
-  text-align: left;
+  text-align: center;
   font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  font-family: inherit;
+  transition: all 0.15s;
 }
-.side-select:hover { border-color: var(--orange); background: var(--orange-light); }
-.side-select .label { color: var(--ink-3); font-size: 12px; font-weight: 700; }
-.side-select .value { color: var(--ink); font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side-select.ghost { background: transparent; color: var(--ink-3); justify-content: center; font-weight: 700; }
+.side-select:hover { border-color: var(--orange); color: var(--orange); }
+.side-select.ghost {
+  background: transparent;
+  color: var(--ink-3);
+}
 .side-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fafafa;
-  font-size: 13px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-soft);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  transition: all 0.15s;
+}
+.side-input:focus {
+  border-color: var(--orange);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(232, 101, 26, 0.08);
+}
+.side-input:disabled {
+  background: #EBEBEB;
+  color: var(--ink-3);
+  cursor: not-allowed;
 }
 
 .mini-row {
@@ -188,39 +216,57 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  padding-bottom: 12px !important;
 }
-.btn-primary.half, .btn-outline.half { padding: 10px 6px; font-size: 13px; }
+.btn-primary.half, .btn-outline.half {
+  padding: 10px 6px;
+  font-size: 13px;
+  margin-bottom: 0;
+}
 
-/* 전체 교육생 통계 */
+/* 전체 교육생 통계 (네이비 그라디언트 카드) */
 .total-stat {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--orange-light);
-  border-radius: 8px;
-  border: 1px solid #ffd9a8;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  border-radius: var(--radius);
+  border: none;
+  box-shadow: 0 4px 14px rgba(26, 39, 68, 0.18);
 }
-.total-stat .label { color: var(--orange-dark); font-weight: 700; font-size: 13px; }
+.total-stat .label {
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
 .total-stat strong {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 900;
-  color: var(--orange-dark);
+  color: #fff;
   margin: 0 4px 0 auto;
   letter-spacing: -1px;
+  line-height: 1;
 }
-.total-stat .unit { color: var(--orange-dark); font-size: 12px; font-weight: 700; }
+.total-stat .unit {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 700;
+}
 
 /* 사이드바 인라인 필드 */
 .side-field {
   display: flex;
   flex-direction: column;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--ink-3);
-  gap: 4px;
-  margin-bottom: 8px;
+  color: var(--ink-2);
+  gap: 5px;
+  margin-bottom: 10px;
 }
+.side-field:last-of-type { margin-bottom: 8px; }
 
 /* 사이드바 지점별 교육생 명단 */
 .side-students h3 { margin-bottom: 10px; }
@@ -402,16 +448,31 @@ body {
 /* 버튼 */
 .btn-primary, .btn-outline {
   border: none;
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-s);
   font-weight: 700;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.15s;
+  line-height: 1.3;
 }
-.btn-primary { background: var(--orange); color: #fff; }
-.btn-primary:hover { background: var(--orange-dark); }
-.btn-outline { background: #fff; color: var(--ink-2); border: 1px solid var(--line); }
-.btn-outline:hover { border-color: var(--orange); color: var(--orange-dark); }
+.btn-primary {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(232, 101, 26, 0.3);
+}
+.btn-primary:hover {
+  background: var(--orange-dark);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); }
+.btn-outline {
+  background: #fff;
+  color: var(--ink-2);
+  border: 1.5px solid var(--line);
+}
+.btn-outline:hover { border-color: var(--orange); color: var(--orange); }
 .block { width: 100%; display: block; margin-bottom: 8px; }
 
 /* ============ 모달 ============ */
