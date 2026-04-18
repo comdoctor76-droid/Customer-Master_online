@@ -316,17 +316,30 @@
     const container = $("#sidebar-student-list");
     if (!container) return;
     if (list.length === 0) {
-      let msg;
+      let msg, showRetry = false;
       if (!state.studentsLoaded) {
         msg = "🔄 Firebase 연결 중...";
       } else if (state.students.length === 0) {
-        msg = state.syncMeta.fromCache
-          ? "❗ 서버에서 데이터를 받지 못했습니다. 캐시 비어있음."
-          : "ℹ️ 등록된 교육생이 없습니다.";
+        if (state.syncMeta.fromCache) {
+          msg = "❗ 서버에서 데이터를 받지 못했습니다.<br>WiFi/다른 브라우저로 시도하거나 새로고침하세요.";
+          showRetry = true;
+        } else {
+          msg = "ℹ️ 등록된 교육생이 없습니다.";
+        }
       } else {
         msg = "조건에 맞는 교육생 없음";
       }
-      container.innerHTML = `<div class="empty-mini">${escapeHtml(msg)}</div>`;
+      container.innerHTML = `<div class="empty-mini">${msg}${showRetry ? `
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <button class="btn-outline small" id="btn-retry-sync">🔄 재시도</button>
+          <button class="btn-outline small" id="btn-clear-cache">🗑 캐시 지우고 새로고침</button>
+        </div>` : ""}</div>`;
+      if (showRetry) {
+        const r = $("#btn-retry-sync");
+        if (r) r.addEventListener("click", retrySubscription);
+        const c = $("#btn-clear-cache");
+        if (c) c.addEventListener("click", clearCacheAndReload);
+      }
       return;
     }
     const groups = {};
@@ -2193,6 +2206,42 @@
     }
   }
 
+  function retrySubscription() {
+    toast("Firestore 재구독 시도중...", "");
+    state.studentsLoaded = false;
+    if (state._subscribeUnsub) {
+      try { state._subscribeUnsub(); } catch (e) {}
+    }
+    state._subscribeUnsub = window.DataAPI.subscribe((list, meta) => {
+      state.students = list || [];
+      state.studentsLoaded = true;
+      state.syncMeta = meta || { fromCache: false };
+      render();
+      if (list && list.length > 0) toast(`${list.length}건 동기화 완료`, "success");
+    });
+    render();
+  }
+
+  async function clearCacheAndReload() {
+    try {
+      // IndexedDB 의 firestore 캐시 삭제
+      if (window.indexedDB) {
+        const dbs = await (indexedDB.databases ? indexedDB.databases() : Promise.resolve([]));
+        for (const d of dbs) {
+          if (d.name && d.name.includes("firestore")) {
+            try { indexedDB.deleteDatabase(d.name); } catch (e) {}
+          }
+        }
+      }
+      localStorage.removeItem("cmf.filter.v1");
+      // 강제 캐시 무시 새로고침
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+      window.location.reload();
+    }
+  }
+
   function init() {
     bindEvents();
     // 기본 view = 교육생 관리
@@ -2210,7 +2259,7 @@
     window.__onSubscribeError = (err) => {
       toast("Firebase 연결 실패: " + (err.message || err.code), "error");
     };
-    window.DataAPI.subscribe((list, meta) => {
+    state._subscribeUnsub = window.DataAPI.subscribe((list, meta) => {
       clearTimeout(slowTimer);
       state.students = list || [];
       state.studentsLoaded = true;
