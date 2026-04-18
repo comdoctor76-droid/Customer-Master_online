@@ -186,13 +186,27 @@ window.DataAPI = {
     );
   },
 
-  // 면담 기록 추가
+  // 면담 기록 추가 (Phase 1: 확장된 필드 지원)
   async addConsultation(empNo, entry) {
     const id = normalizeEmpNo(empNo);
     if (!id) throw new Error("사번이 비어있습니다.");
+    const toNum = (v) => {
+      if (v === undefined || v === null || v === "") return 0;
+      const n = Number(String(v).replace(/[,\s]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
     const record = {
       date: entry.date || new Date().toISOString().slice(0, 10),
       content: entry.content || "",
+      seq: String(entry.seq || "").trim(),
+      ins: toNum(entry.ins),
+      tgt: toNum(entry.tgt),
+      pct: toNum(entry.pct),
+      curAct: toNum(entry.curAct),
+      plan: toNum(entry.plan),
+      hap: toNum(entry.hap),
+      exp: toNum(entry.exp),
+      coach: (entry.coach || "").trim(),
       createdAt: serverTimestamp()
     };
     await addDoc(collection(db, "students", id, "consultations"), record);
@@ -203,6 +217,19 @@ window.DataAPI = {
     const id = normalizeEmpNo(empNo);
     if (!id || !consultationId) return;
     await deleteDoc(doc(db, "students", id, "consultations", consultationId));
+  },
+
+  // 교육생의 인보험 평균 동기화 (최근 면담값)
+  async updateStudentInsAvg(empNo, insAvg) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) return;
+    const val = Number(insAvg);
+    if (!Number.isFinite(val)) return;
+    await setDoc(
+      doc(db, "students", id),
+      { insAvg: val, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
   }
 };
 
