@@ -2034,7 +2034,8 @@
           const el = document.getElementById("stats-panel");
           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         } else if (href === "#settings") {
-          toast("준비중입니다.", "");
+          const el = document.getElementById("settings-panel");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       });
     });
@@ -2095,6 +2096,81 @@
 
     // CSV
     $("#btn-export-csv").addEventListener("click", exportCSV);
+
+    // 설정 탭
+    const v = $("#app-version"); if (v) v.textContent = "20260418m";
+    $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
+    $("#btn-export-json-all").addEventListener("click", () => exportJSON(state.students, "all"));
+    $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
+    $("#file-import-json").addEventListener("change", onImportJSONFile);
+    $("#btn-delete-filtered").addEventListener("click", onDeleteFiltered);
+  }
+
+  // ========== 설정 ==========
+  function exportJSON(list, scope) {
+    if (!list.length) { toast("내보낼 데이터가 없습니다.", "error"); return; }
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      scope,
+      count: list.length,
+      students: list.map((s) => ({
+        region: s.region || "", center: s.center || "", branch: s.branch || "",
+        cohort: s.cohort || "", empNo: s.empNo, name: s.name || "", phone: s.phone || "",
+        base: Number(s.base || 0), target: Number(s.target || 0), honors: Number(s.honors || 0),
+        insAvg: Number(s.insAvg || 0), curAct: Number(s.curAct || 0)
+      }))
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `students_${scope}_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`${list.length}건 JSON 내보내기 완료.`, "success");
+  }
+
+  async function onImportJSONFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const arr = Array.isArray(data) ? data : (Array.isArray(data.students) ? data.students : null);
+      if (!arr || !arr.length) { toast("유효한 students 배열이 없습니다.", "error"); return; }
+      if (!confirm(`${arr.length}건의 교육생 데이터를 복원합니다. 동일 사번은 merge 됩니다. 진행할까요?`)) return;
+      if (typeof window.DataAPI.saveMany === "function") {
+        const { committed, errors } = await window.DataAPI.saveMany(arr);
+        toast(`${committed}건 복원 완료${errors.length ? ` / ${errors.length}건 실패` : ""}`, errors.length ? "error" : "success");
+      } else {
+        let ok = 0, fail = 0;
+        for (const s of arr) {
+          try { await window.DataAPI.save(s); ok++; } catch (err) { fail++; }
+        }
+        toast(`${ok}건 복원, ${fail}건 실패`, fail ? "error" : "success");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("복원 실패: " + err.message, "error");
+    }
+  }
+
+  async function onDeleteFiltered() {
+    const list = filteredStudents();
+    if (!list.length) { toast("삭제 대상이 없습니다.", "error"); return; }
+    const msg = `경고: 현재 필터(${[state.filter.region, state.filter.center, state.filter.branch, state.filter.cohort].filter(Boolean).join(" · ") || "전체"})에 해당하는 ${list.length}명의 교육생을 삭제합니다.\n\n복구할 수 없습니다. 정말 삭제하시겠습니까?`;
+    if (!confirm(msg)) return;
+    const typed = prompt(`다시 한 번 확인합니다. 삭제를 진행하려면 아래와 동일하게 입력하세요:\n\n삭제 ${list.length}명`);
+    if (typed !== `삭제 ${list.length}명`) {
+      toast("입력이 일치하지 않아 취소되었습니다.", "");
+      return;
+    }
+    let ok = 0, fail = 0;
+    for (const s of list) {
+      try { await window.DataAPI.remove(s.empNo); ok++; } catch (e) { console.error(e); fail++; }
+    }
+    toast(`${ok}명 삭제 완료${fail ? ` / ${fail}명 실패` : ""}`, fail ? "error" : "success");
   }
 
   function init() {
