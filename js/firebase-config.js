@@ -217,6 +217,11 @@ window.DataAPI = {
         bj: Array.isArray(c.bj) ? c.bj : [],
         memo: (c.memo || "").toString()
       })) : [],
+      // Phase 3 시상 계산기 스냅샷
+      calcAvg: (entry.calcAvg || "").toString(),
+      calcBaseTgt: (entry.calcBaseTgt || "").toString(),
+      calcTgt: (entry.calcTgt || "").toString(),
+      calcComment: (entry.calcComment || "").toString(),
       createdAt: serverTimestamp()
     };
     await addDoc(collection(db, "students", id, "consultations"), record);

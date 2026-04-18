@@ -11,6 +11,27 @@
   const AM = ["5만원↑", "10만원↑", "15만원↑", "20만원↑"];  // 제안금액 (단일)
   const BJ = ["건강체", "간편", "어린이", "운전자", "기타", "재물"]; // 보종 (단일)
 
+  // 시상 계산기 상수 ('26년 2분기 매출아너스 기준)
+  const HONORS = [
+    { grade: "서밋 (Summit)",               criteria: "500만↑", critVal: 500, prize: 500 },
+    { grade: "로얄 마스터 (Royal master)",  criteria: "400만↑", critVal: 400, prize: 400 },
+    { grade: "엘리트 마스터 (Elite master)",criteria: "300만↑", critVal: 300, prize: 250 },
+    { grade: "마스터 (Master)",             criteria: "200만↑", critVal: 200, prize: 150 },
+    { grade: "프레스티지Ⅱ (Prestige Ⅱ)",  criteria: "150만↑", critVal: 150, prize: 100 },
+    { grade: "프레스티지Ⅰ (Prestige Ⅰ)",  criteria: "100만↑", critVal: 100, prize: 70  },
+    { grade: "프라임Ⅱ (Prime Ⅱ)",          criteria: "70만↑",  critVal: 70,  prize: 50  },
+    { grade: "프라임Ⅰ (Prime Ⅰ)",          criteria: "50만↑",  critVal: 50,  prize: 30  },
+    { grade: "프로 (Pro)",                  criteria: "30만↑",  critVal: 30,  prize: 20  }
+  ];
+  const INCR_CFG = { base: 5, rate: 50, mcap: 20, qcap: 50 };
+  const MASTER_AWARD = [
+    { criteria: "순증 50만원↑", critVal: 50, type: "pct",   val: 150, label: "순증×150%" },
+    { criteria: "순증 30만원↑", critVal: 30, type: "pct",   val: 120, label: "순증×120%" },
+    { criteria: "순증 20만원↑", critVal: 20, type: "fixed", val: 20,  label: "20만원 고정" },
+    { criteria: "순증 10만원↑", critVal: 10, type: "fixed", val: 10,  label: "10만원 고정" },
+    { criteria: "순증 5만원↑",  critVal: 5,  type: "fixed", val: 5,   label: "5만원 고정"  }
+  ];
+
   function loadFilter() {
     const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
     try {
@@ -42,7 +63,10 @@
     editingConsultId: null,  // Phase 4용 예약 (이번엔 사용 안 함)
     lastDetailEmpNo: null,   // 마지막으로 완전 렌더한 교육생 (폼 보존용)
     // Phase 2 clients
-    crData: []               // 현재 폼의 상담고객 배열 (최대 5)
+    crData: [],              // 현재 폼의 상담고객 배열 (최대 5)
+    // Phase 3 시상 계산기
+    calcOpen: false,         // 계산기 접힘/펼침 상태
+    calcTgtUserEditing: false // 희망목표 직접입력 중 플래그
   };
 
   // ========== 유틸 ==========
@@ -503,6 +527,39 @@
           <textarea id="iv-coach" rows="5" placeholder="핵심 코칭포인트, 후속조치, 다음주 계획을 상세히 기록하세요"></textarea>
         </div>
 
+        <div class="iv-calc">
+          <div class="iv-calc-head" id="btn-calc-toggle">
+            <span class="iv-calc-title">📊 시상 계산기 — '26년 2분기 매출아너스</span>
+            <span class="iv-calc-icon" id="calc-toggle-icon">▾</span>
+          </div>
+          <div class="iv-calc-body" id="calc-section" style="display:none">
+            <div class="iv-field">
+              <label>✍️ 면담자 의견 <span class="iv-hint">저장 시 이력에 함께 보관</span></label>
+              <textarea id="calc-comment" rows="2" placeholder="면담자 의견을 입력하세요 (저장 시 이력에 포함)"></textarea>
+            </div>
+            <div class="iv-grid-3">
+              <div class="iv-field">
+                <label>개인 평균실적 <em>*</em> <span class="iv-hint">(원)</span></label>
+                <input type="text" id="calc-avg" placeholder="예: 767,160" inputmode="numeric">
+              </div>
+              <div class="iv-field">
+                <label>아너스 기본순증목표 <span class="iv-hint">(본사/원)</span></label>
+                <input type="text" id="calc-base-tgt" placeholder="예: 620,000" inputmode="numeric">
+              </div>
+              <div class="iv-field">
+                <label>희망목표금액 <em>*</em> <span class="iv-hint">(원) ▲▼ 등급 이동</span></label>
+                <div class="calc-tgt-wrap">
+                  <input type="text" id="calc-tgt" placeholder="직접 입력" inputmode="numeric">
+                  <button type="button" class="calc-step" id="btn-tgt-down" title="이전 등급">▼</button>
+                  <button type="button" class="calc-step" id="btn-tgt-up" title="다음 등급">▲</button>
+                </div>
+              </div>
+            </div>
+            <div id="calc-incr-preview" style="display:none">📊 순증 = <span id="calc-incr-val">—</span></div>
+            <div id="calc-result"><div class="rc-placeholder">기본 입력 항목을 입력하면 시상금이 자동 계산됩니다</div></div>
+          </div>
+        </div>
+
         <div class="iv-actions">
           <button class="btn-outline" id="btn-iv-clear">초기화</button>
           <button class="btn-primary" id="btn-iv-save">💾 저장</button>
@@ -524,6 +581,22 @@
     $("#btn-iv-save").addEventListener("click", saveInterview);
     $("#btn-cr-add").addEventListener("click", addCR);
     renderCR(); // 초기 빈 상태
+
+    // 시상 계산기 이벤트
+    $("#btn-calc-toggle").addEventListener("click", toggleCalcSection);
+    $("#calc-avg").addEventListener("input", (e) => { fmtInput(e.target); onCalcAvgInput(); });
+    $("#calc-base-tgt").addEventListener("input", (e) => { fmtInput(e.target); calc(); });
+    const tgtInput = $("#calc-tgt");
+    tgtInput.addEventListener("focus", () => { state.calcTgtUserEditing = true; });
+    tgtInput.addEventListener("blur", (e) => { state.calcTgtUserEditing = false; fmtInput(e.target); calc(); });
+    tgtInput.addEventListener("input", () => calc());
+    $("#btn-tgt-down").addEventListener("click", () => stepTgt(-1));
+    $("#btn-tgt-up").addEventListener("click", () => stepTgt(1));
+    // 계산기 접힘 상태 복원
+    if (state.calcOpen) {
+      $("#calc-section").style.display = "block";
+      $("#calc-toggle-icon").style.transform = "rotate(0deg)";
+    }
   }
 
   // ========== 상담고객 (최대 5) ==========
@@ -687,6 +760,224 @@
     if (expEl) expEl.value = total || "";
   }
 
+  // ========== 시상 계산기 (Phase 3) ==========
+  function fmtInput(el) {
+    if (!el) return;
+    const raw = (el.value || "").replace(/[^0-9]/g, "");
+    const num = parseInt(raw || "0", 10);
+    const cur = el.selectionStart;
+    const prev = el.value.length;
+    el.value = raw ? num.toLocaleString() : "";
+    const diff = el.value.length - prev;
+    try { el.setSelectionRange(cur + diff, cur + diff); } catch (e) {}
+  }
+  function getRawVal(id) {
+    const v = ($("#" + id)?.value || "").replace(/,/g, "").trim();
+    return v === "" ? NaN : parseFloat(v);
+  }
+  function fmtW(mw)  { return Math.round(mw * 10000).toLocaleString() + "원"; }
+  function fmtWon(w) { return Math.round(w).toLocaleString() + "원"; }
+
+  function toggleCalcSection() {
+    state.calcOpen = !state.calcOpen;
+    const sec = $("#calc-section");
+    const icon = $("#calc-toggle-icon");
+    if (sec) sec.style.display = state.calcOpen ? "block" : "none";
+    if (icon) icon.style.transform = state.calcOpen ? "rotate(0deg)" : "rotate(-90deg)";
+    if (state.calcOpen) {
+      const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+      const avgEl = $("#calc-avg");
+      const baseTgtEl = $("#calc-base-tgt");
+      const tgtEl = $("#calc-tgt");
+      if (s?.base  && avgEl && !avgEl.value)       avgEl.value = Math.round(Number(s.base)).toLocaleString();
+      if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Math.round(Number(s.honors)).toLocaleString();
+      if (tgtEl && !tgtEl.value) {
+        const fTgt = parseFloat($("#iv-tgt")?.value) || 0;
+        if (fTgt) tgtEl.value = Math.round(fTgt * 1000).toLocaleString();
+        else if (s?.honors) tgtEl.value = Math.round(Number(s.honors)).toLocaleString();
+      }
+      calc();
+    }
+  }
+
+  function stepTgt(dir) {
+    const steps = HONORS.map((h) => h.critVal * 10000).slice().reverse();
+    const cur = getRawVal("calc-tgt") || 0;
+    let next;
+    if (dir > 0) {
+      next = steps.find((v) => v > cur);
+      if (!next) next = steps[steps.length - 1];
+    } else {
+      const lower = steps.filter((v) => v < cur);
+      next = lower.length ? lower[lower.length - 1] : steps[0];
+    }
+    const el = $("#calc-tgt");
+    if (el) el.value = Number(next).toLocaleString();
+    calc();
+  }
+
+  function onCalcAvgInput() {
+    const avgEl = $("#calc-avg");
+    const insEl = $("#iv-ins");
+    if (!avgEl || !insEl) return;
+    const raw = parseFloat((avgEl.value || "").replace(/,/g, "")) || 0;
+    if (raw > 0) {
+      insEl.value = Math.round(raw / 1000); // 원 → 천원
+      const hint = $("#iv-ins-hint");
+      if (hint) hint.textContent = "▲ 계산기에서 입력";
+      // tgt 재계산
+      if (state.tgtAutoMode) {
+        const tgtEl = $("#iv-tgt");
+        if (tgtEl) {
+          tgtEl.value = Math.round(raw / 1000) + 200;
+          const th = $("#iv-tgt-hint"); if (th) th.textContent = "▲ 자동";
+        }
+      }
+    }
+    calc();
+  }
+
+  function calcMasterAward(incrMW) {
+    for (const t of MASTER_AWARD) {
+      if (incrMW >= t.critVal) {
+        return t.type === "pct" ? Math.round(incrMW * t.val / 100 * 10) / 10 : t.val;
+      }
+    }
+    return 0;
+  }
+
+  function calc() {
+    const avgRaw = getRawVal("calc-avg");
+    let tgtRaw = getRawVal("calc-tgt");
+    const baseTgtRaw = getRawVal("calc-base-tgt") || 0;
+
+    // calc-tgt 가 1000 미만이면 천원 단위 오입력 → 원으로 정규화
+    if (!state.calcTgtUserEditing && !isNaN(tgtRaw) && tgtRaw > 0 && tgtRaw < 1000) {
+      tgtRaw *= 1000;
+      const tgtEl = $("#calc-tgt");
+      if (tgtEl) tgtEl.value = Math.round(tgtRaw).toLocaleString();
+    }
+
+    const tgt = tgtRaw / 10000;
+    const baseTgt = baseTgtRaw / 10000;
+    const incr = Math.round(Math.max(0, tgt - baseTgt) * 10000) / 10000;
+
+    // 순증 미리보기
+    const prev = $("#calc-incr-preview");
+    const incrVal = $("#calc-incr-val");
+    if (prev && !isNaN(avgRaw) && !isNaN(tgtRaw)) {
+      prev.style.display = "block";
+      if (incrVal) incrVal.textContent = `${fmtWon(incr * 10000)} (희망목표 ${fmtWon(tgtRaw)} − 기본순증목표 ${fmtWon(baseTgtRaw)})`;
+    } else if (prev) {
+      prev.style.display = "none";
+    }
+
+    const res = $("#calc-result");
+    if (!res) return;
+
+    if (isNaN(avgRaw) || isNaN(tgtRaw)) {
+      res.innerHTML = `<div class="rc-placeholder">기본 입력 항목을 입력하면 시상금이 자동 계산됩니다</div>`;
+      return;
+    }
+
+    // ① 아너스클럽
+    let award1 = 0, award1Grade = "해당없음", award1Idx = -1;
+    for (let i = 0; i < HONORS.length; i++) {
+      if (tgt >= HONORS[i].critVal) {
+        award1 = HONORS[i].prize; award1Grade = HONORS[i].grade; award1Idx = i; break;
+      }
+    }
+
+    // ② 개인 순증시상 (하이포인트)
+    const baseTgtMet = (baseTgt <= 0) || (tgt >= baseTgt);
+    const monthlyExtra = baseTgtMet ? Math.floor(incr * INCR_CFG.rate / 100 * 10) / 10 : 0;
+    const monthlySub = baseTgtMet ? (INCR_CFG.base + monthlyExtra) : 0;
+    const monthlyFinal = baseTgtMet ? Math.min(monthlySub, INCR_CFG.mcap) : 0;
+    const award2M3 = baseTgtMet ? Math.min(monthlyFinal * 3, INCR_CFG.qcap) : 0;
+
+    // ③ 마스터과정 개인시상 (iv-ins 천원 → 원)
+    const insRaw3 = (parseFloat($("#iv-ins")?.value || "0") || 0) * 1000;
+    const incrMaster = Math.max(0, tgtRaw - insRaw3) / 10000;
+    const award3 = calcMasterAward(incrMaster);
+    const award3Tier = MASTER_AWARD.find((t) => incrMaster >= t.critVal);
+    const award3TierIdx = award3Tier ? MASTER_AWARD.indexOf(award3Tier) : MASTER_AWARD.length;
+    const award3NextTier = award3TierIdx > 0 ? MASTER_AWARD[award3TierIdx - 1] : null;
+    const award3NeedIncr = award3NextTier ? Math.max(0, award3NextTier.critVal - incrMaster) : 0;
+    const award3NeedTgt = Math.ceil(award3NeedIncr * 10000);
+
+    const total = award1 + award2M3 + award3 * 2;
+
+    const honorRows = HONORS.map((h, i) => {
+      const achieved = tgt >= h.critVal;
+      const isActive = i === award1Idx;
+      const cls = isActive ? "rs-on" : achieved ? "rs-done" : "rs-miss";
+      const icon = isActive ? "🏆" : achieved ? "✅" : "⬜";
+      return `<tr class="${cls}">
+        <td class="c">${icon}</td>
+        <td>${escapeHtml(h.grade)}</td>
+        <td class="crit">${h.criteria}</td>
+        <td class="prize">${(h.prize * 10000).toLocaleString()}원</td>
+      </tr>`;
+    }).join("");
+
+    res.innerHTML = `
+      <div class="rc-header">
+        <div class="rc-title">📈 계산 결과</div>
+        <div class="rc-total-hdr">3개월 예상 ${fmtW(total)}</div>
+      </div>
+      <div class="rc-body">
+        <div class="rc-metrics">
+          <div class="rc-m"><div class="rc-m-l">순증</div><div class="rc-m-v blue">${fmtWon(incr * 10000)}</div><div class="rc-m-s">${fmtWon(tgtRaw)} − ${fmtWon(baseTgtRaw)}</div></div>
+          <div class="rc-m"><div class="rc-m-l">희망목표</div><div class="rc-m-v red">${fmtWon(tgtRaw)}</div></div>
+          <div class="rc-m"><div class="rc-m-l">합계(3개월)</div><div class="rc-m-v purple">${fmtW(total)}</div><div class="rc-m-s">①+②+③</div></div>
+        </div>
+
+        <div class="rc-sec-l">① 아너스클럽 <span>희망목표 ${fmtWon(tgtRaw)} 기준</span></div>
+        <table class="rs-table"><thead><tr>
+          <th class="c">달성</th><th>시상등급</th><th class="crit">기준</th><th class="prize">시상금</th>
+        </tr></thead><tbody>${honorRows}</tbody></table>
+        <div class="rs-applied">→ 현재 등급: <strong>${escapeHtml(award1Grade)}</strong> · 시상금: <strong>${award1 ? fmtW(award1) : "해당없음"}</strong></div>
+
+        <div class="rc-sec-l">② 개인 순증시상 (하이포인트) ${!baseTgtMet ? `<span class="warn-badge">⚠ 기본순증목표 미달</span>` : ""}</div>
+        ${!baseTgtMet
+          ? `<div class="warn-box">희망목표(${fmtWon(tgtRaw)})이 기본순증목표(${fmtWon(baseTgtRaw)})에 미달 → ② 0원</div>`
+          : `<table class="calc-table"><tbody>
+              <tr><td>기본 지급</td><td>기본 시상금</td><td class="r">${fmtW(INCR_CFG.base)}</td></tr>
+              <tr><td>추가</td><td class="red">순증 ${fmtWon(incr * 10000)} × ${INCR_CFG.rate}%</td><td class="r">${fmtW(monthlyExtra)}</td></tr>
+              <tr class="calc-sub"><td colspan="2">월 소계 (최대 ${fmtW(INCR_CFG.mcap)})</td><td class="r">${fmtW(monthlyFinal)}${monthlySub > INCR_CFG.mcap ? " <span class=\"cap\">⚠캡</span>" : ""}</td></tr>
+              <tr class="calc-q"><td colspan="2">3개월 합계 (최대 ${fmtW(INCR_CFG.qcap)})</td><td class="r">${fmtW(award2M3)}${monthlyFinal * 3 > INCR_CFG.qcap ? " <span class=\"cap\">⚠캡</span>" : ""}</td></tr>
+            </tbody></table>`}
+
+        <div class="rc-sec-l blue">③ 고객컨설팅마스터 개인시상 <span>순증 기준</span></div>
+        ${award3 > 0
+          ? `<div class="master-box">
+              <div class="mb-grade">🏆 ${escapeHtml(award3Tier.criteria)} 달성 (${escapeHtml(award3Tier.label)})</div>
+              <div class="mb-incr">순증 <strong>${fmtWon(incrMaster * 10000)}</strong> = 희망목표 <strong>${fmtWon(tgtRaw)}</strong> − 인보험평균 <strong>${fmtWon(insRaw3)}</strong></div>
+              <div class="mb-result">매월 ${fmtW(award3)} × 2개월 = <strong>${fmtW(award3 * 2)}</strong></div>
+            </div>`
+          : `<div class="master-none">순증 5만원 미만 — 해당없음 (순증 ${fmtWon(incrMaster * 10000)})</div>`}
+
+        <div class="rc-total-box">
+          <div>
+            <div class="tb-cap">고객마스터 2개월 최종 예상 시상금 합계</div>
+            <div class="tb-det">아너스 ${fmtW(award1)} + 하이포 ${fmtW(award2M3)} + 마스터 ${fmtW(award3)}×2 = ${fmtW(award3 * 2)}</div>
+          </div>
+          <div class="tb-amt">${fmtW(total)}</div>
+        </div>
+
+        ${award3NextTier
+          ? `<div class="next-tier">
+              <div class="nt-head">🚀 다음 단계 달성 목표 — ${escapeHtml(award3NextTier.criteria)} (${escapeHtml(award3NextTier.label)})</div>
+              <div class="nt-body">
+                <div><div class="nt-lbl">희망목표 추가 필요</div><div class="nt-cur">현재 ${fmtWon(tgtRaw)} → ${fmtWon(tgtRaw + award3NeedTgt)}</div></div>
+                <div class="nt-amt">+${fmtWon(award3NeedTgt)}</div>
+              </div>
+            </div>`
+          : `<div class="nt-max">🏆 최상위 단계 달성!</div>`}
+      </div>
+    `;
+  }
+
   function updateIvTitle() {
     const n = ($("#iv-seq").value || "").trim();
     $("#iv-title").innerHTML =
@@ -780,6 +1071,29 @@
     }
 
     calcIvPct();
+
+    // 시상 계산기: 직전 consultation 의 calc 값 → 없으면 student.base/honors prefill
+    const avgEl = $("#calc-avg");
+    const baseTgtEl = $("#calc-base-tgt");
+    const tgtCalcEl = $("#calc-tgt");
+    const commentEl = $("#calc-comment");
+    const lastCalc = state.consultations.find(
+      (c) => c.calcAvg || c.calcBaseTgt || c.calcTgt || c.calcComment
+    );
+    if (lastCalc) {
+      if (avgEl && !avgEl.value && lastCalc.calcAvg) avgEl.value = lastCalc.calcAvg;
+      if (baseTgtEl && !baseTgtEl.value && lastCalc.calcBaseTgt) baseTgtEl.value = lastCalc.calcBaseTgt;
+      if (tgtCalcEl && !tgtCalcEl.value && lastCalc.calcTgt) {
+        const raw = parseFloat(String(lastCalc.calcTgt).replace(/,/g, "")) || 0;
+        const fixed = (raw > 0 && raw < 1000) ? raw * 1000 : raw;
+        tgtCalcEl.value = fixed ? Math.round(fixed).toLocaleString() : lastCalc.calcTgt;
+      }
+      if (commentEl && !commentEl.value && lastCalc.calcComment) commentEl.value = lastCalc.calcComment;
+    } else {
+      if (avgEl && !avgEl.value && Number(s.base) > 0) avgEl.value = Math.round(Number(s.base)).toLocaleString();
+      if (baseTgtEl && !baseTgtEl.value && Number(s.honors) > 0) baseTgtEl.value = Math.round(Number(s.honors)).toLocaleString();
+    }
+    if (state.calcOpen) calc();
   }
 
   function clearInterviewForm() {
@@ -792,6 +1106,13 @@
     const phint = $("#iv-pct-hint"); if (phint) phint.textContent = "";
     state.tgtAutoMode = true;
     initCR([]); // 상담고객 리셋
+    // 시상 계산기 필드 리셋
+    ["calc-avg","calc-base-tgt","calc-tgt","calc-comment"].forEach((id) => {
+      const el = $("#" + id); if (el) el.value = "";
+    });
+    const preview = $("#calc-incr-preview"); if (preview) preview.style.display = "none";
+    const res = $("#calc-result");
+    if (res) res.innerHTML = `<div class="rc-placeholder">기본 입력 항목을 입력하면 시상금이 자동 계산됩니다</div>`;
     updateIvTitle();
   }
 
@@ -823,7 +1144,11 @@
         amountDirect: c.amountDirect || "",
         bj: c.bj || [],
         memo: c.memo || ""
-      }))
+      })),
+      calcAvg: read("calc-avg"),
+      calcBaseTgt: read("calc-base-tgt"),
+      calcTgt: read("calc-tgt"),
+      calcComment: read("calc-comment")
     };
   }
 
