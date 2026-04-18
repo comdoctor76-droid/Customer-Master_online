@@ -1568,6 +1568,57 @@ body {
   .stats-row { grid-template-columns: 1fr; }
 }
 
+/* ============ 설정 패널 ============ */
+#settings-panel { margin-bottom: 20px; }
+.settings-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.settings-section {
+  padding: 14px 16px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-s);
+  border-left: 3px solid var(--orange);
+}
+.settings-section.danger { border-left-color: var(--danger); background: var(--danger-bg); }
+.settings-section h3 {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--orange);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.settings-section.danger h3 { color: var(--danger); }
+.settings-desc {
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.settings-info {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.settings-info th {
+  width: 1%;
+  white-space: nowrap;
+  text-align: left;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--ink-3);
+  font-weight: 700;
+}
+.settings-info td {
+  padding: 6px 10px;
+  color: var(--ink);
+  font-weight: 500;
+  font-family: "Consolas", "Menlo", monospace;
+}
+
 /* 중복 사번 확인 모달 */
 .dup-compare {
   display: grid;
