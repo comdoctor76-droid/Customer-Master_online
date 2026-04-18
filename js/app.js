@@ -1302,6 +1302,7 @@
           <div class="consult-head">
             <span class="consult-date">${escapeHtml(c.date || "")}${seqLabel ? " · " + seqLabel : ""}${isEditing ? ' <span class="edit-badge">수정 중</span>' : ""}</span>
             <div class="consult-actions">
+              <button class="consult-print" data-id="${escapeHtml(c.id)}" title="인쇄">인쇄</button>
               <button class="consult-edit" data-id="${escapeHtml(c.id)}" title="수정">수정</button>
               <button class="consult-del" data-id="${escapeHtml(c.id)}" title="삭제">×</button>
             </div>
@@ -1318,6 +1319,119 @@
     container.querySelectorAll(".consult-edit").forEach((btn) => {
       btn.addEventListener("click", () => editInterview(btn.dataset.id));
     });
+    container.querySelectorAll(".consult-print").forEach((btn) => {
+      btn.addEventListener("click", () => printConsultation(btn.dataset.id));
+    });
+  }
+
+  // ========== 면담 인쇄 ==========
+  function printConsultation(consultId) {
+    const c = state.consultations.find((x) => x.id === consultId);
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    if (!c || !s) { toast("인쇄할 면담을 찾을 수 없습니다.", "error"); return; }
+    const fmt = (n) => Number(n || 0).toLocaleString();
+    const clients = Array.isArray(c.clients) ? c.clients.filter((cl) => cl.name || cl.memo || (cl.amount && cl.amount.length)) : [];
+    const clientsHtml = clients.length ? `
+      <section class="pr-section">
+        <h3>상담고객 (${clients.length}명)</h3>
+        <table class="pr-table">
+          <thead><tr>
+            <th>#</th><th>성명</th><th>고객유형</th><th>상담단계</th><th>활용자료</th><th>제안금액</th><th>보종</th><th>면담 내용</th>
+          </tr></thead>
+          <tbody>
+            ${clients.map((cl, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${escapeHtml(cl.name || "")}</td>
+                <td>${escapeHtml((cl.types || []).join(", "))}</td>
+                <td>${escapeHtml((cl.consult || []).join(", "))}</td>
+                <td>${escapeHtml((cl.material || []).join(", "))}</td>
+                <td>${escapeHtml((cl.amount || []).join(", "))}${cl.amountDirect ? ` / ${escapeHtml(cl.amountDirect)}만원` : ""}</td>
+                <td>${escapeHtml((cl.bj || []).join(", "))}</td>
+                <td class="memo">${escapeHtml(cl.memo || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </section>
+    ` : "";
+    const calcHtml = (c.calcAvg || c.calcTgt || c.calcBaseTgt || c.calcComment) ? `
+      <section class="pr-section">
+        <h3>시상 계산기 스냅샷</h3>
+        <table class="pr-info">
+          <tr><th>개인 평균실적</th><td>${escapeHtml(c.calcAvg || "-")}</td>
+              <th>아너스 기본순증목표</th><td>${escapeHtml(c.calcBaseTgt || "-")}</td>
+              <th>희망목표금액</th><td>${escapeHtml(c.calcTgt || "-")}</td></tr>
+        </table>
+        ${c.calcComment ? `<div class="pr-comment"><strong>✍️ 면담자 의견</strong><p>${escapeHtml(c.calcComment)}</p></div>` : ""}
+      </section>
+    ` : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>면담일지 - ${escapeHtml(s.name || "")} ${escapeHtml(c.seq || "")}차</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Malgun Gothic", "Noto Sans KR", sans-serif; font-size: 12px; color: #1A1A1A; line-height: 1.5; }
+  header { text-align: center; border-bottom: 3px solid #E8651A; padding-bottom: 10px; margin-bottom: 14px; }
+  header h1 { font-size: 18px; font-weight: 900; color: #1A2744; letter-spacing: -0.5px; }
+  header .sub { font-size: 12px; color: #666; margin-top: 4px; }
+  .pr-section { margin-bottom: 16px; page-break-inside: avoid; }
+  .pr-section h3 { font-size: 13px; font-weight: 800; color: #E8651A; padding: 6px 10px; background: #FFF3EC; border-left: 3px solid #E8651A; margin-bottom: 8px; }
+  .pr-info { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .pr-info th { background: #F5F5F5; color: #444; font-weight: 700; padding: 5px 8px; text-align: left; border: 1px solid #D5D5D5; white-space: nowrap; width: 1%; }
+  .pr-info td { padding: 5px 8px; border: 1px solid #D5D5D5; }
+  .pr-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .pr-table th, .pr-table td { border: 1px solid #D5D5D5; padding: 4px 6px; text-align: left; vertical-align: top; }
+  .pr-table th { background: #F5F5F5; font-weight: 700; }
+  .pr-table td.memo { white-space: pre-wrap; max-width: 200px; }
+  .pr-coach { padding: 10px 12px; background: #FFF8F5; border-left: 4px solid #E8651A; border-radius: 0 6px 6px 0; white-space: pre-wrap; font-size: 12px; line-height: 1.6; }
+  .pr-comment { margin-top: 8px; padding: 8px 12px; background: #F5F7FF; border-left: 4px solid #1A2744; }
+  .pr-comment p { white-space: pre-wrap; margin-top: 4px; }
+  footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #D5D5D5; font-size: 10px; color: #999; text-align: center; }
+</style>
+</head><body>
+  <header>
+    <h1>고객컨설팅 MASTER과정 면담일지 (${escapeHtml(c.seq || "")}차 / 활동점검)</h1>
+    <div class="sub">${escapeHtml(c.date || "")} · ${escapeHtml(s.region || "")} · ${escapeHtml(s.center || "")} · ${escapeHtml(s.branch || "")}</div>
+  </header>
+
+  <section class="pr-section">
+    <h3>기본 정보</h3>
+    <table class="pr-info">
+      <tr><th>사번</th><td>${escapeHtml(s.empNo)}</td>
+          <th>성명</th><td>${escapeHtml(s.name || "")}</td>
+          <th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
+      <tr><th>기수</th><td>${escapeHtml(s.cohort || "")}</td>
+          <th>인보험 평균</th><td>${fmt(c.ins)} 천원</td>
+          <th>당월목표</th><td>${fmt(c.tgt)} 천원</td></tr>
+      <tr><th>현재실적</th><td>${fmt(c.curAct)} 천원</td>
+          <th>진도</th><td>${fmt(c.pct)} %</td>
+          <th>주간예상</th><td>${fmt(c.exp)} 천원</td></tr>
+      <tr><th>가입설계</th><td>${fmt(c.plan)} 건</td>
+          <th>행복보장분석</th><td>${fmt(c.hap)} 건</td>
+          <th>차수</th><td>${escapeHtml(c.seq || "")}차</td></tr>
+    </table>
+  </section>
+
+  ${clientsHtml}
+
+  <section class="pr-section">
+    <h3>핵심 코칭포인트 / 후속조치 / 다음주 계획</h3>
+    <div class="pr-coach">${escapeHtml(c.coach || c.content || "-")}</div>
+  </section>
+
+  ${calcHtml}
+
+  <footer>출력일시: ${new Date().toLocaleString("ko-KR")}</footer>
+<script>window.onload = () => { window.print(); };</script>
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=900,height=1200");
+    if (!win) { toast("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.", "error"); return; }
+    win.document.write(html);
+    win.document.close();
   }
 
   // 이력 항목을 폼으로 불러와 수정 모드 진입
