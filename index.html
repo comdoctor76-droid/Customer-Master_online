@@ -247,6 +247,34 @@
     </div>
   </div>
 
+  <!-- 중복 사번 확인 팝업 -->
+  <div class="modal" id="modal-duplicate" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3>이미 등록된 사번입니다</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="form-hint" id="dup-msg">동일 사번 교육생이 이미 있습니다. 덮어쓰시겠습니까?</p>
+        <div class="dup-compare">
+          <div class="dup-card">
+            <h4>기존 데이터</h4>
+            <table class="dup-table" id="dup-old"></table>
+          </div>
+          <div class="dup-card new">
+            <h4>새 입력값</h4>
+            <table class="dup-table" id="dup-new"></table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-outline" data-close>취소 (저장 안 함)</button>
+        <button class="btn-primary" id="btn-dup-overwrite">덮어쓰기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 알림 토스트 -->
   <div id="toast" class="toast" hidden></div>
 

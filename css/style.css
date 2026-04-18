@@ -438,6 +438,47 @@ body {
 .bulk-progress.success { background: #e6f6ec; color: var(--success); border-color: #b8e0c2; }
 .bulk-progress.error { background: #fde8e8; color: var(--danger); border-color: #f4b9b9; }
 
+/* 중복 사번 확인 모달 */
+.dup-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.dup-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #fafafa;
+}
+.dup-card.new { background: var(--orange-light); border-color: #ffd9a8; }
+.dup-card h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.dup-card.new h4 { color: var(--orange-dark); }
+.dup-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dup-table th {
+  text-align: left;
+  padding: 4px 6px;
+  color: var(--ink-3);
+  font-weight: 700;
+  width: 40%;
+  white-space: nowrap;
+}
+.dup-table td {
+  padding: 4px 6px;
+  color: var(--ink);
+  word-break: break-all;
+}
+.dup-table tr.diff th { color: var(--orange-dark); }
+.dup-table tr.diff td { font-weight: 700; color: var(--orange-dark); }
+.dup-table .muted { color: var(--ink-3); font-style: italic; }
+
 /* 토스트 */
 .toast {
   position: fixed;
