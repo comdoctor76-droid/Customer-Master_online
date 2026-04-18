@@ -76,17 +76,31 @@ window.DataAPI = {
   // 실시간 구독
   subscribe(callback) {
     const ref = collection(db, "students");
+    let firstFire = true;
     return onSnapshot(
       ref,
       (snap) => {
         const list = [];
         snap.forEach((d) => list.push(d.data()));
-        callback(list);
-        setStatus("online", "실시간 연결");
+        const fromCache = snap.metadata.fromCache;
+        const pending  = snap.metadata.hasPendingWrites;
+        if (firstFire) {
+          console.info(`[Firebase] 첫 데이터 도착: ${list.length}건 (cache=${fromCache}, pending=${pending})`);
+          firstFire = false;
+        }
+        callback(list, { fromCache, pending });
+        if (fromCache && list.length === 0) {
+          setStatus("offline", "오프라인 (서버 미응답)");
+        } else if (fromCache) {
+          setStatus("offline", "캐시 표시중");
+        } else {
+          setStatus("online", "실시간 연결");
+        }
       },
       (err) => {
         console.error("[Firebase] 구독 오류:", err);
-        setStatus("offline", "연결 오류");
+        setStatus("offline", "연결 오류: " + (err.message || err.code || "unknown"));
+        if (typeof window.__onSubscribeError === "function") window.__onSubscribeError(err);
       }
     );
   },
