@@ -295,12 +295,17 @@
             <span class="branch-cnt">${rows.length}</span>
           </div>
           <ul class="student-mini-list">
-            ${rows.map((s) => `
-              <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}">
-                <span class="s-name">${escapeHtml(s.name || "(이름 미입력)")}</span>
-                <span class="s-phone">${escapeHtml(s.phone || "")}</span>
+            ${rows.map((s) => {
+              const nm = s.name || "(이름 미입력)";
+              const initial = (s.name || "?").trim().charAt(0) || "?";
+              return `
+              <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}" data-initial="${escapeHtml(initial)}">
+                <span class="s-name-wrap">
+                  <span class="s-name">${escapeHtml(nm)}</span>
+                  <span class="s-phone">${escapeHtml(s.phone || "")}</span>
+                </span>
               </li>
-            `).join("")}
+            `;}).join("")}
           </ul>
         </div>
       `;
