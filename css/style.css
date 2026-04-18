@@ -92,7 +92,7 @@ body {
   max-width: 1600px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 320px 1fr;
   gap: 20px;
   padding: 20px 24px;
   align-items: flex-start;
@@ -152,6 +152,108 @@ body {
   color: var(--ink-2);
 }
 .mini-row strong { color: var(--orange-dark); font-weight: 800; }
+
+/* 사이드바 50/50 액션 */
+.actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.btn-primary.half, .btn-outline.half { padding: 10px 6px; font-size: 13px; }
+
+/* 전체 교육생 통계 */
+.total-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--orange-light);
+  border-radius: 8px;
+  border: 1px solid #ffd9a8;
+}
+.total-stat .label { color: var(--orange-dark); font-weight: 700; font-size: 13px; }
+.total-stat strong {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--orange-dark);
+  margin: 0 4px 0 auto;
+  letter-spacing: -1px;
+}
+.total-stat .unit { color: var(--orange-dark); font-size: 12px; font-weight: 700; }
+
+/* 사이드바 인라인 필드 */
+.side-field {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-3);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+/* 사이드바 지점별 교육생 명단 */
+.side-students h3 { margin-bottom: 10px; }
+.sidebar-student-list {
+  max-height: 480px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.branch-mini {
+  border-bottom: 1px solid var(--line);
+}
+.branch-mini:last-child { border-bottom: none; }
+.branch-mini-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #fafafa;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--orange-dark);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.branch-mini-head .branch-cnt {
+  background: var(--orange);
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.student-mini-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.student-mini-list li {
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  transition: background 0.1s;
+}
+.student-mini-list li:hover { background: #fff8f0; }
+.student-mini-list li.selected {
+  background: var(--orange-light);
+  border-left: 3px solid var(--orange);
+  padding-left: 7px;
+}
+.student-mini-list .s-name { font-weight: 700; color: var(--ink); }
+.student-mini-list .s-phone { color: var(--ink-3); font-size: 11px; }
+.empty-mini {
+  padding: 16px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 12px;
+}
 
 /* ============ 메인 ============ */
 .main { min-width: 0; }
@@ -438,6 +540,87 @@ body {
 .bulk-progress.success { background: #e6f6ec; color: var(--success); border-color: #b8e0c2; }
 .bulk-progress.error { background: #fde8e8; color: var(--danger); border-color: #f4b9b9; }
 
+/* 교육생 면담관리 패널 */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.detail-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fafafa;
+}
+.detail-card.consult-history-card { grid-column: 1 / -1; background: #fff; }
+.detail-card h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-2);
+}
+.detail-info { width: 100%; border-collapse: collapse; font-size: 13px; }
+.detail-info th {
+  text-align: left;
+  padding: 5px 8px;
+  width: 35%;
+  color: var(--ink-3);
+  font-weight: 700;
+  background: transparent;
+}
+.detail-info td { padding: 5px 8px; color: var(--ink); }
+.detail-actions { display: flex; gap: 8px; margin-top: 12px; }
+.btn-outline.danger { color: var(--danger); border-color: #f4b9b9; }
+.btn-outline.danger:hover { background: #fde8e8; color: var(--danger); border-color: var(--danger); }
+
+.consult-form { display: flex; flex-direction: column; gap: 8px; }
+.consult-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.consult-form input[type=date], .consult-form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+}
+.consult-form textarea { resize: vertical; }
+.consult-form .btn-primary { align-self: flex-start; }
+
+.consult-history { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+.consult-entry {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #fff;
+}
+.consult-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.consult-date { font-size: 12px; font-weight: 800; color: var(--orange-dark); }
+.consult-del {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.consult-del:hover { color: var(--danger); border-color: var(--danger); }
+.consult-body { font-size: 13px; color: var(--ink); white-space: pre-wrap; line-height: 1.5; }
+
 /* 중복 사번 확인 모달 */
 .dup-compare {
   display: grid;
@@ -504,6 +687,9 @@ body {
   .sidebar { position: static; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .top-nav { display: none; }
+}
+@media (max-width: 1024px) {
+  .detail-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .kpi-grid { grid-template-columns: 1fr; }
