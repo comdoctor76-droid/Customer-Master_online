@@ -56,62 +56,66 @@ body {
 
 /* ============ 헤더 ============ */
 .top-header {
-  background: var(--white);
-  border-bottom: 3px solid var(--orange);
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
   position: sticky;
   top: 0;
-  z-index: 50;
-  box-shadow: var(--shadow);
+  z-index: 300;
+  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.3);
 }
 .header-inner {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 14px 24px;
+  padding: 12px 28px;
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 28px;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .logo-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+  background: var(--orange);
   color: #fff;
-  font-weight: 900;
-  font-size: 22px;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  letter-spacing: -1px;
-  box-shadow: 0 2px 6px rgba(255, 122, 0, 0.35);
+  min-width: 36px;
+  height: 34px;
+  box-shadow: 0 2px 8px rgba(232, 101, 26, 0.35);
 }
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-.brand-main { font-size: 15px; font-weight: 800; color: var(--orange-dark); letter-spacing: -0.3px; }
-.brand-sub { font-size: 13px; color: var(--ink-2); }
+.brand-main { font-size: 14px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+.brand-sub { font-size: 12px; color: rgba(255, 255, 255, 0.65); }
 
 .top-nav { display: flex; gap: 4px; flex: 1; }
 .top-nav a {
-  padding: 10px 16px;
-  color: var(--ink-2);
+  padding: 8px 14px;
+  color: rgba(255, 255, 255, 0.75);
   text-decoration: none;
-  font-weight: 600;
-  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: var(--radius-s);
+  transition: background 0.15s, color 0.15s;
 }
-.top-nav a:hover { background: var(--orange-light); color: var(--orange-dark); }
+.top-nav a:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .top-nav a.active { background: var(--orange); color: #fff; }
 
 .header-actions { margin-left: auto; }
 .conn-badge {
-  background: var(--orange-light);
-  color: var(--orange-dark);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.2px;
 }
-.conn-badge.online { background: #e6f6ec; color: var(--success); }
-.conn-badge.offline { background: #fde8e8; color: var(--danger); }
+.conn-badge.online { background: rgba(76, 175, 80, 0.25); color: #C8F7D2; }
+.conn-badge.offline { background: rgba(220, 80, 60, 0.28); color: #FFCCCC; }
 
 /* ============ 레이아웃 ============ */
 .layout {
