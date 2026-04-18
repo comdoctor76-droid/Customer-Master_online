@@ -312,34 +312,93 @@
     return true;
   }
 
+  function setBulkProgress(text, type) {
+    const el = $("#bulk-progress");
+    if (!el) return;
+    if (!text) { el.hidden = true; el.textContent = ""; el.className = "bulk-progress"; return; }
+    el.hidden = false;
+    el.textContent = text;
+    el.className = "bulk-progress" + (type ? " " + type : "");
+  }
+
+  function toNum(v) {
+    if (v === undefined || v === null || v === "") return 0;
+    const n = Number(String(v).replace(/[,\s]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+
   async function saveBulk() {
     const raw = $("#form-bulk").value.trim();
-    if (!raw) { toast("붙여넣을 데이터가 없습니다.", "error"); return false; }
-    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
-    let ok = 0, fail = 0;
-    const errors = [];
-    for (const line of lines) {
-      const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-      const [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cols.map((c) => (c || "").trim());
-      if (!empNo) { fail++; errors.push("사번 누락: " + line.slice(0, 30)); continue; }
-      const rec = {
-        region, center, branch, cohort, empNo, name, phone,
-        base: Number(base || 0), target: Number(target || 0), honors: Number(honors || 0)
-      };
-      if (tenureMonths) rec.tenureMonths = Number(tenureMonths);
-      try {
-        await window.DataAPI.save(rec);
-        ok++;
-      } catch (err) {
-        fail++;
-        errors.push(`${empNo}: ${err.message}`);
-        console.error("[bulk save] 실패:", empNo, err);
-      }
+    if (!raw) {
+      toast("붙여넣을 데이터가 없습니다.", "error");
+      setBulkProgress("붙여넣을 데이터가 없습니다.", "error");
+      return { ok: 0, fail: 0, total: 0 };
     }
-    const msg = `${ok}건 저장, ${fail}건 실패` + (errors.length ? ` — ${errors[0]}` : "");
-    toast(msg, fail ? "error" : "success");
-    if (fail) console.warn("[bulk save] 전체 실패 목록:", errors);
-    return ok > 0;
+
+    // 1. 파싱
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
+    const records = [];
+    const parseErrors = [];
+    lines.forEach((line, i) => {
+      const cols = line.includes("\t") ? line.split("\t") : line.split(",");
+      const [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] =
+        cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
+      // 헤더 행 자동 스킵
+      if (region === "지역단" && center === "비전센터" && branch === "지점") return;
+      if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
+      const rec = {
+        region, center, branch, cohort,
+        empNo: empNo.replace(/[\s\/\\]/g, ""),
+        name, phone,
+        base: toNum(base), target: toNum(target), honors: toNum(honors)
+      };
+      if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
+      records.push(rec);
+    });
+
+    if (records.length === 0) {
+      const msg = `저장할 행이 없습니다. (${parseErrors[0] || "데이터 없음"})`;
+      toast(msg, "error");
+      setBulkProgress(msg, "error");
+      return { ok: 0, fail: 0, total: 0 };
+    }
+
+    // 2. 저장 (병렬 5개씩)
+    const btn = $("#btn-save");
+    const origLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "저장중...";
+    setBulkProgress(`저장 시작... 총 ${records.length}건`);
+
+    let ok = 0, fail = 0;
+    const failMsgs = [];
+    const concurrency = 5;
+    for (let i = 0; i < records.length; i += concurrency) {
+      const chunk = records.slice(i, i + concurrency);
+      setBulkProgress(`저장중... ${i}/${records.length}`);
+      const results = await Promise.allSettled(chunk.map((r) => window.DataAPI.save(r)));
+      results.forEach((r, j) => {
+        if (r.status === "fulfilled") ok++;
+        else {
+          fail++;
+          const msg = `${chunk[j].empNo}: ${r.reason && r.reason.message || r.reason}`;
+          failMsgs.push(msg);
+          console.error("[bulk save] 실패:", chunk[j].empNo, r.reason);
+        }
+      });
+    }
+
+    btn.disabled = false;
+    btn.textContent = origLabel;
+
+    const totalFail = fail + parseErrors.length;
+    const summary = totalFail
+      ? `${ok}건 저장 / ${totalFail}건 실패 — ${(failMsgs[0] || parseErrors[0])}`
+      : `${ok}건 저장 완료`;
+    toast(summary, totalFail ? "error" : "success");
+    setBulkProgress(summary, totalFail ? "error" : "success");
+    if (totalFail) console.warn("[bulk save] 실패 목록:", { parseErrors, failMsgs });
+    return { ok, fail: totalFail, total: records.length + parseErrors.length };
   }
 
   // ========== 시드 파일 불러오기 ==========
@@ -463,16 +522,24 @@
     // 저장
     $("#btn-save").addEventListener("click", async () => {
       const activeTab = document.querySelector(".tab.active").dataset.tab;
-      let ok = false;
       try {
-        ok = activeTab === "single" ? await saveSingle() : await saveBulk();
-        if (ok) {
-          if (activeTab === "single") toast("저장되었습니다.", "success");
-          closeModal("#modal-add");
+        if (activeTab === "single") {
+          const ok = await saveSingle();
+          if (ok) {
+            toast("저장되었습니다.", "success");
+            closeModal("#modal-add");
+          }
+        } else {
+          // 벌크: 결과를 모달 안에 표시하고, 전부 성공할 때만 자동 닫음
+          const { ok, fail } = await saveBulk();
+          if (ok > 0 && fail === 0) {
+            setTimeout(() => closeModal("#modal-add"), 800);
+          }
         }
       } catch (err) {
         console.error(err);
         toast("저장 실패: " + err.message, "error");
+        setBulkProgress("저장 실패: " + err.message, "error");
       }
     });
 
