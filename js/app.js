@@ -66,7 +66,10 @@
     crData: [],              // 현재 폼의 상담고객 배열 (최대 5)
     // Phase 3 시상 계산기
     calcOpen: false,         // 계산기 접힘/펼침 상태
-    calcTgtUserEditing: false // 희망목표 직접입력 중 플래그
+    calcTgtUserEditing: false, // 희망목표 직접입력 중 플래그
+    // 동기화 상태
+    studentsLoaded: false,   // Firestore 첫 응답 여부
+    syncMeta: { fromCache: false }
   };
 
   // ========== 유틸 ==========
@@ -313,7 +316,17 @@
     const container = $("#sidebar-student-list");
     if (!container) return;
     if (list.length === 0) {
-      container.innerHTML = `<div class="empty-mini">조건에 맞는 교육생 없음</div>`;
+      let msg;
+      if (!state.studentsLoaded) {
+        msg = "🔄 Firebase 연결 중...";
+      } else if (state.students.length === 0) {
+        msg = state.syncMeta.fromCache
+          ? "❗ 서버에서 데이터를 받지 못했습니다. 캐시 비어있음."
+          : "ℹ️ 등록된 교육생이 없습니다.";
+      } else {
+        msg = "조건에 맞는 교육생 없음";
+      }
+      container.innerHTML = `<div class="empty-mini">${escapeHtml(msg)}</div>`;
       return;
     }
     const groups = {};
@@ -2187,8 +2200,21 @@
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
     syncOrgLabels();
-    window.DataAPI.subscribe((list) => {
+    // 첫 응답 5초 안에 안 오면 사용자에게 안내
+    const slowTimer = setTimeout(() => {
+      if (!state.studentsLoaded) {
+        toast("Firebase 응답이 느립니다. 네트워크/방화벽을 확인하세요.", "error");
+      }
+    }, 5000);
+    // 구독 에러 hook
+    window.__onSubscribeError = (err) => {
+      toast("Firebase 연결 실패: " + (err.message || err.code), "error");
+    };
+    window.DataAPI.subscribe((list, meta) => {
+      clearTimeout(slowTimer);
       state.students = list || [];
+      state.studentsLoaded = true;
+      state.syncMeta = meta || { fromCache: false };
       render();
     });
   }
