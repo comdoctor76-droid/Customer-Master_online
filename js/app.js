@@ -385,37 +385,17 @@
       return;
     }
     title.textContent = `${s.name || "(이름 없음)"} — 면담 관리`;
-    // 같은 학생 재렌더 요청이면 폼 입력 보존 (학생 정보 표만 갱신)
+    // 같은 학생 재렌더 요청이면 폼 입력 보존 (학생 정보 한 줄만 갱신)
     if (state.lastDetailEmpNo === s.empNo && document.getElementById("iv-coach")) {
-      updateStudentInfoCard(s);
+      updateStudentInfoBar(s);
       renderConsultations();
       return;
     }
     state.lastDetailEmpNo = s.empNo;
     body.innerHTML = `
-      <div class="detail-grid">
-        <div class="detail-card">
-          <h3>교육생 정보</h3>
-          <table class="detail-info">
-            <tr><th>사번</th><td>${escapeHtml(s.empNo)}</td></tr>
-            <tr><th>이름</th><td>${escapeHtml(s.name || "")}</td></tr>
-            <tr><th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
-            <tr><th>지역단</th><td>${escapeHtml(s.region || "")}</td></tr>
-            <tr><th>비전센터</th><td>${escapeHtml(s.center || "")}</td></tr>
-            <tr><th>지점</th><td>${escapeHtml(s.branch || "")}</td></tr>
-            <tr><th>기수</th><td>${escapeHtml(s.cohort || "")}</td></tr>
-            <tr><th>평균실적</th><td>${Number(s.base || 0).toLocaleString()}</td></tr>
-            <tr><th>목표실적</th><td>${Number(s.target || 0).toLocaleString()}</td></tr>
-            <tr><th>순증목표</th><td>${Number(s.honors || 0).toLocaleString()}</td></tr>
-          </table>
-          <div class="detail-actions">
-            <button class="btn-outline" id="btn-detail-edit">교육생 정보 수정</button>
-            <button class="btn-outline danger" id="btn-detail-del">교육생 삭제</button>
-          </div>
-        </div>
-
+      <div class="detail-stack">
+        ${renderStudentInfoBarHtml(s)}
         ${renderInterviewFormHtml(s)}
-
         <div class="detail-card consult-history-card">
           <h3>면담 기록</h3>
           <div id="consult-history" class="consult-history">
@@ -432,22 +412,40 @@
     renderConsultations();
   }
 
-  // 같은 학생의 기본정보만 부분 갱신 (폼 입력 보존)
-  function updateStudentInfoCard(s) {
-    const tbl = document.querySelector(".detail-card .detail-info");
-    if (!tbl) return;
-    tbl.innerHTML = `
-      <tr><th>사번</th><td>${escapeHtml(s.empNo)}</td></tr>
-      <tr><th>이름</th><td>${escapeHtml(s.name || "")}</td></tr>
-      <tr><th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
-      <tr><th>지역단</th><td>${escapeHtml(s.region || "")}</td></tr>
-      <tr><th>비전센터</th><td>${escapeHtml(s.center || "")}</td></tr>
-      <tr><th>지점</th><td>${escapeHtml(s.branch || "")}</td></tr>
-      <tr><th>기수</th><td>${escapeHtml(s.cohort || "")}</td></tr>
-      <tr><th>평균실적</th><td>${Number(s.base || 0).toLocaleString()}</td></tr>
-      <tr><th>목표실적</th><td>${Number(s.target || 0).toLocaleString()}</td></tr>
-      <tr><th>순증목표</th><td>${Number(s.honors || 0).toLocaleString()}</td></tr>
+  // 교육생 한 줄 정보 바 (이름/사번/지점/연락처/기수/실적 + 액션)
+  function renderStudentInfoBarHtml(s) {
+    const initial = (s.name || "?").trim().charAt(0) || "?";
+    const fmt = (n) => Number(n || 0).toLocaleString();
+    return `
+      <div class="student-info-bar" id="student-info-bar">
+        <div class="sib-avatar">${escapeHtml(initial)}</div>
+        <div class="sib-main">
+          <div class="sib-name">${escapeHtml(s.name || "")}<span class="sib-emp">${escapeHtml(s.empNo)}</span></div>
+          <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}</div>
+        </div>
+        <div class="sib-stats">
+          <div><span>평균실적</span><strong>${fmt(s.base)}</strong></div>
+          <div><span>순증목표</span><strong>${fmt(s.honors)}</strong></div>
+          <div><span>인보험평균</span><strong>${fmt(s.insAvg)}</strong></div>
+        </div>
+        <div class="sib-actions">
+          <button class="btn-outline small" id="btn-detail-edit">정보 수정</button>
+          <button class="btn-outline small danger" id="btn-detail-del">삭제</button>
+        </div>
+      </div>
     `;
+  }
+
+  // 같은 학생의 기본정보만 부분 갱신 (폼 입력 보존)
+  function updateStudentInfoBar(s) {
+    const bar = document.getElementById("student-info-bar");
+    if (!bar) return;
+    bar.outerHTML = renderStudentInfoBarHtml(s);
+    // 새로 그려졌으니 액션 버튼 재바인딩
+    const editBtn = document.getElementById("btn-detail-edit");
+    const delBtn = document.getElementById("btn-detail-del");
+    if (editBtn) editBtn.addEventListener("click", () => openEditForm(s.empNo));
+    if (delBtn) delBtn.addEventListener("click", () => removeStudent(s.empNo));
   }
 
   // ========== 면담 입력 폼 (rich) ==========
@@ -2011,32 +2009,11 @@
       e.target.closest(".modal").hidden = true;
     }));
 
-    // 상단 탭 네비게이션
+    // 상단 탭 네비게이션 — 클릭한 view 만 표시
     $$(".top-nav a").forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
-        const href = a.getAttribute("href") || "";
-        $$(".top-nav a").forEach((x) => x.classList.remove("active"));
-        a.classList.add("active");
-
-        if (href === "#dashboard") {
-          const el = document.getElementById("dashboard");
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else if (href === "#students") {
-          const el = document.getElementById("student-detail-panel");
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
-            if (!state.selectedEmpNo) {
-              toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
-            }
-          }
-        } else if (href === "#stats") {
-          const el = document.getElementById("stats-panel");
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else if (href === "#settings") {
-          const el = document.getElementById("settings-panel");
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
+        switchView(a.getAttribute("href") || "#students");
       });
     });
 
@@ -2173,8 +2150,40 @@
     toast(`${ok}명 삭제 완료${fail ? ` / ${fail}명 실패` : ""}`, fail ? "error" : "success");
   }
 
+  function switchView(href) {
+    const map = {
+      "#dashboard": null,            // KPI 만 표시
+      "#students":  "students",      // 교육생 면담 관리
+      "#stats":     "stats",         // 통계
+      "#settings":  "settings"       // 설정
+    };
+    const target = map[href];
+    // nav active 토글
+    $$(".top-nav a").forEach((a) => {
+      a.classList.toggle("active", a.getAttribute("href") === href);
+    });
+    // 모든 view-panel 숨기고 target 만 노출
+    $$(".view-panel").forEach((p) => {
+      p.hidden = (p.dataset.view !== target);
+    });
+    // 노출된 패널로 스크롤
+    if (target) {
+      const el = document.querySelector(`.view-panel[data-view="${target}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (target === "students" && !state.selectedEmpNo) {
+        toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
+      }
+    } else {
+      // dashboard — KPI 영역으로 스크롤
+      const el = document.getElementById("dashboard");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   function init() {
     bindEvents();
+    // 기본 view = 교육생 관리
+    switchView("#students");
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
     syncOrgLabels();
