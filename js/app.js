@@ -561,6 +561,7 @@
         </div>
 
         <div class="iv-actions">
+          <button class="btn-outline" id="btn-iv-cancel-edit" hidden>✕ 수정 취소</button>
           <button class="btn-outline" id="btn-iv-clear">초기화</button>
           <button class="btn-primary" id="btn-iv-save">💾 저장</button>
         </div>
@@ -575,10 +576,14 @@
     $("#iv-curAct").addEventListener("input", calcIvPct);
     $("#btn-iv-clear").addEventListener("click", () => {
       const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+      state.editingConsultId = null;
       clearInterviewForm();
       if (s) autoFillInterviewForm(s);
+      renderConsultations();
+      updateSaveButtonLabel();
     });
     $("#btn-iv-save").addEventListener("click", saveInterview);
+    $("#btn-iv-cancel-edit").addEventListener("click", cancelEditInterview);
     $("#btn-cr-add").addEventListener("click", addCR);
     renderCR(); // 초기 빈 상태
 
@@ -1170,26 +1175,79 @@
       }
       return;
     }
+    // 상담고객 없이 저장 시 확인
+    const hasClients = rec.clients.some((c) => c.name || c.memo || (c.amount && c.amount.length));
+    if (!hasClients && !state.editingConsultId) {
+      const ok = await confirmSaveWithoutClients();
+      if (!ok) return;
+    }
+    await doSaveInterview(rec);
+  }
+
+  async function doSaveInterview(rec) {
+    const empNo = state.selectedEmpNo;
     const btn = $("#btn-iv-save");
+    const origLabel = btn ? btn.textContent : "";
     if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
     try {
-      await window.DataAPI.addConsultation(empNo, rec);
+      if (state.editingConsultId) {
+        await window.DataAPI.updateConsultation(empNo, state.editingConsultId, rec);
+        toast("면담 기록이 수정되었습니다.", "success");
+      } else {
+        await window.DataAPI.addConsultation(empNo, rec);
+        toast("면담 기록이 저장되었습니다.", "success");
+      }
       if (rec.ins > 0 && typeof window.DataAPI.updateStudentInsAvg === "function") {
         window.DataAPI.updateStudentInsAvg(empNo, rec.ins).catch((e) => {
           console.warn("[insAvg sync]", e);
         });
       }
-      toast("면담 기록이 저장되었습니다.", "success");
+      state.editingConsultId = null;
       clearInterviewForm();
-      // 차수 재채움을 위해 선택한 학생 기준 자동채움 재실행
       const s = state.students.find((x) => x.empNo === empNo);
       if (s) autoFillInterviewForm(s);
+      updateSaveButtonLabel();
     } catch (err) {
       console.error(err);
       toast("저장 실패: " + err.message, "error");
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = "💾 저장"; }
+      if (btn) { btn.disabled = false; btn.textContent = origLabel || "💾 저장"; }
+      return;
     }
+    if (btn) { btn.disabled = false; btn.textContent = "💾 저장"; }
+  }
+
+  function confirmSaveWithoutClients() {
+    return new Promise((resolve) => {
+      const msgEl = $("#dup-msg");
+      const oldTbl = $("#dup-old");
+      const newTbl = $("#dup-new");
+      const titleEl = document.querySelector("#modal-duplicate .modal-head h3");
+      const okBtn = $("#btn-dup-overwrite");
+      if (!msgEl || !okBtn) { resolve(true); return; }
+      // 재사용: modal-duplicate 를 확인 대화상자로 용도 변경
+      if (titleEl) titleEl.textContent = "상담고객 정보 없음";
+      msgEl.textContent = "상담고객 정보가 없습니다. 코칭포인트만 저장하시겠습니까?";
+      if (oldTbl) oldTbl.innerHTML = "";
+      if (newTbl) newTbl.innerHTML = "";
+      // 비교표 숨김
+      const compare = document.querySelector("#modal-duplicate .dup-compare");
+      if (compare) compare.style.display = "none";
+      okBtn.textContent = "예, 저장";
+      openModal("#modal-duplicate");
+
+      const cleanup = () => {
+        okBtn.removeEventListener("click", onYes);
+        $$("#modal-duplicate [data-close]").forEach((el) => el.removeEventListener("click", onNo));
+        // 원복
+        if (compare) compare.style.display = "";
+        okBtn.textContent = "덮어쓰기";
+        if (titleEl) titleEl.textContent = "이미 등록된 사번입니다";
+      };
+      const onYes = () => { cleanup(); closeModal("#modal-duplicate"); resolve(true); };
+      const onNo = () => { cleanup(); closeModal("#modal-duplicate"); resolve(false); };
+      okBtn.addEventListener("click", onYes);
+      $$("#modal-duplicate [data-close]").forEach((el) => el.addEventListener("click", onNo));
+    });
   }
 
   // 이력 목록: 주요 수치를 배지로 요약, 펼치면 코칭 전문
@@ -1234,11 +1292,15 @@
           }).join("")}
         </div>
       ` : "";
+      const isEditing = state.editingConsultId === c.id;
       return `
-        <div class="consult-entry">
+        <div class="consult-entry${isEditing ? " editing" : ""}" data-id="${escapeHtml(c.id)}">
           <div class="consult-head">
-            <span class="consult-date">${escapeHtml(c.date || "")}${seqLabel ? " · " + seqLabel : ""}</span>
-            <button class="consult-del" data-id="${escapeHtml(c.id)}" title="삭제">×</button>
+            <span class="consult-date">${escapeHtml(c.date || "")}${seqLabel ? " · " + seqLabel : ""}${isEditing ? ' <span class="edit-badge">수정 중</span>' : ""}</span>
+            <div class="consult-actions">
+              <button class="consult-edit" data-id="${escapeHtml(c.id)}" title="수정">수정</button>
+              <button class="consult-del" data-id="${escapeHtml(c.id)}" title="삭제">×</button>
+            </div>
           </div>
           ${badges.length ? `<div class="consult-summary">${badges.join("")}</div>` : ""}
           ${clientHtml}
@@ -1249,6 +1311,86 @@
     container.querySelectorAll(".consult-del").forEach((btn) => {
       btn.addEventListener("click", () => removeConsultation(btn.dataset.id));
     });
+    container.querySelectorAll(".consult-edit").forEach((btn) => {
+      btn.addEventListener("click", () => editInterview(btn.dataset.id));
+    });
+  }
+
+  // 이력 항목을 폼으로 불러와 수정 모드 진입
+  function editInterview(consultId) {
+    const c = state.consultations.find((x) => x.id === consultId);
+    if (!c) return;
+    state.editingConsultId = consultId;
+
+    const setVal = (id, v) => { const el = $("#" + id); if (el) el.value = v ?? ""; };
+    setVal("iv-date", c.date || "");
+    setVal("iv-seq", c.seq || "");
+    setVal("iv-ins", c.ins || "");
+    setVal("iv-tgt", c.tgt || "");
+    setVal("iv-pct", c.pct || "");
+    setVal("iv-curAct", c.curAct || "");
+    setVal("iv-plan", c.plan || "");
+    setVal("iv-hap", c.hap || "");
+    setVal("iv-exp", c.exp || "");
+    setVal("iv-coach", c.coach || c.content || "");
+
+    // tgt 자동/수동 모드 판별
+    const ins = Number(c.ins) || 0;
+    const tgt = Number(c.tgt) || 0;
+    state.tgtAutoMode = (ins > 0 && tgt === ins + 200);
+    const th = $("#iv-tgt-hint");
+    if (th) th.textContent = tgt ? (state.tgtAutoMode ? "▲ 자동" : "✏️ 수동") : "";
+    const ih = $("#iv-ins-hint");
+    if (ih) ih.textContent = c.seq ? `▲ ${c.seq}차 면담값` : "";
+
+    // 상담고객 복원
+    initCR(Array.isArray(c.clients) ? c.clients : []);
+
+    // 시상 계산기 값 복원
+    setVal("calc-avg", c.calcAvg || "");
+    setVal("calc-base-tgt", c.calcBaseTgt || "");
+    setVal("calc-tgt", c.calcTgt || "");
+    setVal("calc-comment", c.calcComment || "");
+    if (c.calcAvg || c.calcTgt) {
+      state.calcOpen = true;
+      const sec = $("#calc-section"); if (sec) sec.style.display = "block";
+      const icon = $("#calc-toggle-icon"); if (icon) icon.style.transform = "rotate(0deg)";
+      calc();
+    }
+
+    updateIvTitle();
+    renderConsultations(); // editing 표시 갱신
+    updateSaveButtonLabel();
+
+    // 폼으로 스크롤
+    const form = document.querySelector(".iv-form");
+    if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+    toast(`${c.seq || ""}차 면담을 불러왔습니다. 수정 후 [저장]을 누르세요.`, "");
+  }
+
+  function cancelEditInterview() {
+    state.editingConsultId = null;
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    clearInterviewForm();
+    if (s) autoFillInterviewForm(s);
+    renderConsultations();
+    updateSaveButtonLabel();
+    toast("수정이 취소되었습니다.", "");
+  }
+
+  function updateSaveButtonLabel() {
+    const btn = $("#btn-iv-save");
+    const cancelBtn = $("#btn-iv-cancel-edit");
+    if (!btn) return;
+    if (state.editingConsultId) {
+      btn.textContent = "✏️ 수정 저장";
+      btn.classList.add("editing");
+      if (cancelBtn) cancelBtn.hidden = false;
+    } else {
+      btn.textContent = "💾 저장";
+      btn.classList.remove("editing");
+      if (cancelBtn) cancelBtn.hidden = true;
+    }
   }
 
   async function removeConsultation(id) {
