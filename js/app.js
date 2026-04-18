@@ -315,6 +315,7 @@
     ["form-empno","form-name","form-phone","form-base","form-target","form-honors"].forEach((id) => $("#" + id).value = "");
     $("#form-cohort").value = "";
     $("#form-bulk").value = "";
+    editingEmpNo = null;
     syncOrgLabels();
   }
 
@@ -329,6 +330,7 @@
     $("#form-target").value = s.target || "";
     $("#form-honors").value = s.honors || "";
     $("#form-cohort").value = s.cohort || "";
+    editingEmpNo = s.empNo;
     syncOrgLabels();
     switchTab("single");
     openModal("#modal-add");
@@ -339,10 +341,10 @@
     $$(".tab-panel").forEach((p) => (p.hidden = p.dataset.panel !== name));
   }
 
-  async function saveSingle() {
+  function buildSingleRecord() {
     const empNo = $("#form-empno").value.trim();
-    if (!empNo) { toast("사번을 입력하세요.", "error"); return false; }
-    const rec = {
+    if (!empNo) return null;
+    return {
       region: state.form.region,
       center: state.form.center,
       branch: state.form.branch,
@@ -354,8 +356,67 @@
       target: Number($("#form-target").value || 0),
       honors: Number($("#form-honors").value || 0)
     };
+  }
+
+  // 수정 모드(기존 사번 편집) 시 중복 확인 건너뛰기 위한 플래그
+  let editingEmpNo = null;
+
+  async function saveSingle() {
+    const rec = buildSingleRecord();
+    if (!rec) { toast("사번을 입력하세요.", "error"); return false; }
+    // 신규 등록인데 동일 사번이 이미 있으면 중복 확인 모달
+    if (editingEmpNo !== rec.empNo) {
+      const existing = state.students.find((s) => s.empNo === rec.empNo);
+      if (existing) {
+        const confirmed = await confirmDuplicate(existing, rec);
+        if (!confirmed) {
+          toast("저장이 취소되었습니다.", "");
+          return false;
+        }
+      }
+    }
     await window.DataAPI.save(rec);
     return true;
+  }
+
+  // ========== 중복 사번 확인 모달 ==========
+  function confirmDuplicate(oldRec, newRec) {
+    return new Promise((resolve) => {
+      $("#dup-msg").textContent =
+        `사번 ${newRec.empNo} 은(는) 이미 등록되어 있습니다. 기존 값을 덮어쓰시겠습니까?`;
+      $("#dup-old").innerHTML = renderDupTable(oldRec, newRec, "old");
+      $("#dup-new").innerHTML = renderDupTable(newRec, oldRec, "new");
+      openModal("#modal-duplicate");
+
+      const overwriteBtn = $("#btn-dup-overwrite");
+      const cleanup = () => {
+        overwriteBtn.removeEventListener("click", onOverwrite);
+        $$("#modal-duplicate [data-close]").forEach((el) => el.removeEventListener("click", onCancel));
+      };
+      const onOverwrite = () => { cleanup(); closeModal("#modal-duplicate"); resolve(true); };
+      const onCancel = () => { cleanup(); closeModal("#modal-duplicate"); resolve(false); };
+
+      overwriteBtn.addEventListener("click", onOverwrite);
+      $$("#modal-duplicate [data-close]").forEach((el) => el.addEventListener("click", onCancel));
+    });
+  }
+
+  function renderDupTable(rec, other, side) {
+    const fields = [
+      ["지역단", "region"], ["비전센터", "center"], ["지점", "branch"],
+      ["기수", "cohort"], ["이름", "name"], ["연락처", "phone"],
+      ["기준실적", "base"], ["목표실적", "target"], ["아너스실적", "honors"]
+    ];
+    return fields.map(([label, key]) => {
+      const v = rec[key];
+      const ov = other ? other[key] : "";
+      const isNum = ["base", "target", "honors"].includes(key);
+      const display = v === undefined || v === null || v === ""
+        ? "<span class='muted'>(비어있음)</span>"
+        : escapeHtml(isNum ? Number(v || 0).toLocaleString() : String(v));
+      const changed = String(v ?? "") !== String(ov ?? "");
+      return `<tr class="${changed ? "diff" : ""}"><th>${label}</th><td>${display}</td></tr>`;
+    }).join("");
   }
 
   function setBulkProgress(text, type) {
@@ -603,7 +664,8 @@
           const ok = await saveSingle();
           if (ok) {
             toast("저장되었습니다.", "success");
-            closeModal("#modal-add");
+            // 토스트가 잠시 보인 뒤 등록 모달 닫기
+            setTimeout(() => closeModal("#modal-add"), 1200);
           }
         } else {
           // 벌크: 결과를 모달 안에 표시하고, 전부 성공할 때만 자동 닫음
