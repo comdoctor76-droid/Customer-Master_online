@@ -28,6 +28,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  getDocs,
   query,
   orderBy,
   serverTimestamp,
@@ -198,6 +199,18 @@ window.DataAPI = {
       },
       (err) => { console.error("[Firebase] 면담 구독 오류:", err); callback([]); }
     );
+  },
+
+  // 면담 기록 일회성 fetch (출력용 — 여러 교육생 집계 시 사용)
+  async getConsultationsOnce(empNo) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) return [];
+    const ref = collection(db, "students", id, "consultations");
+    const q = query(ref, orderBy("date", "desc"));
+    const snap = await getDocs(q);
+    const list = [];
+    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+    return list;
   },
 
   // 면담 기록 추가 (Phase 1: 확장된 필드 지원)
