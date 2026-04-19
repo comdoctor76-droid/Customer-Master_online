@@ -69,7 +69,9 @@
     calcTgtUserEditing: false, // 희망목표 직접입력 중 플래그
     // 동기화 상태
     studentsLoaded: false,   // Firestore 첫 응답 여부
-    syncMeta: { fromCache: false }
+    syncMeta: { fromCache: false },
+    // 교육생 패널 서브뷰 (form | history)
+    studentSubView: "form"
   };
 
   // ========== 유틸 ==========
@@ -418,14 +420,19 @@
       return;
     }
     state.lastDetailEmpNo = s.empNo;
+    const sub = state.studentSubView === "history" ? "history" : "form";
     body.innerHTML = `
       <div class="detail-stack">
         ${renderStudentInfoBarHtml(s)}
-        ${renderInterviewFormHtml(s)}
-        <div class="detail-card consult-history-card">
-          <h3>면담 기록</h3>
-          <div id="consult-history" class="consult-history">
-            <div class="empty-mini">면담 기록 불러오는 중...</div>
+        <div class="sub-view" data-sub="form" ${sub !== "form" ? "hidden" : ""}>
+          ${renderInterviewFormHtml(s)}
+        </div>
+        <div class="sub-view" data-sub="history" ${sub !== "history" ? "hidden" : ""}>
+          <div class="detail-card history-card">
+            <h3>면담 이력 상세</h3>
+            <div id="hist-list" class="hist-list">
+              <div class="empty-mini">면담 기록 불러오는 중...</div>
+            </div>
           </div>
         </div>
       </div>
@@ -433,9 +440,30 @@
 
     $("#btn-detail-edit").addEventListener("click", () => openEditForm(s.empNo));
     $("#btn-detail-del").addEventListener("click", () => removeStudent(s.empNo));
-    bindInterviewFormEvents();
-    autoFillInterviewForm(s);
+    // form 서브뷰일 때만 인풋 관련 바인딩
+    if (state.studentSubView === "form") {
+      bindInterviewFormEvents();
+      autoFillInterviewForm(s);
+    }
     renderConsultations();
+    bindSubTabs();
+  }
+
+  // 서브탭 [면담관리]/[면담이력] 바인딩 + 갯수 배지
+  function bindSubTabs() {
+    document.querySelectorAll("#student-sub-tabs .sub-tab").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.sub === state.studentSubView);
+      btn.onclick = () => setStudentSubView(btn.dataset.sub);
+    });
+    const cnt = document.getElementById("hist-cnt");
+    if (cnt) cnt.textContent = state.consultations.length;
+  }
+
+  function setStudentSubView(sub) {
+    if (state.studentSubView === sub) return;
+    state.studentSubView = sub;
+    state.lastDetailEmpNo = null; // 강제 재렌더
+    renderStudentDetail();
   }
 
   // 교육생 한 줄 정보 바 (이름/사번/지점/연락처/기수/실적 + 액션)
@@ -1278,8 +1306,19 @@
     });
   }
 
-  // 이력 목록: 주요 수치를 배지로 요약, 펼치면 코칭 전문
+  // 이력 렌더: form 서브뷰에서는 #consult-history (없으면 생략),
+  // history 서브뷰에서는 #hist-list 에 풍부한 카드로 렌더
   function renderConsultations() {
+    // 서브탭 배지 갱신
+    const cnt = document.getElementById("hist-cnt");
+    if (cnt) cnt.textContent = state.consultations.length;
+
+    // history 서브뷰: 풍부한 카드
+    if (state.studentSubView === "history") {
+      renderHistoryCards();
+      return;
+    }
+    // 아래는 (현재 제거된) form 뷰의 컴팩트 리스트 경로 — noop
     const container = $("#consult-history");
     if (!container) return;
     if (state.consultations.length === 0) {
@@ -1345,6 +1384,99 @@
     });
     container.querySelectorAll(".consult-print").forEach((btn) => {
       btn.addEventListener("click", () => printConsultation(btn.dataset.id));
+    });
+  }
+
+  // 면담 이력 — 풍부한 카드 레이아웃 (면담이력 서브탭)
+  function renderHistoryCards() {
+    const el = document.getElementById("hist-list");
+    if (!el) return;
+    const list = state.consultations.slice();
+    if (!list.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-ico">📂</div>면담 기록이 없습니다</div>`;
+      return;
+    }
+    const fn = (v) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) && n > 0 ? n.toLocaleString() : "-";
+    };
+    const nl = (s) => escapeHtml(s || "").replace(/\n/g, "<br>");
+
+    el.innerHTML = list.map((e) => {
+      const clients = Array.isArray(e.clients) ? e.clients : [];
+      const clientsHtml = clients.length ? `
+        <table class="hi-ct">
+          <thead><tr>
+            <th>#</th><th>성명</th><th>고객유형</th><th>상담단계</th>
+            <th>활용자료</th><th>제안금액</th><th>보종</th><th>면담내용</th>
+          </tr></thead>
+          <tbody>
+            ${clients.map((c, ci) => `
+              <tr>
+                <td>${ci + 1}</td>
+                <td class="cc-name-td">${escapeHtml(c.name || "")}</td>
+                <td>${escapeHtml((c.types || []).join(", ")) || "-"}</td>
+                <td>${escapeHtml((c.consult || []).join(", ")) || "-"}</td>
+                <td>${escapeHtml((c.material || []).join(", ")) || "-"}</td>
+                <td class="hi-ct-amt">${escapeHtml((c.amount || []).join(", ")) || "-"}${c.amountDirect ? ` <span class="amt-direct">+${escapeHtml(c.amountDirect)}만</span>` : ""}</td>
+                <td class="hi-ct-bj">${escapeHtml((c.bj || []).join(", ")) || "-"}</td>
+                <td class="cc-memo-td">${escapeHtml(c.memo || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>` : "";
+
+      const calcHtml = (e.calcAvg || e.calcBaseTgt || e.calcTgt) ? `
+        <div class="hi-calc">
+          ${e.calcAvg     ? `<span>평균실적: <strong>${escapeHtml(e.calcAvg)}</strong>원</span>`       : ""}
+          ${e.calcBaseTgt ? `<span>기본순증목표: <strong>${escapeHtml(e.calcBaseTgt)}</strong>원</span>` : ""}
+          ${e.calcTgt     ? `<span>희망목표: <strong>${escapeHtml(e.calcTgt)}</strong>원</span>`       : ""}
+        </div>` : "";
+
+      const isEditing = state.editingConsultId === e.id;
+      return `
+        <div class="hi${isEditing ? " editing" : ""}" data-id="${escapeHtml(e.id)}">
+          <div class="hi-hd">
+            <div class="hi-meta">
+              <span class="hi-dt">${escapeHtml(e.date || "")}</span>
+              ${e.seq ? `<span class="hi-bg">${escapeHtml(e.seq)}차</span>` : ""}
+              ${isEditing ? `<span class="edit-badge">수정 중</span>` : ""}
+            </div>
+            <div class="hi-btns">
+              <button class="ib" data-act="print" data-id="${escapeHtml(e.id)}" title="인쇄">🖨️</button>
+              <button class="ib" data-act="edit"  data-id="${escapeHtml(e.id)}" title="수정">✏️</button>
+              <button class="ib d" data-act="del" data-id="${escapeHtml(e.id)}" title="삭제">🗑️</button>
+            </div>
+          </div>
+          <div class="hi-bd">
+            <div class="hi-fg">
+              <div class="hf"><div class="hfl">인보험 평균</div><div class="hfv">${fn(e.ins)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">당월 목표</div><div class="hfv">${fn(e.tgt)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">현재실적</div><div class="hfv">${fn(e.curAct)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">진도</div><div class="hfv">${fn(e.pct)} <small>%</small></div></div>
+              <div class="hf"><div class="hfl">가입설계</div><div class="hfv">${fn(e.plan)} <small>건</small></div></div>
+              <div class="hf"><div class="hfl">행복보장</div><div class="hfv">${fn(e.hap)} <small>건</small></div></div>
+              <div class="hf"><div class="hfl">주간예상</div><div class="hfv">${fn(e.exp)} <small>천원</small></div></div>
+            </div>
+            ${clientsHtml}
+            ${e.coach ? `<div class="note nv"><strong>📌 코칭포인트</strong><p>${nl(e.coach)}</p></div>` : ""}
+            ${e.calcComment ? `<div class="note blue"><strong>✍️ 면담자 의견</strong><p>${nl(e.calcComment)}</p></div>` : ""}
+            ${calcHtml}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    el.querySelectorAll(".ib").forEach((btn) => {
+      const id = btn.dataset.id;
+      const act = btn.dataset.act;
+      btn.addEventListener("click", () => {
+        if (act === "print") printConsultation(id);
+        else if (act === "edit") {
+          setStudentSubView("form"); // 수정하러 폼으로 이동
+          editInterview(id);
+        } else if (act === "del") removeConsultation(id);
+      });
     });
   }
 
