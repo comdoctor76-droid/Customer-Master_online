@@ -420,20 +420,24 @@
       return;
     }
     state.lastDetailEmpNo = s.empNo;
-    const sub = state.studentSubView === "history" ? "history" : "form";
+    const sub = state.studentSubView;
+    const validSub = ["form", "history", "print"].includes(sub) ? sub : "form";
     body.innerHTML = `
       <div class="detail-stack">
         ${renderStudentInfoBarHtml(s)}
-        <div class="sub-view" data-sub="form" ${sub !== "form" ? "hidden" : ""}>
+        <div class="sub-view" data-sub="form" ${validSub !== "form" ? "hidden" : ""}>
           ${renderInterviewFormHtml(s)}
         </div>
-        <div class="sub-view" data-sub="history" ${sub !== "history" ? "hidden" : ""}>
+        <div class="sub-view" data-sub="history" ${validSub !== "history" ? "hidden" : ""}>
           <div class="detail-card history-card">
             <h3>면담 이력 상세</h3>
             <div id="hist-list" class="hist-list">
               <div class="empty-mini">면담 기록 불러오는 중...</div>
             </div>
           </div>
+        </div>
+        <div class="sub-view" data-sub="print" ${validSub !== "print" ? "hidden" : ""}>
+          ${renderPrintPanelHtml()}
         </div>
       </div>
     `;
@@ -444,6 +448,11 @@
     if (state.studentSubView === "form") {
       bindInterviewFormEvents();
       autoFillInterviewForm(s);
+    }
+    // print 서브뷰일 때 출력 제어 바인딩
+    if (state.studentSubView === "print") {
+      bindPrintControls();
+      renderPrintView();
     }
     renderConsultations();
     bindSubTabs();
@@ -1588,6 +1597,342 @@
     if (!win) { toast("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.", "error"); return; }
     win.document.write(html);
     win.document.close();
+  }
+
+  // ========== 출력 서브뷰 (개인별) ==========
+  function renderPrintPanelHtml() {
+    return `
+      <div class="detail-card print-card">
+        <div class="print-controls no-print">
+          <span class="pc-title">🖨️ 면담일지 출력 (개인별)</span>
+          <label class="pc-field">이력 건수
+            <select id="print-cnt-sel" class="side-input">
+              <option value="all">전체 이력</option>
+              <option value="5">최근 5건</option>
+              <option value="3">최근 3건</option>
+              <option value="1">최근 1건</option>
+            </select>
+          </label>
+          <button class="btn-primary" id="btn-do-print">🖨️ 프린터 출력</button>
+          <button class="btn-outline" id="btn-save-png">🖼️ PNG 저장</button>
+        </div>
+        <div id="print-area" class="print-area"></div>
+      </div>
+    `;
+  }
+
+  function bindPrintControls() {
+    const sel = $("#print-cnt-sel");
+    if (sel) sel.addEventListener("change", renderPrintView);
+    const p = $("#btn-do-print");
+    if (p) p.addEventListener("click", () => window.print());
+    const png = $("#btn-save-png");
+    if (png) png.addEventListener("click", savePrintPNG);
+  }
+
+  function renderPrintView() {
+    const area = $("#print-area");
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    if (!area || !s) return;
+    const cntSel = $("#print-cnt-sel")?.value || "all";
+    const maxCnt = cntSel === "all" ? Infinity : parseInt(cntSel, 10);
+
+    const all = state.consultations.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const itvs = cntSel === "all" ? all : all.slice(-maxCnt);
+
+    if (!itvs.length) {
+      area.innerHTML = `<div class="empty-state"><div class="empty-ico">📄</div>출력할 면담 기록이 없습니다.</div>`;
+      return;
+    }
+
+    area.innerHTML = buildPrintPagesHtml(s, itvs);
+  }
+
+  function buildPrintPagesHtml(s, itvs) {
+    const fn = (v) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) && n > 0 ? n.toLocaleString() : "-";
+    };
+    const nl = (x) => escapeHtml(x || "").replace(/\n/g, "<br>");
+    const showSel = (arr) => escapeHtml((arr || []).join(", "));
+    const validClients = (clients) => (clients || []).filter((c) => c && (c.name || (c.types && c.types.length) || (c.consult && c.consult.length) || (c.material && c.material.length) || (c.amount && c.amount.length) || (c.bj && c.bj.length) || (c.memo && c.memo.trim())));
+
+    const firstItv = itvs.find((e) => e.seq === "1") || itvs[0];
+    const stuName  = s.name || "";
+    const stuIns   = fn(firstItv.ins);
+    const stuTgt   = fn(firstItv.tgt);
+
+    // flatten: interview × max(clients, 1)
+    const rows = [];
+    itvs.forEach((e, ei) => {
+      const clients = validClients(e.clients);
+      const count = Math.max(clients.length, 1);
+      for (let ci = 0; ci < count; ci++) {
+        const c = clients[ci] || null;
+        rows.push({
+          itvFirst: ci === 0, itvRows: count,
+          seq: e.seq || "", date: e.date || "", pct: e.pct || "",
+          plan: e.plan || "", hap: e.hap || "", exp: fn(e.exp),
+          cName: c ? (c.name || "") : "",
+          cTypes: c ? showSel(c.types) : "",
+          cConsult: c ? showSel(c.consult) : "",
+          cMaterial: c ? showSel(c.material) : "",
+          cAmount: c ? (showSel(c.amount) || (c.amountDirect ? escapeHtml(c.amountDirect) + "만원" : "")) : "",
+          cBj: c ? showSel(c.bj) : "",
+          cMemo: c ? (c.memo || "") : ""
+        });
+      }
+    });
+
+    // 페이지 분할 13행
+    const MAX = 13;
+    const pages = [];
+    for (let i = 0; i < rows.length; i += MAX) pages.push(rows.slice(i, i + MAX));
+    if (!pages.length) pages.push([]);
+
+    // 합계
+    const sumIns = Number(firstItv.ins) || 0;
+    const sumTgt = Number(firstItv.tgt) || 0;
+    const sumExp = itvs.reduce((a, e) => a + (parseFloat(e.exp) || 0), 0);
+    const dRate = sumTgt ? ((sumIns / sumTgt) * 100).toFixed(1) + "%" : "-";
+    const lRate = sumTgt ? ((sumExp / sumTgt) * 100).toFixed(1) + "%" : "-";
+    const remain = sumTgt - sumExp;
+
+    const dateAll = itvs.map((e) => e.date).filter(Boolean).sort();
+    const dateStr = dateAll.length > 1 ? `${dateAll[0]} ~ ${dateAll[dateAll.length - 1]}` : (dateAll[0] || "");
+    const seqs = [...new Set(itvs.map((e) => e.seq).filter(Boolean))];
+    const seqTxt = seqs.length === 1 ? seqs[0] : (seqs.join(", ") || "");
+
+    const tableHdr = `
+      <colgroup>
+        <col style="width:64px"><col style="width:46px"><col style="width:46px">
+        <col style="width:30px"><col style="width:28px"><col style="width:30px">
+        <col style="width:54px"><col style="width:42px"><col style="width:60px">
+        <col style="width:92px"><col style="width:58px"><col style="width:42px">
+        <col style="width:213px"><col style="width:44px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th rowspan="3">교육생<br>성명</th>
+          <th colspan="2">고객마스터 인보험(천원)</th>
+          <th colspan="3">설계진도</th>
+          <th colspan="8">주간활동 점검내용</th>
+        </tr>
+        <tr>
+          <th rowspan="2">월평균<br>(6개월)</th>
+          <th rowspan="2">당월<br>목표</th>
+          <th rowspan="2">진도</th>
+          <th rowspan="2">가입<br>설계</th>
+          <th rowspan="2">행복<br>보장</th>
+          <th colspan="6">상담고객</th>
+          <th rowspan="2">면담내용</th>
+          <th rowspan="2">예상<br>실적<br>(천원)</th>
+        </tr>
+        <tr>
+          <th>성명</th><th>구분</th><th>상담단계</th><th>활용자료</th><th>제안금액</th><th>보종</th>
+        </tr>
+      </thead>
+    `;
+
+    const apvHtml = `
+      <div class="apv-wrap no-print-on-copy">
+        <div class="apv-box"><div class="apv-title">면담자</div><div class="apv-sign"></div></div>
+        <div class="apv-box"><div class="apv-title">조직파트장</div><div class="apv-sign"></div></div>
+        <div class="apv-box"><div class="apv-title">지역단장</div><div class="apv-sign"></div></div>
+      </div>
+    `;
+
+    const rowHtml = (pageRows, includeStuCol) => pageRows.map((r, ri) => {
+      const isStuFirst = ri === 0 && includeStuCol;
+      const stuTds = isStuFirst ? `
+        <td rowspan="${pageRows.length}" class="stu-first">${escapeHtml(stuName)}</td>
+        <td rowspan="${pageRows.length}" class="stu-first-c">${stuIns}</td>
+        <td rowspan="${pageRows.length}" class="stu-first-c">${stuTgt}</td>` : "";
+      const itvTds = r.itvFirst ? `
+        <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.pct)}${r.seq ? `<div class="seq-sub">${escapeHtml(r.seq)}차</div>` : ""}</td>
+        <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.plan)}</td>
+        <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.hap)}</td>` : "";
+      const expTd = r.itvFirst ? `<td rowspan="${r.itvRows}" class="exp-c">${r.exp}</td>` : "";
+      return `<tr>
+        ${stuTds}${itvTds}
+        <td class="c-name">${escapeHtml(r.cName)}</td>
+        <td class="c-c">${r.cTypes}</td>
+        <td class="c-c">${r.cConsult}</td>
+        <td class="c-c">${r.cMaterial}</td>
+        <td class="c-amt">${r.cAmount}</td>
+        <td class="c-bj">${r.cBj}</td>
+        <td class="c-memo">${nl(r.cMemo)}</td>
+        ${expTd}
+      </tr>`;
+    }).join("");
+
+    const summaryHtml = `<tr class="sr">
+      <td class="c">합계</td>
+      <td class="c strong">${fn(sumIns)}</td>
+      <td class="c strong">${fn(sumTgt)}</td>
+      <td colspan="9" class="sr-text">
+        달성률 D(월평균/목표): <strong>${dRate}</strong> &nbsp;
+        L(예상/목표): <strong>${lRate}</strong> &nbsp;&nbsp;
+        잔여목표: <strong>${fn(remain)}천원</strong>
+      </td>
+      <td></td>
+      <td class="c strong">${fn(sumExp)}</td>
+    </tr>`;
+
+    // 시상계산기 블록 (가장 최근 calcTgt 보유 면담 기준)
+    const calcItv = itvs.slice().reverse().find((e) => e.calcTgt || e.calcAvg);
+    const cmtItv = itvs.slice().reverse().find((e) => e.calcComment);
+    const awardHtml = calcItv ? buildPrintAwardHtml(calcItv, itvs) : "";
+    const cmtHtml = cmtItv?.calcComment ? `
+      <div class="print-comment">
+        <strong>✍️ 면담자 의견</strong>
+        <p>${nl(cmtItv.calcComment)}</p>
+      </div>` : "";
+
+    return pages.map((pgRows, pi) => {
+      const isVeryFirst = pi === 0;
+      const isLast = pi === pages.length - 1;
+      return `
+        ${pi > 0 ? `<hr class="page-dashed-sep">` : ""}
+        <div class="print-page">
+          ${isVeryFirst ? `<div class="print-logo-wrap">
+            <div class="print-logo-sub">고객컨설팅 MASTER과정 지점별 면담일지<br><small>비전센터장 활동관리 시스템</small></div>
+          </div>` : ""}
+          <div class="doc-title-row">
+            <div class="doc-title">고객컨설팅 MASTER과정 지점별 면담일지 ( ${seqTxt || "&nbsp;&nbsp;"} 차 / 활동점검 )</div>
+            ${isVeryFirst ? apvHtml : ""}
+          </div>
+          <div class="doc-hdr">
+            <div><strong>비젼센터:</strong> ${escapeHtml(s.center || "")} &nbsp;&nbsp; <strong>지점명:</strong> ${escapeHtml(s.branch || "")}</div>
+            <div><strong>면담일시:</strong> ${escapeHtml(dateStr)} &nbsp;<span class="pg-cnt">(${pi + 1}/${pages.length})</span></div>
+          </div>
+          <table class="dt">
+            ${tableHdr}
+            <tbody>
+              ${rowHtml(pgRows, true)}
+              ${isLast ? summaryHtml : ""}
+            </tbody>
+          </table>
+          ${isLast ? cmtHtml : ""}
+          ${isLast ? awardHtml : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  function buildPrintAwardHtml(calcItv, allItvs) {
+    if (!calcItv.calcTgt) return "";
+    const fw = (mw) => Math.round(mw * 10000).toLocaleString() + "원";
+    const fwo = (w) => Math.round(w).toLocaleString() + "원";
+    const parseR = (v) => parseFloat(String(v || "").replace(/,/g, "")) || 0;
+    const tgtRaw = parseR(calcItv.calcTgt);
+    const baseTgtRaw = parseR(calcItv.calcBaseTgt);
+    const tgt = tgtRaw / 10000;
+    const baseTgt = baseTgtRaw / 10000;
+    const incr = Math.max(0, tgt - baseTgt);
+
+    // ① 아너스
+    let aw1 = 0, aw1Grade = "해당없음", aw1Idx = -1;
+    for (let i = 0; i < HONORS.length; i++) {
+      if (tgt >= HONORS[i].critVal) { aw1 = HONORS[i].prize; aw1Grade = HONORS[i].grade; aw1Idx = i; break; }
+    }
+    const baseTgtMet = (baseTgt <= 0) || (tgt >= baseTgt);
+    const mExtra = baseTgtMet ? Math.floor(incr * INCR_CFG.rate / 100 * 10) / 10 : 0;
+    const mSub = baseTgtMet ? INCR_CFG.base + mExtra : 0;
+    const mFinal = baseTgtMet ? Math.min(mSub, INCR_CFG.mcap) : 0;
+    const aw2M3 = baseTgtMet ? Math.min(mFinal * 3, INCR_CFG.qcap) : 0;
+    const lastIns = allItvs.slice().reverse().find((e) => e.ins);
+    const insRaw = (parseFloat(lastIns?.ins || "0") || 0) * 1000;
+    const incrMW3 = Math.max(0, tgtRaw - insRaw) / 10000;
+    const aw3 = calcMasterAward(incrMW3);
+    const aw3Tier = MASTER_AWARD.find((t) => incrMW3 >= t.critVal);
+    const aw3Next = aw3Tier ? MASTER_AWARD[MASTER_AWARD.indexOf(aw3Tier) - 1] : (incrMW3 < MASTER_AWARD[MASTER_AWARD.length - 1].critVal ? MASTER_AWARD[MASTER_AWARD.length - 1] : null);
+    const total = aw1 + aw2M3 + aw3 * 2;
+
+    return `
+      <div class="print-award">
+        <div class="pa-hdr">
+          <div class="pa-t">📊 시상 계산기 결과 (${escapeHtml(calcItv.seq || "직전")}차 기준)</div>
+          <div class="pa-sub">
+            <span class="pa-sub-k">2분기 아너스</span> 희망목표 <strong>${fwo(tgtRaw)}</strong><br>
+            <small>인보험평균 ${fwo(insRaw)} &nbsp;|&nbsp; 기본순증목표 ${baseTgtRaw ? fwo(baseTgtRaw) : "미입력"}</small>
+          </div>
+        </div>
+        <div class="pa-total">
+          <div>최종 예상 시상금 합계 (3개월) &nbsp; ① + ② + ③</div>
+          <div class="pa-total-val">${fw(total)}</div>
+        </div>
+        <div class="pa-grid">
+          <div class="pa-cell purple">
+            <div class="pa-lbl">① 아너스클럽</div>
+            <div class="pa-val">${aw1 ? fw(aw1) : "해당없음"}</div>
+            <div class="pa-sub2">${escapeHtml(aw1Grade)}</div>
+          </div>
+          <div class="pa-cell green">
+            <div class="pa-lbl">② 하이포인트 (3개월)</div>
+            <div class="pa-val">${fw(aw2M3)}</div>
+            <div class="pa-sub2">순증 ${fwo(incr * 10000)} × 50%</div>
+          </div>
+          <div class="pa-cell blue">
+            <div class="pa-lbl">③ 마스터과정 (×2)</div>
+            <div class="pa-val">${aw3 ? fw(aw3 * 2) : "해당없음"}</div>
+            <div class="pa-sub2">${aw3Tier ? escapeHtml(aw3Tier.label) : "순증 5만원 미만"}</div>
+          </div>
+        </div>
+        ${aw3Next ? `<div class="pa-next">
+          🚀 다음 단계: <strong>${escapeHtml(aw3Next.criteria)}</strong> — 희망목표 +${fwo(Math.ceil(Math.max(0, aw3Next.critVal - incrMW3) * 10000))} 추가 시 달성
+        </div>` : ""}
+      </div>
+    `;
+  }
+
+  async function savePrintPNG() {
+    if (typeof window.html2canvas !== "function") {
+      toast("PNG 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.", "error");
+      return;
+    }
+    const area = $("#print-area");
+    if (!area || !area.children.length) { toast("출력할 내용이 없습니다.", "error"); return; }
+    const btn = $("#btn-save-png");
+    const orig = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
+    try {
+      const pages = area.querySelectorAll(".print-page");
+      const targets = pages.length ? [...pages] : [area];
+      for (let i = 0; i < targets.length; i++) {
+        const target = targets[i];
+        const w = target.scrollWidth;
+        const clone = target.cloneNode(true);
+        clone.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;overflow:visible;visibility:visible;pointer-events:none;z-index:-1;background:#fff;padding:10px;`;
+        document.body.appendChild(clone);
+        await new Promise((r) => setTimeout(r, 80));
+        const canvas = await window.html2canvas(clone, {
+          scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+          width: w, height: clone.scrollHeight,
+          windowWidth: w, windowHeight: clone.scrollHeight
+        });
+        document.body.removeChild(clone);
+        const link = document.createElement("a");
+        link.download = makePngFilename(targets.length > 1 ? `_${i + 1}페이지` : "");
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 300));
+      }
+      toast(`PNG ${targets.length}장 저장 완료`, "success");
+    } catch (e) {
+      console.error(e);
+      toast("저장 중 오류: " + e.message, "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+    }
+  }
+
+  function makePngFilename(suffix) {
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+    return `면담일지_${s ? s.name || s.empNo : ""}_${ts}${suffix || ""}.png`;
   }
 
   // 이력 항목을 폼으로 불러와 수정 모드 진입
