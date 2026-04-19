@@ -2167,6 +2167,8 @@
     @media print{@page{size:A4 portrait;margin:6mm 8mm;}}
   `;
 
+  // (출력 서브탭 personal 모드용) 직전 calcItv 기반 시상 결과 박스
+  function buildPrintAwardHtml(calcItv, allItvs) {
     if (!calcItv.calcTgt) return "";
     const fw = (mw) => Math.round(mw * 10000).toLocaleString() + "원";
     const fwo = (w) => Math.round(w).toLocaleString() + "원";
