@@ -1499,12 +1499,18 @@
     if (!c || !s) { toast("인쇄할 면담을 찾을 수 없습니다.", "error"); return; }
     const fmt = (n) => Number(n || 0).toLocaleString();
     const clients = Array.isArray(c.clients) ? c.clients.filter((cl) => cl.name || cl.memo || (cl.amount && cl.amount.length)) : [];
+
+    // 시상 계산 (c 자체 + 이력 전체 활용)
+    const allItvs = state.consultations.slice();
+    const lastInsItv = allItvs.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).find((x) => x.ins);
+    const b = computeAwardBreakdown(s, c, lastInsItv);
+
     const clientsHtml = clients.length ? `
       <section class="pr-section">
         <h3>상담고객 (${clients.length}명)</h3>
         <table class="pr-table">
           <thead><tr>
-            <th>#</th><th>성명</th><th>고객유형</th><th>상담단계</th><th>활용자료</th><th>제안금액</th><th>보종</th><th>면담 내용</th>
+            <th>#</th><th>성명</th><th>유형</th><th>단계</th><th>자료</th><th>금액</th><th>보종</th><th>면담 내용</th>
           </tr></thead>
           <tbody>
             ${clients.map((cl, i) => `
@@ -1514,7 +1520,7 @@
                 <td>${escapeHtml((cl.types || []).join(", "))}</td>
                 <td>${escapeHtml((cl.consult || []).join(", "))}</td>
                 <td>${escapeHtml((cl.material || []).join(", "))}</td>
-                <td>${escapeHtml((cl.amount || []).join(", "))}${cl.amountDirect ? ` / ${escapeHtml(cl.amountDirect)}만원` : ""}</td>
+                <td>${escapeHtml((cl.amount || []).join(", "))}${cl.amountDirect ? ` / ${escapeHtml(cl.amountDirect)}만` : ""}</td>
                 <td>${escapeHtml((cl.bj || []).join(", "))}</td>
                 <td class="memo">${escapeHtml(cl.memo || "")}</td>
               </tr>
@@ -1523,15 +1529,28 @@
         </table>
       </section>
     ` : "";
-    const calcHtml = (c.calcAvg || c.calcTgt || c.calcBaseTgt || c.calcComment) ? `
+
+    const award1Html = b.award1Idx >= 0
+      ? `<div class="aw-row"><span class="aw-ic">🏆</span><div class="aw-body"><div class="aw-t">① 아너스클럽 · ${escapeHtml(b.award1Grade)}</div><div class="aw-sub">${escapeHtml(HONORS[b.award1Idx].criteria)}</div></div><div class="aw-v">${fmtW(b.award1)}</div></div>`
+      : `<div class="aw-row none">① 아너스클럽 — 해당없음</div>`;
+    const award2Html = b.baseTgtMet
+      ? `<div class="aw-row"><span class="aw-ic">💧</span><div class="aw-body"><div class="aw-t">② 하이포인트 (3개월)</div><div class="aw-sub">기본 5만 + 순증 ${fmtW(b.incr)}×50% = 월 ${fmtWon(b.monthlyFinal*10000)}</div></div><div class="aw-v">${fmtW(b.award2M3)}</div></div>`
+      : `<div class="aw-row warn"><span class="aw-ic">⚠️</span><div class="aw-body"><div class="aw-t">② 하이포인트 — 미해당</div><div class="aw-sub">희망목표 ${fmtWon(b.tgtRaw)} < 기본순증 ${fmtWon(b.baseTgtRaw)}</div></div><div class="aw-v rd">0원</div></div>`;
+    const award3Html = b.award3 > 0
+      ? `<div class="aw-row blue"><span class="aw-ic">🎯</span><div class="aw-body"><div class="aw-t">③ 마스터 · ${escapeHtml(b.award3Tier.criteria)}</div><div class="aw-sub">순증 ${fmtWon(b.incrMaster*10000)} / ${escapeHtml(b.award3Tier.label)} · ×2개월</div></div><div class="aw-v bl">${fmtW(b.award3 * 2)}</div></div>`
+      : `<div class="aw-row none">③ 마스터 — 순증 5만원 미만 (${fmtWon(b.incrMaster*10000)})</div>`;
+
+    const awardHtml = (b.tgtRaw > 0) ? `
       <section class="pr-section">
-        <h3>시상 계산기 스냅샷</h3>
-        <table class="pr-info">
-          <tr><th>개인 평균실적</th><td>${escapeHtml(c.calcAvg || "-")}</td>
-              <th>아너스 기본순증목표</th><td>${escapeHtml(c.calcBaseTgt || "-")}</td>
-              <th>희망목표금액</th><td>${escapeHtml(c.calcTgt || "-")}</td></tr>
-        </table>
-        ${c.calcComment ? `<div class="pr-comment"><strong>✍️ 면담자 의견</strong><p>${escapeHtml(c.calcComment)}</p></div>` : ""}
+        <h3>시상 예상답안지 (희망목표 ${fmtWon(b.tgtRaw)})</h3>
+        ${award1Html}${award2Html}${award3Html}
+        <div class="aw-total"><div><strong>🏆 최종 예상 합계</strong> &nbsp;<span class="sub">아너스 ${fmtW(b.award1)} + 하이포 ${fmtW(b.award2M3)} + 마스터 ${fmtW(b.award3*2)}</span></div><div class="aw-total-v">${fmtW(b.total)}</div></div>
+      </section>
+    ` : "";
+
+    const cmtHtml = c.calcComment ? `
+      <section class="pr-section tight">
+        <div class="pr-comment"><strong>✍️ 면담자 의견</strong> ${escapeHtml(c.calcComment)}</div>
       </section>
     ` : "";
 
@@ -1539,25 +1558,47 @@
 <html lang="ko"><head><meta charset="UTF-8">
 <title>면담일지 - ${escapeHtml(s.name || "")} ${escapeHtml(c.seq || "")}차</title>
 <style>
-  @page { size: A4; margin: 14mm; }
+  @page { size: A4 portrait; margin: 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Malgun Gothic", "Noto Sans KR", sans-serif; font-size: 12px; color: #1A1A1A; line-height: 1.5; }
-  header { text-align: center; border-bottom: 3px solid #E8651A; padding-bottom: 10px; margin-bottom: 14px; }
-  header h1 { font-size: 18px; font-weight: 900; color: #1A2744; letter-spacing: -0.5px; }
-  header .sub { font-size: 12px; color: #666; margin-top: 4px; }
-  .pr-section { margin-bottom: 16px; page-break-inside: avoid; }
-  .pr-section h3 { font-size: 13px; font-weight: 800; color: #E8651A; padding: 6px 10px; background: #FFF3EC; border-left: 3px solid #E8651A; margin-bottom: 8px; }
-  .pr-info { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .pr-info th { background: #F5F5F5; color: #444; font-weight: 700; padding: 5px 8px; text-align: left; border: 1px solid #D5D5D5; white-space: nowrap; width: 1%; }
-  .pr-info td { padding: 5px 8px; border: 1px solid #D5D5D5; }
-  .pr-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .pr-table th, .pr-table td { border: 1px solid #D5D5D5; padding: 4px 6px; text-align: left; vertical-align: top; }
-  .pr-table th { background: #F5F5F5; font-weight: 700; }
-  .pr-table td.memo { white-space: pre-wrap; max-width: 200px; }
-  .pr-coach { padding: 10px 12px; background: #FFF8F5; border-left: 4px solid #E8651A; border-radius: 0 6px 6px 0; white-space: pre-wrap; font-size: 12px; line-height: 1.6; }
-  .pr-comment { margin-top: 8px; padding: 8px 12px; background: #F5F7FF; border-left: 4px solid #1A2744; }
-  .pr-comment p { white-space: pre-wrap; margin-top: 4px; }
-  footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #D5D5D5; font-size: 10px; color: #999; text-align: center; }
+  body { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; font-size: 10.5px; color: #1A1A1A; line-height: 1.35; }
+  header { border-bottom: 2px solid #E8651A; padding-bottom: 5px; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: baseline; }
+  header h1 { font-size: 14px; font-weight: 900; color: #1A2744; letter-spacing: -0.3px; }
+  header .sub { font-size: 10px; color: #666; }
+  .pr-section { margin-bottom: 7px; page-break-inside: avoid; }
+  .pr-section.tight { margin-bottom: 4px; }
+  .pr-section h3 { font-size: 11px; font-weight: 800; color: #E8651A; padding: 3px 8px; background: #FFF3EC; border-left: 3px solid #E8651A; margin-bottom: 4px; }
+  .pr-info { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .pr-info th { background: #F5F5F5; color: #444; font-weight: 700; padding: 2px 6px; text-align: left; border: 1px solid #D5D5D5; white-space: nowrap; }
+  .pr-info td { padding: 2px 6px; border: 1px solid #D5D5D5; }
+  .pr-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .pr-table th, .pr-table td { border: 1px solid #D5D5D5; padding: 2px 5px; text-align: left; vertical-align: top; }
+  .pr-table th { background: #F5F5F5; font-weight: 700; font-size: 9.5px; }
+  .pr-table td.memo { white-space: pre-wrap; max-width: 180px; line-height: 1.35; }
+  .pr-coach { padding: 6px 10px; background: #FFF8F5; border-left: 3px solid #E8651A; border-radius: 0 5px 5px 0; white-space: pre-wrap; font-size: 10.5px; line-height: 1.5; }
+  .pr-comment { padding: 4px 8px; background: #F5F7FF; border-left: 3px solid #1A2744; border-radius: 0 5px 5px 0; font-size: 10px; line-height: 1.4; }
+  .pr-comment strong { color: #1A2744; margin-right: 4px; }
+
+  /* 시상안 블록 — 압축형 */
+  .aw-row { display: flex; align-items: center; gap: 7px; padding: 4px 8px; margin-bottom: 3px; background: #E8F5E9; border-left: 3px solid #2E7D32; border-radius: 0 5px 5px 0; }
+  .aw-row.warn { background: #FFEBEE; border-left-color: #C62828; }
+  .aw-row.blue { background: #E3F2FD; border-left-color: #1565C0; }
+  .aw-row.none { padding: 3px 8px; background: #F5F5F5; color: #999; font-size: 10px; border-left-color: #BBB; }
+  .aw-ic { font-size: 14px; flex-shrink: 0; }
+  .aw-body { flex: 1; min-width: 0; }
+  .aw-t { font-size: 11px; font-weight: 800; color: #1B5E20; }
+  .aw-row.warn .aw-t { color: #C62828; }
+  .aw-row.blue .aw-t { color: #1565C0; }
+  .aw-sub { font-size: 10px; color: #388E3C; margin-top: 1px; }
+  .aw-row.warn .aw-sub { color: #E57373; }
+  .aw-row.blue .aw-sub { color: #1976D2; }
+  .aw-v { font-size: 15px; font-weight: 900; color: #2E7D32; white-space: nowrap; }
+  .aw-v.rd { color: #C62828; }
+  .aw-v.bl { color: #1565C0; }
+  .aw-total { margin-top: 4px; padding: 5px 10px; background: linear-gradient(135deg, #1A2744, #2C3F6E); color: #fff; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+  .aw-total .sub { color: rgba(255,255,255,.7); font-size: 9px; }
+  .aw-total-v { color: #FFE082; font-size: 17px; font-weight: 900; }
+
+  footer { margin-top: 6px; padding-top: 4px; border-top: 1px solid #D5D5D5; font-size: 9px; color: #999; text-align: center; }
 </style>
 </head><body>
   <header>
@@ -1568,17 +1609,17 @@
   <section class="pr-section">
     <h3>기본 정보</h3>
     <table class="pr-info">
-      <tr><th>사번</th><td>${escapeHtml(s.empNo)}</td>
-          <th>성명</th><td>${escapeHtml(s.name || "")}</td>
+      <tr><th>성명</th><td>${escapeHtml(s.name || "")}</td>
+          <th>사번</th><td>${escapeHtml(s.empNo)}</td>
+          <th>기수</th><td>${escapeHtml(s.cohort || "")}</td>
           <th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
-      <tr><th>기수</th><td>${escapeHtml(s.cohort || "")}</td>
-          <th>인보험 평균</th><td>${fmt(c.ins)} 천원</td>
-          <th>당월목표</th><td>${fmt(c.tgt)} 천원</td></tr>
-      <tr><th>현재실적</th><td>${fmt(c.curAct)} 천원</td>
-          <th>진도</th><td>${fmt(c.pct)} %</td>
-          <th>주간예상</th><td>${fmt(c.exp)} 천원</td></tr>
+      <tr><th>인보험 평균</th><td>${fmt(c.ins)} 천원</td>
+          <th>당월목표</th><td>${fmt(c.tgt)} 천원</td>
+          <th>현재실적</th><td>${fmt(c.curAct)} 천원</td>
+          <th>진도</th><td>${fmt(c.pct)} %</td></tr>
       <tr><th>가입설계</th><td>${fmt(c.plan)} 건</td>
-          <th>행복보장분석</th><td>${fmt(c.hap)} 건</td>
+          <th>행복보장</th><td>${fmt(c.hap)} 건</td>
+          <th>주간예상</th><td>${fmt(c.exp)} 천원</td>
           <th>차수</th><td>${escapeHtml(c.seq || "")}차</td></tr>
     </table>
   </section>
@@ -1590,10 +1631,11 @@
     <div class="pr-coach">${escapeHtml(c.coach || c.content || "-")}</div>
   </section>
 
-  ${calcHtml}
+  ${awardHtml}
+  ${cmtHtml}
 
   <footer>출력일시: ${new Date().toLocaleString("ko-KR")}</footer>
-<script>window.onload = () => { window.print(); };</script>
+<script>window.onload = () => { setTimeout(window.print, 150); };</script>
 </body></html>`;
 
     const win = window.open("", "_blank", "width=900,height=1200");
@@ -1986,7 +2028,241 @@
     }).join("");
   }
 
-  function buildPrintAwardHtml(calcItv, allItvs) {
+  // ========== 시상안 렌더 공통 헬퍼 ==========
+  // 입력 우선순위: 면담이력 calc값 → student.base/honors/insAvg 로 폴백
+  function computeAwardBreakdown(student, calcItv, lastInsItv) {
+    const parseR = (v) => parseFloat(String(v || "").replace(/,/g, "")) || 0;
+    let avgRaw = calcItv?.calcAvg ? parseR(calcItv.calcAvg) : (Number(student?.base) || 0);
+    let baseTgtRaw = calcItv?.calcBaseTgt ? parseR(calcItv.calcBaseTgt) : (Number(student?.honors) || 0);
+    let tgtRaw = 0;
+    if (calcItv?.calcTgt) {
+      let v = parseR(calcItv.calcTgt);
+      if (v > 0 && v < 1000) v = v * 1000; // 천원 오저장 보정
+      tgtRaw = v;
+    }
+    if (!tgtRaw && Number(student?.insAvg) > 0) tgtRaw = (Number(student.insAvg) + 200) * 1000;
+    if (!tgtRaw && Number(student?.honors) > 0) tgtRaw = Number(student.honors);
+    // 인보험 평균(원) 우선순위: insAvg(천원→원) → 최근 면담 ins(천원→원) → student.base(원)
+    let insRaw = 0;
+    if (Number(student?.insAvg) > 0) insRaw = Number(student.insAvg) * 1000;
+    else if (lastInsItv?.ins) insRaw = (parseFloat(lastInsItv.ins) || 0) * 1000;
+    else insRaw = Number(student?.base) || 0;
+
+    const tgt = tgtRaw / 10000;
+    const baseTgt = baseTgtRaw / 10000;
+    const incr = Math.max(0, tgt - baseTgt);
+
+    // ① 아너스
+    let award1 = 0, award1Idx = -1, award1Grade = "해당없음";
+    for (let i = 0; i < HONORS.length; i++) {
+      if (tgt >= HONORS[i].critVal) { award1 = HONORS[i].prize; award1Idx = i; award1Grade = HONORS[i].grade; break; }
+    }
+    // ② 하이포인트
+    const baseTgtMet = (baseTgt <= 0) || (tgt >= baseTgt);
+    const mExtra = baseTgtMet ? Math.floor(incr * INCR_CFG.rate / 100 * 10) / 10 : 0;
+    const mSub = baseTgtMet ? INCR_CFG.base + mExtra : 0;
+    const mFinal = baseTgtMet ? Math.min(mSub, INCR_CFG.mcap) : 0;
+    const award2M3 = baseTgtMet ? Math.min(mFinal * 3, INCR_CFG.qcap) : 0;
+    // ③ 마스터
+    const incrMaster = Math.max(0, tgtRaw - insRaw) / 10000;
+    const award3 = calcMasterAward(incrMaster);
+    const award3Tier = MASTER_AWARD.find((t) => incrMaster >= t.critVal);
+    const total = award1 + award2M3 + award3 * 2;
+
+    // 상위 등급 비교 (최대 3단계)
+    const upper = [];
+    const startIdx = award1Idx >= 0 ? award1Idx - 1 : HONORS.length - 1;
+    for (let i = startIdx; i >= 0 && upper.length < 3; i--) {
+      const h = HONORS[i];
+      const ui = Math.max(0, h.critVal - baseTgt);
+      const uMet = h.critVal >= baseTgt;
+      const ue = uMet ? Math.floor(ui * INCR_CFG.rate / 100 * 10) / 10 : 0;
+      const uSub = uMet ? (INCR_CFG.base + ue) : 0;
+      const uFinal = uMet ? Math.min(uSub, INCR_CFG.mcap) : 0;
+      const uM3 = uMet ? Math.min(uFinal * 3, INCR_CFG.qcap) : 0;
+      const uAw3 = calcMasterAward(Math.max(0, h.critVal * 10000 - insRaw) / 10000);
+      upper.push({ grade: h.grade, criteria: h.criteria, prize: h.prize, needIncr: ui, monthly: uFinal, mCapped: uSub > INCR_CFG.mcap, award2: uM3, qCapped: uFinal * 3 > INCR_CFG.qcap, award3m: uAw3, total3m: h.prize + uM3 + uAw3 * 2 });
+    }
+
+    return {
+      avgRaw, baseTgtRaw, tgtRaw, insRaw, tgt, baseTgt, incr,
+      award1, award1Idx, award1Grade, baseTgtMet, mExtra, monthlyFinal: mFinal, award2M3, incrMaster, award3, award3Tier, total, upper
+    };
+  }
+
+  function fmtW(mw) { return Math.round(mw * 10000).toLocaleString() + "원"; }
+  function fmtWon(w) { return Math.round(w).toLocaleString() + "원"; }
+
+  // 한 교육생의 시상안 A4 포트레이트 페이지 HTML
+  function buildAwardSheetPageHtml(student, calcItv, lastInsItv) {
+    const b = computeAwardBreakdown(student, calcItv, lastInsItv);
+    if (!b.avgRaw && !b.tgtRaw) return "";
+
+    const upperHtml = b.upper.length ? `
+      <div class="up-title">📈 상위 등급 달성 시 시상금 비교</div>
+      <table class="up-table">
+        <thead><tr>
+          <th>등급</th><th>기준</th><th>초과달성</th>
+          <th>①아너스</th><th>월 하이포</th><th>②3개월</th><th>③마스터×2</th><th>총합계</th>
+        </tr></thead>
+        <tbody>${b.upper.map((g, i) => `<tr class="${i === 0 ? "up-next" : ""}">
+          <td><strong>${escapeHtml(g.grade.split("(")[0].trim())}</strong></td>
+          <td>${escapeHtml(g.criteria)}</td>
+          <td class="rd">${fmtW(g.needIncr)}</td>
+          <td>${fmtW(g.prize)}</td>
+          <td>${fmtW(g.monthly)}${g.mCapped ? "<br><span class=\"warn\">⚠최대</span>" : ""}</td>
+          <td>${fmtW(g.award2)}${g.qCapped ? "<br><span class=\"warn\">⚠최대</span>" : ""}</td>
+          <td class="bl">${g.award3m ? fmtW(g.award3m * 2) : "—"}</td>
+          <td class="grn"><strong>${fmtW(g.total3m)}</strong></td>
+        </tr>`).join("")}</tbody>
+      </table>` : "";
+
+    const award1Html = b.award1Idx >= 0 ? `
+      <div class="hl-row">
+        <span class="hl-icon">🏆</span>
+        <div class="hl-info">
+          <div class="hl-grade">아너스클럽 · ${escapeHtml(b.award1Grade)}</div>
+          <div class="hl-crit">${escapeHtml(HONORS[b.award1Idx].criteria)} 달성</div>
+        </div>
+        <div class="hl-amt">${fmtW(b.award1)}</div>
+      </div>` : `<div class="hl-none">아너스클럽 — 해당없음</div>`;
+
+    const award2Html = b.baseTgtMet ? `
+      <div class="hl-row">
+        <span class="hl-icon">💧</span>
+        <div class="hl-info">
+          <div class="hl-grade">하이포인트 지급 (개인순증시상)</div>
+          <div class="hl-crit">기본 5만원 + 순증 ${fmtW(b.incr)} × 50% = 월 <strong>${fmtWon(b.monthlyFinal * 10000)}</strong> × 3개월 = <strong>${fmtW(b.award2M3)}</strong></div>
+        </div>
+        <div class="hl-amt">${fmtW(b.award2M3)}</div>
+      </div>` : `<div class="hl-row warn">
+        <span class="hl-icon">⚠️</span>
+        <div class="hl-info">
+          <div class="hl-grade">하이포인트 — 미해당</div>
+          <div class="hl-crit">희망목표(${fmtWon(b.tgtRaw)})가 기본순증목표(${fmtWon(b.baseTgtRaw)})에 미달</div>
+        </div>
+        <div class="hl-amt rd">0원</div>
+      </div>`;
+
+    const award3Html = b.award3 > 0 ? `
+      <div class="hl-row blue">
+        <span class="hl-icon">🎯</span>
+        <div class="hl-info">
+          <div class="hl-grade">마스터과정 · ${escapeHtml(b.award3Tier.criteria)}</div>
+          <div class="hl-crit">순증 ${fmtWon(b.incrMaster * 10000)} = 희망 ${fmtWon(b.tgtRaw)} − 인보험평균 ${fmtWon(b.insRaw)} &nbsp;<span class="lbl">${escapeHtml(b.award3Tier.label)}</span></div>
+          <div class="hl-sub">매월 ${fmtW(b.award3)} × 2개월</div>
+        </div>
+        <div class="hl-amt bl">${fmtW(b.award3 * 2)}</div>
+      </div>` : `<div class="hl-none">마스터과정 — 순증 5만원 미만 (${fmtWon(b.incrMaster * 10000)})</div>`;
+
+    const region = student.region || "";
+    const vc = student.center || "";
+    const branch = student.branch || "";
+
+    return `
+      <div class="pg">
+        <div class="hdr">
+          <div class="hdr-title">🏆 ${escapeHtml(vc || region)} 시상 예상답안지</div>
+          <div class="hdr-date">${new Date().toLocaleDateString("ko-KR")} 기준</div>
+        </div>
+        <div class="info-row1">
+          <div class="info-card key"><div class="info-lbl">지역단</div><div class="info-val">${escapeHtml(region.replace(/지역단$|사업부$/, ""))}</div></div>
+          <div class="info-card key"><div class="info-lbl">지점</div><div class="info-val">${escapeHtml(branch.replace(/지점$/, ""))}</div></div>
+          <div class="info-card key"><div class="info-lbl">성명</div><div class="info-val">${escapeHtml(student.name || "")}</div></div>
+          <div class="info-card"><div class="info-lbl">사번</div><div class="info-val">${escapeHtml(student.empNo || "")}</div></div>
+        </div>
+        <div class="info-row2">
+          <div class="info-card stat">
+            <div class="stat-lbl">📊 평균실적</div>
+            <div class="stat-row"><span class="stat-key">매출 아너스:</span><span class="stat-val">${fmtWon(b.avgRaw)}</span></div>
+            <div class="stat-row"><span class="stat-key bl">고객마스터:</span><span class="stat-val bl">${fmtWon(b.insRaw)}</span></div>
+          </div>
+          <div class="info-card stat">
+            <div class="stat-lbl">🎯 기본순증목표</div>
+            <div class="stat-row"><span class="stat-key">아너스기본목표:</span><span class="stat-val">${b.baseTgtRaw ? fmtWon(b.baseTgtRaw) : "—"}</span></div>
+            <div class="stat-row"><span class="stat-key bl">고객마스터 희망:</span><span class="stat-val bl">${fmtWon(b.tgtRaw)}</span></div>
+          </div>
+        </div>
+        <div class="sec-title">📌 아너스 희망목표금액 기준 시상 (${fmtWon(b.tgtRaw)})</div>
+        ${award1Html}${award2Html}
+        <div class="sec-title bl">🎯 고객컨설팅마스터 과정 개인시상</div>
+        ${award3Html}
+        <div class="total-bar">
+          <div>
+            <div class="total-lbl">🏆 최종 예상 시상금 합계 (①+②+③)</div>
+            <div class="total-sub">아너스 ${fmtW(b.award1)} + 하이포 ${fmtW(b.award2M3)} + 마스터 ${fmtW(b.award3 * 2)}</div>
+          </div>
+          <div class="total-val">${fmtW(b.total)}</div>
+        </div>
+        ${upperHtml}
+        <div class="note">
+          ※ 아너스클럽: 3개월 연속달성 기준 · 하이포인트: 월 기본 5만원 + 순증×50% (월 최대 20만, 분기 최대 50만)<br>
+          ※ 마스터과정: 순증 5/10/20만원 고정지급, 30/50만원↑ 순증 120%/150%
+        </div>
+      </div>
+    `;
+  }
+
+  // 시상안 출력용 CSS (스탠드얼론 인쇄창에 삽입)
+  const AWARD_PRINT_CSS = `
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#1A1A1A;font-size:12px;line-height:1.4;}
+    .pg{padding:8mm 10mm;page-break-after:always;}
+    .pg:last-child{page-break-after:auto;}
+    .hdr{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+    .hdr-title{color:#fff;font-size:14px;font-weight:900;}
+    .hdr-date{color:rgba(255,255,255,.65);font-size:11px;}
+    .info-row1{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:5px;}
+    .info-row2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;}
+    .info-card{background:#F5F7FF;border-radius:6px;padding:6px 8px;text-align:center;border:1px solid #D5DCF5;}
+    .info-lbl{font-size:10px;color:#5C6BC0;font-weight:700;margin-bottom:2px;}
+    .info-val{font-size:13px;font-weight:900;color:#1A2744;}
+    .info-card.key{background:#1A2744;border-color:#1A2744;}
+    .info-card.key .info-lbl{color:rgba(255,255,255,.65);}
+    .info-card.key .info-val{color:#fff;font-size:15px;}
+    .info-card.stat{text-align:left;padding:7px 10px;background:#F8F9FF;}
+    .stat-lbl{font-size:11px;color:#5C6BC0;font-weight:800;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #D5DCF5;}
+    .stat-row{display:flex;justify-content:space-between;margin-bottom:2px;}
+    .stat-key{font-size:11px;font-weight:700;color:#4A148C;}
+    .stat-key.bl{color:#1565C0;}
+    .stat-val{font-size:14px;font-weight:900;color:#1A2744;}
+    .stat-val.bl{color:#1565C0;}
+    .sec-title{font-size:12px;font-weight:800;color:#4A148C;margin:6px 0 3px;}
+    .sec-title.bl{color:#1565C0;}
+    .hl-row{display:flex;align-items:center;gap:8px;background:#E8F5E9;border-radius:7px;padding:6px 10px;margin-bottom:4px;border-left:3px solid #2E7D32;}
+    .hl-row.warn{background:#FFEBEE;border-left-color:#C62828;}
+    .hl-row.blue{background:#E3F2FD;border-left-color:#1565C0;}
+    .hl-icon{font-size:16px;flex-shrink:0;}
+    .hl-info{flex:1;min-width:0;}
+    .hl-grade{font-size:12px;font-weight:700;color:#1B5E20;}
+    .hl-row.warn .hl-grade{color:#C62828;}
+    .hl-row.blue .hl-grade{color:#1565C0;}
+    .hl-crit{font-size:11px;color:#388E3C;margin-top:1px;line-height:1.5;}
+    .hl-row.warn .hl-crit{color:#E57373;}
+    .hl-row.blue .hl-crit{color:#1976D2;}
+    .hl-crit .lbl{background:#1565C0;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;}
+    .hl-sub{font-size:12px;font-weight:800;color:#0D47A1;margin-top:2px;}
+    .hl-amt{font-size:16px;font-weight:900;color:#2E7D32;white-space:nowrap;}
+    .hl-amt.rd{color:#C62828;}
+    .hl-amt.bl{color:#1565C0;font-size:18px;}
+    .hl-none{padding:5px 10px;color:#999;font-size:11px;background:#F5F5F5;border-radius:6px;margin-bottom:4px;}
+    .total-bar{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:7px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;margin:6px 0 6px;}
+    .total-lbl{color:rgba(255,255,255,.8);font-size:11px;font-weight:700;}
+    .total-sub{color:rgba(255,255,255,.55);font-size:10px;margin-top:2px;}
+    .total-val{color:#FFE082;font-size:22px;font-weight:900;}
+    .up-title{font-size:11px;font-weight:800;color:#1565C0;margin:5px 0 3px;}
+    .up-table{width:100%;border-collapse:collapse;font-size:10px;}
+    .up-table th{background:#E3F2FD;padding:3px 4px;border:1px solid #BBDEFB;color:#1565C0;font-weight:700;font-size:10px;}
+    .up-table td{padding:3px 4px;border:1px solid #E3E3E3;text-align:center;font-size:10px;}
+    .up-table td.rd{color:#C62828;font-weight:700;}
+    .up-table td.bl{color:#1565C0;}
+    .up-table td.grn{color:#1B5E20;font-size:11px;}
+    .up-table tr.up-next td{background:#FFF9C4;font-weight:700;}
+    .warn{color:#C62828;font-size:9px;font-weight:800;}
+    .note{font-size:9.5px;color:#888;margin-top:4px;line-height:1.4;}
+    @media print{@page{size:A4 portrait;margin:6mm 8mm;}}
+  `;
+
     if (!calcItv.calcTgt) return "";
     const fw = (mw) => Math.round(mw * 10000).toLocaleString() + "원";
     const fwo = (w) => Math.round(w).toLocaleString() + "원";
@@ -2099,6 +2375,45 @@
     const pad = (n) => String(n).padStart(2, "0");
     const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
     return `면담일지_${s ? s.name || s.empNo : ""}_${ts}${suffix || ""}.png`;
+  }
+
+  // 통계 탭에서 호출 — 현재 필터(지역단/비전센터) 기준 학생 전체 시상안 출력
+  async function printAwardSheets() {
+    const f = state.filter;
+    if (!f.region) { toast("먼저 지역단을 선택하세요.", "error"); return; }
+    let students = state.students.filter((s) => s.region === f.region);
+    if (f.center) students = students.filter((s) => s.center === f.center);
+    if (f.branch) students = students.filter((s) => s.branch === f.branch);
+    if (f.cohort) students = students.filter((s) => s.cohort === f.cohort);
+    if (!students.length) { toast("현재 필터 범위에 교육생이 없습니다.", "error"); return; }
+    if (students.length > 50 && !confirm(`${students.length}명의 시상안을 일괄 출력합니다. 진행할까요?`)) return;
+
+    const win = window.open("", "_blank", "width=900,height=1000");
+    if (!win) { toast("팝업이 차단되었습니다. 허용 후 다시 시도하세요.", "error"); return; }
+
+    toast(`${students.length}명의 면담이력 수집중...`, "");
+    await ensureConsultationsFetched(students);
+
+    const pages = [];
+    for (const s of students) {
+      const itvs = getStudentConsultations(s.empNo);
+      const sorted = itvs.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      const calcItv = sorted.find((i) => i.calcAvg || i.calcTgt || i.calcBaseTgt) || null;
+      const lastInsItv = sorted.find((i) => i.ins) || null;
+      const html = buildAwardSheetPageHtml(s, calcItv, lastInsItv);
+      if (html) pages.push(html);
+    }
+
+    if (!pages.length) { win.close(); toast("출력할 데이터가 없습니다.", "error"); return; }
+
+    const scopeText = [f.region, f.center, f.branch].filter(Boolean).join(" · ");
+    win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>시상 예상답안지 — ${escapeHtml(scopeText)}</title>
+<style>${AWARD_PRINT_CSS}</style>
+</head><body>${pages.join("")}
+<script>window.onload=function(){setTimeout(window.print, 200);}<\/script>
+</body></html>`);
+    win.document.close();
   }
 
   // 이력 항목을 폼으로 불러와 수정 모드 진입
@@ -2742,6 +3057,10 @@
 
     // CSV
     $("#btn-export-csv").addEventListener("click", exportCSV);
+
+    // 통계 — 시상안 출력 (현재 필터 범위 전체 교육생)
+    const awardBtn = $("#btn-print-awards");
+    if (awardBtn) awardBtn.addEventListener("click", printAwardSheets);
 
     // 설정 탭
     const v = $("#app-version"); if (v) v.textContent = "20260418m";
