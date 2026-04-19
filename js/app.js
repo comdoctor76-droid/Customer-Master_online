@@ -54,7 +54,6 @@
     students: [],
     filter: loadFilter(),
     form: { region: "", center: "", branch: "" },
-    orgPickerTarget: null, // 'filter-region' | 'form-region' 등
     selectedEmpNo: null,
     consultations: [],
     consultUnsub: null,
@@ -92,101 +91,6 @@
 
   function openModal(id) { $(id).hidden = false; }
   function closeModal(id) { $(id).hidden = true; }
-
-  // ========== 조직 선택 팝업 ==========
-  function openOrgPicker(target) {
-    state.orgPickerTarget = target;
-    const titleMap = {
-      "filter-region": "지역단 선택", "filter-center": "비전센터 선택", "filter-branch": "지점 선택",
-      "form-region": "지역단 선택", "form-center": "비전센터 선택", "form-branch": "지점 선택"
-    };
-    $("#modal-org-title").textContent = titleMap[target] || "선택";
-    renderOrgList("");
-    $("#org-search").value = "";
-    openModal("#modal-org");
-    setTimeout(() => $("#org-search").focus(), 50);
-  }
-
-  function getOrgOptions(target) {
-    const isFilter = target.startsWith("filter-");
-    const scope = isFilter ? state.filter : state.form;
-    const data = window.ORG_DATA;
-    if (target.endsWith("region")) {
-      return data.regions.map((r) => r.name);
-    }
-    if (target.endsWith("center")) {
-      if (!scope.region) return [];
-      const reg = data.regions.find((r) => r.name === scope.region);
-      return reg ? reg.centers.map((c) => c.name) : [];
-    }
-    if (target.endsWith("branch")) {
-      if (!scope.region || !scope.center) return [];
-      const reg = data.regions.find((r) => r.name === scope.region);
-      const ctr = reg && reg.centers.find((c) => c.name === scope.center);
-      return ctr ? ctr.branches : [];
-    }
-    return [];
-  }
-
-  function renderOrgList(q) {
-    const list = $("#org-list");
-    const target = state.orgPickerTarget;
-    if (!target) return;
-    const opts = getOrgOptions(target);
-    list.innerHTML = "";
-
-    if (target.endsWith("center") && !(target.startsWith("filter") ? state.filter.region : state.form.region)) {
-      list.innerHTML = `<li class="disabled">먼저 지역단을 선택하세요.</li>`;
-      return;
-    }
-    if (target.endsWith("branch")) {
-      const scope = target.startsWith("filter") ? state.filter : state.form;
-      if (!scope.region || !scope.center) {
-        list.innerHTML = `<li class="disabled">먼저 지역단/비전센터를 선택하세요.</li>`;
-        return;
-      }
-    }
-
-    const filtered = opts.filter((o) => o.toLowerCase().includes((q || "").toLowerCase()));
-    // 지역단은 필수 선택이므로 '전체' 옵션 없음. 비전센터/지점만 '전체' 허용.
-    if (target.startsWith("filter-") && !target.endsWith("region")) {
-      const li = document.createElement("li");
-      li.textContent = "전체";
-      li.addEventListener("click", () => selectOrg(""));
-      list.appendChild(li);
-    }
-    filtered.forEach((name) => {
-      const li = document.createElement("li");
-      li.textContent = name;
-      li.addEventListener("click", () => selectOrg(name));
-      list.appendChild(li);
-    });
-    if (filtered.length === 0 && opts.length > 0) {
-      list.innerHTML += `<li class="disabled">검색 결과가 없습니다.</li>`;
-    }
-  }
-
-  function selectOrg(name) {
-    const target = state.orgPickerTarget;
-    const isFilter = target.startsWith("filter-");
-    const field = target.split("-")[1]; // region | center | branch
-    const scope = isFilter ? state.filter : state.form;
-
-    // 필터의 지역단은 비울 수 없음 (필수 선택)
-    if (isFilter && field === "region" && !name) {
-      closeModal("#modal-org");
-      return;
-    }
-
-    scope[field] = name;
-    // 상위 변경 시 하위 초기화
-    if (field === "region") { scope.center = ""; scope.branch = ""; }
-    if (field === "center") { scope.branch = ""; }
-
-    syncOrgLabels();
-    closeModal("#modal-org");
-    if (isFilter) { persistFilter(); render(); }
-  }
 
   function syncOrgLabels() {
     syncFilterOrgSelects();
@@ -2510,13 +2414,26 @@
     }[c]));
   }
 
+  function isPanelVisible(id) {
+    const el = document.getElementById(id);
+    return !!(el && !el.hidden);
+  }
+
+  // 렌더 디바운스 (연쇄 쓰기 시 트레일링 실행으로 1회만)
+  let _renderTimer = 0;
+  function renderDebounced() {
+    if (_renderTimer) return;
+    _renderTimer = setTimeout(() => { _renderTimer = 0; render(); }, 60);
+  }
+
   function render() {
     const list = filteredStudents();
     renderKPIs(list);
     renderSidebarStudentList(list);
-    renderStats(list);
-    // 선택된 교육생 정보가 갱신되면 상세도 다시 그리기
-    if (state.selectedEmpNo) renderStudentDetail();
+    // 통계 패널이 보일 때만 렌더 (숨겨진 DOM 재구성 비용 제거)
+    if (isPanelVisible("stats-panel")) renderStats(list);
+    // 학생 상세도 패널이 보일 때만 렌더
+    if (state.selectedEmpNo && isPanelVisible("student-detail-panel")) renderStudentDetail();
   }
 
   // ========== 통계 렌더링 ==========
@@ -3154,15 +3071,16 @@
     $$(".view-panel").forEach((p) => {
       p.hidden = (p.dataset.view !== target);
     });
-    // 노출된 패널로 스크롤
+    // 노출된 패널로 스크롤 + 해당 패널 최신 렌더 보장
     if (target) {
       const el = document.querySelector(`.view-panel[data-view="${target}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (target === "stats") renderStats(filteredStudents());
+      if (target === "students" && state.selectedEmpNo) renderStudentDetail();
       if (target === "students" && !state.selectedEmpNo) {
         toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
       }
     } else {
-      // dashboard — KPI 영역으로 스크롤
       const el = document.getElementById("dashboard");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -3178,7 +3096,7 @@
       state.students = list || [];
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
-      render();
+      renderDebounced();
       if (list && list.length > 0) toast(`${list.length}건 동기화 완료`, "success");
     });
     render();
@@ -3226,7 +3144,7 @@
       state.students = list || [];
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
-      render();
+      renderDebounced();
     });
   }
 
