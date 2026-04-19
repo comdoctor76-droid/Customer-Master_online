@@ -1065,6 +1065,104 @@ body {
 .hi-calc strong { color: var(--purple); font-weight: 900; }
 .empty-ico { font-size: 32px; margin-bottom: 8px; opacity: 0.6; }
 
+/* ============ 출력 서브뷰 ============ */
+.print-card { padding: 16px; background: #fff; }
+.print-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-s);
+  margin-bottom: 14px;
+}
+.pc-title { font-size: 14px; font-weight: 800; color: var(--orange-dark); margin-right: 6px; }
+.pc-field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.pc-field .side-input { width: auto; padding: 6px 10px; font-size: 13px; }
+
+.print-area { overflow-x: auto; background: #fff; padding: 6px; }
+.print-page { margin-bottom: 20px; font-size: 12px; color: #1A1A1A; page-break-after: always; }
+.print-page:last-child { page-break-after: auto; }
+.print-logo-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.print-logo-sub { font-size: 12px; color: #555; line-height: 1.6; }
+
+.doc-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; gap: 12px; }
+.doc-title { font-size: 15px; font-weight: 900; color: var(--navy); letter-spacing: -0.3px; flex: 1; padding-top: 6px; }
+
+.apv-wrap { display: flex; align-items: stretch; flex-shrink: 0; }
+.apv-box { border: 1px solid #888; text-align: center; width: 68px; }
+.apv-box + .apv-box { border-left: none; }
+.apv-title { font-size: 11px; font-weight: 700; color: var(--navy); background: #E8EDF8; padding: 2px 0; border-bottom: 1px solid #888; }
+.apv-sign { height: 48px; }
+
+.doc-hdr { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: #333; }
+.doc-hdr .pg-cnt { font-size: 11px; color: #888; }
+
+.dt { width: 100%; border-collapse: collapse; font-size: 11.5px; border: 2px solid var(--navy); }
+.dt th { background: var(--navy); color: #fff; padding: 4px 6px; border: 1px solid #2a3a60; font-weight: 700; text-align: center; font-size: 11px; }
+.dt td { border: 1px solid #BBB; padding: 3px 5px; text-align: center; vertical-align: middle; }
+.dt td.stu-first { background: var(--orange-light); font-weight: 900; font-size: 13px; border-right: 2px solid #aaa; }
+.dt td.stu-first-c { background: var(--orange-light); font-weight: 700; }
+.dt td.itv-c { background: #FAFAFA; font-size: 11px; }
+.dt td.itv-c .seq-sub { font-size: 10px; color: var(--purple); font-weight: 800; margin-top: 2px; }
+.dt td.exp-c { font-weight: 700; }
+.dt td.c-name { font-weight: 600; font-size: 12px; }
+.dt td.c-c { font-size: 11px; }
+.dt td.c-amt { font-weight: 700; color: var(--orange-dark); }
+.dt td.c-bj { font-weight: 700; color: #3a3a8c; }
+.dt td.c-memo { text-align: left; font-size: 11px; line-height: 1.4; padding: 3px 5px; }
+.dt tr.sr td { background: #FFF3E0; font-weight: 700; }
+.dt tr.sr td.sr-text { text-align: left; font-size: 11px; }
+.dt tr.sr td.c { text-align: center; }
+.dt tr.sr td.strong { font-weight: 900; }
+
+.page-dashed-sep { border: none; border-top: 2px dashed #BBB; margin: 20px 0; }
+
+.print-comment {
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: #F5F7FF;
+  border-left: 3px solid var(--navy);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+}
+.print-comment strong { color: var(--navy); display: block; margin-bottom: 4px; font-size: 12px; }
+.print-comment p { margin: 0; white-space: pre-wrap; line-height: 1.55; }
+
+.print-award { margin-top: 10px; border: 2px solid #4A148C; border-radius: 8px; overflow: hidden; font-size: 12px; }
+.pa-hdr { background: linear-gradient(135deg, var(--navy), var(--navy-2)); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; color: #fff; }
+.pa-hdr .pa-t { font-weight: 900; font-size: 14px; }
+.pa-hdr .pa-sub { text-align: right; line-height: 1.5; font-size: 13px; font-weight: 700; }
+.pa-hdr .pa-sub .pa-sub-k { color: #FFE082; font-weight: 900; }
+.pa-hdr .pa-sub small { font-size: 11px; opacity: 0.85; }
+.pa-total { background: var(--purple-bg); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #4A148C; font-weight: 700; }
+.pa-total-val { font-size: 22px; font-weight: 900; color: #4A148C; }
+.pa-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid #DDD; }
+.pa-cell { padding: 8px 12px; border-right: 1px solid #DDD; }
+.pa-cell:last-child { border-right: none; }
+.pa-cell.purple .pa-lbl { color: var(--purple); }
+.pa-cell.green  .pa-lbl { color: var(--success); }
+.pa-cell.blue   .pa-lbl { color: var(--blue); }
+.pa-lbl { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+.pa-val { font-size: 19px; font-weight: 900; line-height: 1.1; color: #4A148C; }
+.pa-cell.green .pa-val { color: var(--success); }
+.pa-cell.blue .pa-val { color: var(--blue); }
+.pa-sub2 { font-size: 11px; color: var(--ink-3); font-weight: 700; margin-top: 2px; }
+.pa-next { border-top: 1px solid #DDD; background: var(--amber-bg); padding: 7px 12px; font-size: 12px; color: var(--amber); }
+.pa-next strong { color: var(--amber); }
+
+/* 인쇄 시 */
+@media print {
+  .no-print, .top-header, .sidebar, .view-panel:not(#student-detail-panel), .kpi-grid, .page-title, .sub-tabs, .panel-head, .student-info-bar { display: none !important; }
+  .panel { box-shadow: none !important; padding: 0 !important; }
+  .print-area { padding: 0 !important; }
+  .print-controls { display: none !important; }
+  .page-dashed-sep { display: none; }
+  @page { size: A4 landscape; margin: 6mm 8mm; }
+  body { background: #fff !important; }
+}
+
 @media (max-width: 1100px) {
   .hi-fg { grid-template-columns: repeat(4, 1fr); }
 }

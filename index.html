@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260418s" />
+  <link rel="stylesheet" href="css/style.css?v=20260418t" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -185,6 +185,7 @@
           <div class="sub-tabs" id="student-sub-tabs">
             <button class="sub-tab active" data-sub="form">📝 면담관리</button>
             <button class="sub-tab" data-sub="history">📋 면담이력 <span class="sub-cnt" id="hist-cnt">0</span></button>
+            <button class="sub-tab" data-sub="print">🖨️ 출력</button>
           </div>
         </div>
         <div id="student-detail-body">
@@ -342,8 +343,10 @@
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260418s"></script>
-  <script src="js/data.js?v=20260418s"></script>
-  <script src="js/app.js?v=20260418s"></script>
+  <script type="module" src="js/firebase-config.js?v=20260418t"></script>
+  <script src="js/data.js?v=20260418t"></script>
+  <script src="js/app.js?v=20260418t"></script>
+  <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </body>
 </html>
