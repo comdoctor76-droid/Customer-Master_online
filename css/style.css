@@ -455,6 +455,48 @@ body {
   gap: 14px;
 }
 .panel-head h2 { font-size: 15px; font-weight: 800; margin: 0; color: #fff; }
+
+/* 교육생 패널 서브탭 */
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-s);
+  padding: 3px;
+  margin-left: auto;
+}
+.sub-tab {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.sub-tab:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.sub-tab.active {
+  background: #fff;
+  color: var(--orange-dark);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.sub-tab .sub-cnt {
+  background: var(--orange);
+  color: #fff;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 20px;
+  text-align: center;
+}
+.sub-tab.active .sub-cnt { background: var(--orange); color: #fff; }
 .panel-tools input {
   padding: 7px 12px;
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -868,6 +910,172 @@ body {
 .detail-card.consult-history-card {
   grid-column: 1 / -1;
   background: #fff;
+}
+.detail-card.history-card {
+  grid-column: 1 / -1;
+  background: #fff;
+}
+
+/* 면담 이력 풍부 카드 */
+.hist-list { display: flex; flex-direction: column; gap: 12px; }
+.hi {
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.hi:hover { box-shadow: var(--shadow); }
+.hi.editing { border-left: 4px solid var(--blue); background: var(--blue-bg); }
+.hi-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, var(--orange-light), #fff);
+  border-bottom: 1px solid var(--line-soft);
+}
+.hi-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hi-dt {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--orange-dark);
+  letter-spacing: -0.2px;
+}
+.hi-bg {
+  background: var(--orange);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.hi-btns { display: flex; gap: 4px; }
+.ib {
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.ib:hover { border-color: var(--orange); background: var(--orange-light); }
+.ib.d:hover { border-color: var(--danger); background: var(--danger-bg); }
+.hi-bd { padding: 14px; }
+.hi-fg {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.hf {
+  background: var(--bg-soft);
+  border-radius: var(--radius-s);
+  padding: 8px 10px;
+  text-align: center;
+  min-width: 0;
+}
+.hfl {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hfv {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--orange-dark);
+  margin-top: 2px;
+  letter-spacing: -0.3px;
+}
+.hfv small { font-size: 10px; color: var(--ink-3); font-weight: 700; }
+
+/* 상담고객 테이블 */
+.hi-ct {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 8px 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+.hi-ct thead { background: var(--navy); color: #fff; }
+.hi-ct th {
+  padding: 7px 8px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+.hi-ct td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--line-soft);
+  vertical-align: top;
+  color: var(--ink-2);
+}
+.hi-ct .cc-name-td { font-weight: 700; color: var(--ink); white-space: nowrap; }
+.hi-ct .cc-memo-td {
+  max-width: 220px;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.hi-ct-amt { font-weight: 700; color: var(--orange-dark); white-space: nowrap; }
+.hi-ct-bj { font-weight: 700; color: var(--navy); white-space: nowrap; }
+.amt-direct { color: var(--blue); font-size: 11px; font-weight: 600; }
+
+/* 이력 내 코칭/의견 노트 */
+.note {
+  padding: 8px 12px;
+  border-left: 3px solid var(--orange);
+  background: #FFF8F5;
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.note strong { display: block; margin-bottom: 4px; color: var(--orange-dark); font-size: 12px; }
+.note p { margin: 0; color: var(--ink); white-space: pre-wrap; }
+.note.nv { border-left-color: var(--navy); background: #F5F7FF; }
+.note.nv strong { color: var(--navy); }
+.note.blue { border-left-color: var(--blue); background: var(--blue-bg); }
+.note.blue strong { color: var(--blue); }
+
+/* 시상계산기 스냅샷 */
+.hi-calc {
+  margin-top: 8px;
+  padding: 7px 12px;
+  background: var(--purple-bg);
+  border-radius: var(--radius-s);
+  font-size: 12px;
+  color: var(--purple);
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+.hi-calc strong { color: var(--purple); font-weight: 900; }
+.empty-ico { font-size: 32px; margin-bottom: 8px; opacity: 0.6; }
+
+@media (max-width: 1100px) {
+  .hi-fg { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 700px) {
+  .hi-fg { grid-template-columns: repeat(2, 1fr); }
+  .hi-ct { font-size: 11px; }
+  .hi-ct .cc-memo-td { max-width: 160px; }
+}
+@media (max-width: 560px) {
+  .sub-tabs { width: 100%; margin-top: 8px; }
+  .panel-head { flex-wrap: wrap; }
 }
 .detail-card h3 {
   margin: 0 0 12px;
