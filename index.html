@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260418u" />
+  <link rel="stylesheet" href="css/style.css?v=20260418v" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -172,7 +172,7 @@
         <div class="panel-head">
           <h2>📊 통계 — <span id="stats-scope">전체</span></h2>
           <div class="panel-tools">
-            <span class="stats-hint">현재 필터 기준으로 자동 갱신</span>
+            <button class="btn-outline small" id="btn-print-awards" title="현재 필터(지역단/비전센터/지점) 범위 교육생의 시상 예상답안지를 A4 한 장씩 출력합니다">🏆 시상안 출력</button>
           </div>
         </div>
         <div id="stats-body" class="stats-body"></div>
@@ -343,9 +343,9 @@
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260418u"></script>
-  <script src="js/data.js?v=20260418u"></script>
-  <script src="js/app.js?v=20260418u"></script>
+  <script type="module" src="js/firebase-config.js?v=20260418v"></script>
+  <script src="js/data.js?v=20260418v"></script>
+  <script src="js/app.js?v=20260418v"></script>
   <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </body>
