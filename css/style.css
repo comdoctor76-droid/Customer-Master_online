@@ -1082,8 +1082,7 @@ body {
 .pc-field .side-input { width: auto; padding: 6px 10px; font-size: 13px; }
 
 .print-area { overflow-x: auto; background: #fff; padding: 6px; }
-.print-page { margin-bottom: 20px; font-size: 12px; color: #1A1A1A; page-break-after: always; }
-.print-page:last-child { page-break-after: auto; }
+/* .print-page 은 아래 @media print 뒤 블록에서 일괄 정의 */
 .print-logo-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 .print-logo-sub { font-size: 12px; color: #555; line-height: 1.6; }
 
@@ -1152,15 +1151,62 @@ body {
 .pa-next { border-top: 1px solid #DDD; background: var(--amber-bg); padding: 7px 12px; font-size: 12px; color: var(--amber); }
 .pa-next strong { color: var(--amber); }
 
-/* 인쇄 시 */
+/* 인쇄 시 — A4 가로 강제 + 행 잘림 방지 */
+@page { size: A4 landscape; margin: 8mm; }
+
 @media print {
-  .no-print, .top-header, .sidebar, .view-panel:not(#student-detail-panel), .kpi-grid, .page-title, .sub-tabs, .panel-head, .student-info-bar { display: none !important; }
-  .panel { box-shadow: none !important; padding: 0 !important; }
-  .print-area { padding: 0 !important; }
-  .print-controls { display: none !important; }
-  .page-dashed-sep { display: none; }
-  @page { size: A4 landscape; margin: 6mm 8mm; }
-  body { background: #fff !important; }
+  @page { size: A4 landscape; margin: 8mm; }
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .print-controls, .no-print { display: none !important; }
+  .page-dashed-sep { display: none !important; }
+
+  .print-page {
+    width: 100% !important;
+    margin: 0 0 6mm 0 !important;
+    padding: 0 !important;
+    page-break-after: always;
+    page-break-inside: avoid;
+    break-after: page;
+    break-inside: avoid;
+  }
+  .print-page:last-child { page-break-after: auto; break-after: auto; }
+  .print-page.pg-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* 테이블은 필요시 분할, 단 개별 행은 절대 쪼개지 않음 */
+  .dt { page-break-inside: auto; break-inside: auto; }
+  .dt thead { display: table-header-group; }
+  .dt tfoot { display: table-footer-group; }
+  .dt tr { page-break-inside: avoid; break-inside: avoid; }
+
+  /* 하단 요약 블록도 한 페이지 안에 */
+  .print-award, .print-comment { page-break-inside: avoid; break-inside: avoid; }
+}
+
+/* 화면상에서도 A4 landscape 느낌 주기 (pixel 환산 ≈ 1122×794, 여백 고려 ~1060) */
+.print-page {
+  width: 1060px;
+  max-width: 100%;
+  margin: 0 auto 14px;
+  background: #fff;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 @media (max-width: 1100px) {

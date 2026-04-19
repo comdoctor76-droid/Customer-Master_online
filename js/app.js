@@ -70,8 +70,11 @@
     // 동기화 상태
     studentsLoaded: false,   // Firestore 첫 응답 여부
     syncMeta: { fromCache: false },
-    // 교육생 패널 서브뷰 (form | history)
-    studentSubView: "form"
+    // 교육생 패널 서브뷰 (form | history | print)
+    studentSubView: "form",
+    // 출력 서브뷰
+    printMode: "personal",     // 'personal' | 'branch' | 'vc'
+    printConsultCache: {}      // { empNo: consultations[] } — 다건 출력시 캐시
   };
 
   // ========== 유틸 ==========
@@ -1599,12 +1602,28 @@
     win.document.close();
   }
 
-  // ========== 출력 서브뷰 (개인별) ==========
+  // ========== 출력 서브뷰 ==========
   function renderPrintPanelHtml() {
+    const sel = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    const curBranch = state.filter.branch || sel?.branch || "";
+    const curCenter = state.filter.center || sel?.center || "";
+    const mode = state.printMode || "personal";
     return `
       <div class="detail-card print-card">
         <div class="print-controls no-print">
-          <span class="pc-title">🖨️ 면담일지 출력 (개인별)</span>
+          <span class="pc-title">🖨️ 면담일지 출력</span>
+          <label class="pc-field">출력 단위
+            <select id="print-mode-sel" class="side-input">
+              <option value="personal" ${mode === "personal" ? "selected" : ""}>개인별</option>
+              <option value="branch"   ${mode === "branch"   ? "selected" : ""}>지점별</option>
+              <option value="vc"       ${mode === "vc"       ? "selected" : ""}>비전센터별</option>
+            </select>
+          </label>
+          <span class="pc-scope" id="print-scope-hint">
+            ${mode === "personal" ? escapeHtml(sel?.name || "미선택")
+              : mode === "branch" ? `지점: <strong>${escapeHtml(curBranch || "미지정")}</strong>`
+              : `비전센터: <strong>${escapeHtml(curCenter || "미지정")}</strong>`}
+          </span>
           <label class="pc-field">이력 건수
             <select id="print-cnt-sel" class="side-input">
               <option value="all">전체 이력</option>
@@ -1622,33 +1641,134 @@
   }
 
   function bindPrintControls() {
-    const sel = $("#print-cnt-sel");
-    if (sel) sel.addEventListener("change", renderPrintView);
+    const mSel = $("#print-mode-sel");
+    if (mSel) mSel.addEventListener("change", (e) => {
+      state.printMode = e.target.value;
+      renderPrintView();
+    });
+    const cSel = $("#print-cnt-sel");
+    if (cSel) cSel.addEventListener("change", renderPrintView);
     const p = $("#btn-do-print");
     if (p) p.addEventListener("click", () => window.print());
     const png = $("#btn-save-png");
     if (png) png.addEventListener("click", savePrintPNG);
   }
 
-  function renderPrintView() {
+  // 현재 모드에 따른 출력 대상 학생 목록 + 스코프 이름 반환
+  function getPrintScope() {
+    const mode = state.printMode;
+    const sel = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    if (mode === "personal") {
+      return { mode, students: sel ? [sel] : [], scopeName: sel?.name || "", vc: sel?.center || "", branch: sel?.branch || "" };
+    }
+    if (mode === "branch") {
+      const branch = state.filter.branch || sel?.branch || "";
+      const students = state.students.filter((x) => x.branch === branch);
+      const vc = students[0]?.center || sel?.center || "";
+      return { mode, students, scopeName: branch, vc, branch };
+    }
+    if (mode === "vc") {
+      const center = state.filter.center || sel?.center || "";
+      const students = state.students.filter((x) => x.center === center);
+      return { mode, students, scopeName: center, vc: center, branch: "" };
+    }
+    return { mode, students: [], scopeName: "" };
+  }
+
+  async function renderPrintView() {
     const area = $("#print-area");
-    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
-    if (!area || !s) return;
-    const cntSel = $("#print-cnt-sel")?.value || "all";
-    const maxCnt = cntSel === "all" ? Infinity : parseInt(cntSel, 10);
+    if (!area) return;
 
-    const all = state.consultations.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    const itvs = cntSel === "all" ? all : all.slice(-maxCnt);
+    // 제어바 scope 힌트 갱신
+    const hint = $("#print-scope-hint");
+    const scope = getPrintScope();
+    if (hint) {
+      if (scope.mode === "personal") hint.innerHTML = escapeHtml(scope.scopeName || "미선택");
+      else if (scope.mode === "branch") hint.innerHTML = `지점: <strong>${escapeHtml(scope.scopeName || "미지정")}</strong> · ${scope.students.length}명`;
+      else hint.innerHTML = `비전센터: <strong>${escapeHtml(scope.scopeName || "미지정")}</strong> · ${scope.students.length}명`;
+    }
 
-    if (!itvs.length) {
+    if (!scope.students.length) {
+      area.innerHTML = `<div class="empty-state"><div class="empty-ico">📄</div>출력 대상 교육생이 없습니다. 좌측 필터를 확인하세요.</div>`;
+      return;
+    }
+
+    // 다건 모드면 consultations fetch 필요
+    area.innerHTML = `<div class="empty-state">면담 기록 불러오는 중... (${scope.students.length}명)</div>`;
+    await ensureConsultationsFetched(scope.students);
+
+    // 빈 교육생(이력 없음) 제거
+    const withItvs = scope.students
+      .map((s) => ({ s, itvs: getStudentConsultations(s.empNo) }))
+      .filter((x) => x.itvs.length);
+
+    if (!withItvs.length) {
       area.innerHTML = `<div class="empty-state"><div class="empty-ico">📄</div>출력할 면담 기록이 없습니다.</div>`;
       return;
     }
 
-    area.innerHTML = buildPrintPagesHtml(s, itvs);
+    // cnt 적용
+    const cntSel = $("#print-cnt-sel")?.value || "all";
+    const maxCnt = cntSel === "all" ? Infinity : parseInt(cntSel, 10);
+    withItvs.forEach((x) => {
+      const sorted = x.itvs.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      x.itvs = cntSel === "all" ? sorted : sorted.slice(-maxCnt);
+    });
+
+    // 그룹화
+    //   personal → 1그룹 (학생 하나)
+    //   branch   → 1그룹 (지점 전체)
+    //   vc       → 지점별 여러 그룹
+    const groups = [];
+    if (scope.mode === "vc") {
+      const byBranch = {};
+      withItvs.forEach((x) => {
+        const k = x.s.branch || "(지점 미지정)";
+        if (!byBranch[k]) byBranch[k] = [];
+        byBranch[k].push(x);
+      });
+      Object.keys(byBranch).sort().forEach((k) => {
+        groups.push({ title: `${scope.vc} · ${k}`, branch: k, vc: scope.vc, rows: byBranch[k] });
+      });
+    } else if (scope.mode === "branch") {
+      groups.push({ title: scope.scopeName, branch: scope.branch, vc: scope.vc, rows: withItvs });
+    } else {
+      groups.push({ title: withItvs[0].s.name, branch: withItvs[0].s.branch, vc: withItvs[0].s.center, rows: withItvs });
+    }
+
+    area.innerHTML = groups.map((g, gi) => buildGroupPagesHtml(g, gi === 0)).join("");
   }
 
-  function buildPrintPagesHtml(s, itvs) {
+  // 다건 모드에서 아직 fetch 안 한 학생만 Firestore 에서 가져와 캐시
+  async function ensureConsultationsFetched(students) {
+    const todo = [];
+    for (const s of students) {
+      if (s.empNo === state.selectedEmpNo) {
+        // 현재 선택 학생은 이미 subscribe 중
+        state.printConsultCache[s.empNo] = state.consultations.slice();
+      } else if (!state.printConsultCache[s.empNo]) {
+        todo.push(s.empNo);
+      }
+    }
+    // 동시 8개씩 fetch
+    const chunk = 8;
+    for (let i = 0; i < todo.length; i += chunk) {
+      const part = todo.slice(i, i + chunk);
+      const results = await Promise.allSettled(part.map((emp) => window.DataAPI.getConsultationsOnce(emp)));
+      results.forEach((r, j) => {
+        state.printConsultCache[part[j]] = r.status === "fulfilled" ? r.value : [];
+      });
+    }
+  }
+
+  function getStudentConsultations(empNo) {
+    if (empNo === state.selectedEmpNo) return state.consultations.slice();
+    return (state.printConsultCache[empNo] || []).slice();
+  }
+
+  // 그룹(지점 또는 개인) 단위로 페이지 HTML 생성
+  function buildGroupPagesHtml(group, isFirstGroup) {
+    // flatten 모든 학생의 행 + 학생 메타 유지
     const fn = (v) => {
       const n = parseInt(v, 10);
       return Number.isFinite(n) && n > 0 ? n.toLocaleString() : "-";
@@ -1657,59 +1777,103 @@
     const showSel = (arr) => escapeHtml((arr || []).join(", "));
     const validClients = (clients) => (clients || []).filter((c) => c && (c.name || (c.types && c.types.length) || (c.consult && c.consult.length) || (c.material && c.material.length) || (c.amount && c.amount.length) || (c.bj && c.bj.length) || (c.memo && c.memo.trim())));
 
-    const firstItv = itvs.find((e) => e.seq === "1") || itvs[0];
-    const stuName  = s.name || "";
-    const stuIns   = fn(firstItv.ins);
-    const stuTgt   = fn(firstItv.tgt);
-
-    // flatten: interview × max(clients, 1)
-    const rows = [];
-    itvs.forEach((e, ei) => {
-      const clients = validClients(e.clients);
-      const count = Math.max(clients.length, 1);
-      for (let ci = 0; ci < count; ci++) {
-        const c = clients[ci] || null;
-        rows.push({
-          itvFirst: ci === 0, itvRows: count,
-          seq: e.seq || "", date: e.date || "", pct: e.pct || "",
-          plan: e.plan || "", hap: e.hap || "", exp: fn(e.exp),
-          cName: c ? (c.name || "") : "",
-          cTypes: c ? showSel(c.types) : "",
-          cConsult: c ? showSel(c.consult) : "",
-          cMaterial: c ? showSel(c.material) : "",
-          cAmount: c ? (showSel(c.amount) || (c.amountDirect ? escapeHtml(c.amountDirect) + "만원" : "")) : "",
-          cBj: c ? showSel(c.bj) : "",
-          cMemo: c ? (c.memo || "") : ""
-        });
-      }
+    // 학생 단위 flat + 학생 블록 경계
+    // 한 학생이 끝나면 페이지 분할 기준점 삽입 가능
+    const studentBlocks = group.rows.map(({ s, itvs }) => {
+      const firstItv = itvs.find((e) => e.seq === "1") || itvs[0];
+      const stuIns = fn(firstItv?.ins);
+      const stuTgt = fn(firstItv?.tgt);
+      const rows = [];
+      itvs.forEach((e) => {
+        const clients = validClients(e.clients);
+        const count = Math.max(clients.length, 1);
+        for (let ci = 0; ci < count; ci++) {
+          const c = clients[ci] || null;
+          rows.push({
+            itvFirst: ci === 0, itvRows: count,
+            seq: e.seq || "", date: e.date || "", pct: e.pct || "",
+            plan: e.plan || "", hap: e.hap || "", exp: fn(e.exp),
+            cName: c ? (c.name || "") : "",
+            cTypes: c ? showSel(c.types) : "",
+            cConsult: c ? showSel(c.consult) : "",
+            cMaterial: c ? showSel(c.material) : "",
+            cAmount: c ? (showSel(c.amount) || (c.amountDirect ? escapeHtml(c.amountDirect) + "만원" : "")) : "",
+            cBj: c ? showSel(c.bj) : "",
+            cMemo: c ? (c.memo || "") : ""
+          });
+        }
+      });
+      return { s, itvs, stuIns, stuTgt, rows };
     });
 
-    // 페이지 분할 13행
-    const MAX = 13;
-    const pages = [];
-    for (let i = 0; i < rows.length; i += MAX) pages.push(rows.slice(i, i + MAX));
-    if (!pages.length) pages.push([]);
-
-    // 합계
-    const sumIns = Number(firstItv.ins) || 0;
-    const sumTgt = Number(firstItv.tgt) || 0;
-    const sumExp = itvs.reduce((a, e) => a + (parseFloat(e.exp) || 0), 0);
+    // 그룹 합계 계산
+    const uIns = new Map(), uTgt = new Map();
+    studentBlocks.forEach(({ s, itvs }) => {
+      const f = itvs.find((e) => e.seq === "1") || itvs[0];
+      if (f) { uIns.set(s.empNo, parseFloat(f.ins) || 0); uTgt.set(s.empNo, parseFloat(f.tgt) || 0); }
+    });
+    const sumIns = [...uIns.values()].reduce((a, v) => a + v, 0);
+    const sumTgt = [...uTgt.values()].reduce((a, v) => a + v, 0);
+    const sumExp = studentBlocks.flatMap((b) => b.itvs).reduce((a, e) => a + (parseFloat(e.exp) || 0), 0);
     const dRate = sumTgt ? ((sumIns / sumTgt) * 100).toFixed(1) + "%" : "-";
     const lRate = sumTgt ? ((sumExp / sumTgt) * 100).toFixed(1) + "%" : "-";
     const remain = sumTgt - sumExp;
 
-    const dateAll = itvs.map((e) => e.date).filter(Boolean).sort();
+    // 페이지 분할: 학생 블록을 통째로 유지하면서 13행 근처에서 자름
+    const MAX = 12;
+    const pages = [];
+    let curPage = [];
+    let curRows = 0;
+    studentBlocks.forEach((blk) => {
+      let start = 0;
+      while (start < blk.rows.length) {
+        const remaining = MAX - curRows;
+        if (remaining <= 0) {
+          pages.push(curPage);
+          curPage = [];
+          curRows = 0;
+          continue;
+        }
+        const take = Math.min(remaining, blk.rows.length - start);
+        curPage.push({ blk, startRow: start, endRow: start + take, isFirst: start === 0 });
+        curRows += take;
+        start += take;
+      }
+    });
+    if (curPage.length) pages.push(curPage);
+    if (!pages.length) pages.push([]);
+
+    // 시상계산기 / 의견 (그룹 마지막 페이지에만, 개인별 모드면 해당 학생 기준)
+    const allItvs = studentBlocks.flatMap((b) => b.itvs);
+    const calcItv = allItvs.slice().reverse().find((e) => e.calcTgt || e.calcAvg);
+    const cmtItv = allItvs.slice().reverse().find((e) => e.calcComment);
+    const awardHtml = (state.printMode === "personal" && calcItv) ? buildPrintAwardHtml(calcItv, allItvs) : "";
+    const cmtHtml = cmtItv?.calcComment ? `
+      <div class="print-comment">
+        <strong>✍️ 면담자 의견</strong>
+        <p>${nl(cmtItv.calcComment)}</p>
+      </div>` : "";
+
+    // 날짜/차수 종합
+    const dateAll = allItvs.map((e) => e.date).filter(Boolean).sort();
     const dateStr = dateAll.length > 1 ? `${dateAll[0]} ~ ${dateAll[dateAll.length - 1]}` : (dateAll[0] || "");
-    const seqs = [...new Set(itvs.map((e) => e.seq).filter(Boolean))];
+    const seqs = [...new Set(allItvs.map((e) => e.seq).filter(Boolean))];
     const seqTxt = seqs.length === 1 ? seqs[0] : (seqs.join(", ") || "");
+
+    const apvHtml = `
+      <div class="apv-wrap">
+        <div class="apv-box"><div class="apv-title">면담자</div><div class="apv-sign"></div></div>
+        <div class="apv-box"><div class="apv-title">조직파트장</div><div class="apv-sign"></div></div>
+        <div class="apv-box"><div class="apv-title">지역단장</div><div class="apv-sign"></div></div>
+      </div>`;
 
     const tableHdr = `
       <colgroup>
-        <col style="width:64px"><col style="width:46px"><col style="width:46px">
-        <col style="width:30px"><col style="width:28px"><col style="width:30px">
-        <col style="width:54px"><col style="width:42px"><col style="width:60px">
-        <col style="width:92px"><col style="width:58px"><col style="width:42px">
-        <col style="width:213px"><col style="width:44px">
+        <col style="width:72px"><col style="width:52px"><col style="width:52px">
+        <col style="width:34px"><col style="width:32px"><col style="width:34px">
+        <col style="width:58px"><col style="width:46px"><col style="width:64px">
+        <col style="width:96px"><col style="width:62px"><col style="width:46px">
+        <col style="width:225px"><col style="width:48px">
       </colgroup>
       <thead>
         <tr>
@@ -1731,70 +1895,72 @@
         <tr>
           <th>성명</th><th>구분</th><th>상담단계</th><th>활용자료</th><th>제안금액</th><th>보종</th>
         </tr>
-      </thead>
-    `;
+      </thead>`;
 
-    const apvHtml = `
-      <div class="apv-wrap no-print-on-copy">
-        <div class="apv-box"><div class="apv-title">면담자</div><div class="apv-sign"></div></div>
-        <div class="apv-box"><div class="apv-title">조직파트장</div><div class="apv-sign"></div></div>
-        <div class="apv-box"><div class="apv-title">지역단장</div><div class="apv-sign"></div></div>
-      </div>
-    `;
-
-    const rowHtml = (pageRows, includeStuCol) => pageRows.map((r, ri) => {
-      const isStuFirst = ri === 0 && includeStuCol;
-      const stuTds = isStuFirst ? `
-        <td rowspan="${pageRows.length}" class="stu-first">${escapeHtml(stuName)}</td>
-        <td rowspan="${pageRows.length}" class="stu-first-c">${stuIns}</td>
-        <td rowspan="${pageRows.length}" class="stu-first-c">${stuTgt}</td>` : "";
-      const itvTds = r.itvFirst ? `
-        <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.pct)}${r.seq ? `<div class="seq-sub">${escapeHtml(r.seq)}차</div>` : ""}</td>
-        <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.plan)}</td>
-        <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.hap)}</td>` : "";
-      const expTd = r.itvFirst ? `<td rowspan="${r.itvRows}" class="exp-c">${r.exp}</td>` : "";
-      return `<tr>
-        ${stuTds}${itvTds}
-        <td class="c-name">${escapeHtml(r.cName)}</td>
-        <td class="c-c">${r.cTypes}</td>
-        <td class="c-c">${r.cConsult}</td>
-        <td class="c-c">${r.cMaterial}</td>
-        <td class="c-amt">${r.cAmount}</td>
-        <td class="c-bj">${r.cBj}</td>
-        <td class="c-memo">${nl(r.cMemo)}</td>
-        ${expTd}
-      </tr>`;
-    }).join("");
-
-    const summaryHtml = `<tr class="sr">
-      <td class="c">합계</td>
-      <td class="c strong">${fn(sumIns)}</td>
-      <td class="c strong">${fn(sumTgt)}</td>
-      <td colspan="9" class="sr-text">
-        달성률 D(월평균/목표): <strong>${dRate}</strong> &nbsp;
-        L(예상/목표): <strong>${lRate}</strong> &nbsp;&nbsp;
-        잔여목표: <strong>${fn(remain)}천원</strong>
-      </td>
-      <td></td>
-      <td class="c strong">${fn(sumExp)}</td>
-    </tr>`;
-
-    // 시상계산기 블록 (가장 최근 calcTgt 보유 면담 기준)
-    const calcItv = itvs.slice().reverse().find((e) => e.calcTgt || e.calcAvg);
-    const cmtItv = itvs.slice().reverse().find((e) => e.calcComment);
-    const awardHtml = calcItv ? buildPrintAwardHtml(calcItv, itvs) : "";
-    const cmtHtml = cmtItv?.calcComment ? `
-      <div class="print-comment">
-        <strong>✍️ 면담자 의견</strong>
-        <p>${nl(cmtItv.calcComment)}</p>
-      </div>` : "";
-
-    return pages.map((pgRows, pi) => {
-      const isVeryFirst = pi === 0;
+    return pages.map((pgSlices, pi) => {
       const isLast = pi === pages.length - 1;
+      const isVeryFirst = isFirstGroup && pi === 0;
+
+      // 학생별 연속 행 그룹 정리 (같은 페이지 안에서 같은 학생 블록)
+      let tbody = "";
+      // pgSlices: [{blk, startRow, endRow, isFirst}]
+      // 같은 학생 연속 슬라이스를 합쳐 stuName rowspan 적용
+      // 한 페이지 내 같은 학생이 여러 조각으로 등장할 수 있으므로, 각 조각별 학생 헤더는 첫 조각에만.
+      const grouped = [];
+      pgSlices.forEach((slice) => {
+        const last = grouped[grouped.length - 1];
+        if (last && last.blk === slice.blk) {
+          last.endRow = slice.endRow;
+          last.count += (slice.endRow - slice.startRow);
+        } else {
+          grouped.push({ blk: slice.blk, startRow: slice.startRow, endRow: slice.endRow, count: slice.endRow - slice.startRow, isFirst: slice.isFirst });
+        }
+      });
+
+      grouped.forEach(({ blk, startRow, endRow, count, isFirst }) => {
+        const rows = blk.rows.slice(startRow, endRow);
+        tbody += rows.map((r, ri) => {
+          const isStuFirst = ri === 0;
+          const stuTds = isStuFirst ? `
+            <td rowspan="${count}" class="stu-first">${escapeHtml(blk.s.name || "")}</td>
+            <td rowspan="${count}" class="stu-first-c">${blk.stuIns}</td>
+            <td rowspan="${count}" class="stu-first-c">${blk.stuTgt}</td>` : "";
+          const itvTds = r.itvFirst ? `
+            <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.pct)}${r.seq ? `<div class="seq-sub">${escapeHtml(r.seq)}차</div>` : ""}</td>
+            <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.plan)}</td>
+            <td rowspan="${r.itvRows}" class="itv-c">${escapeHtml(r.hap)}</td>` : "";
+          const expTd = r.itvFirst ? `<td rowspan="${r.itvRows}" class="exp-c">${r.exp}</td>` : "";
+          return `<tr>
+            ${stuTds}${itvTds}
+            <td class="c-name">${escapeHtml(r.cName)}</td>
+            <td class="c-c">${r.cTypes}</td>
+            <td class="c-c">${r.cConsult}</td>
+            <td class="c-c">${r.cMaterial}</td>
+            <td class="c-amt">${r.cAmount}</td>
+            <td class="c-bj">${r.cBj}</td>
+            <td class="c-memo">${nl(r.cMemo)}</td>
+            ${expTd}
+          </tr>`;
+        }).join("");
+      });
+
+      const summaryHtml = isLast ? `<tr class="sr">
+        <td class="c">합계</td>
+        <td class="c strong">${fn(sumIns)}</td>
+        <td class="c strong">${fn(sumTgt)}</td>
+        <td colspan="9" class="sr-text">
+          달성률 D(월평균/목표): <strong>${dRate}</strong> &nbsp;
+          L(예상/목표): <strong>${lRate}</strong> &nbsp;&nbsp;
+          잔여목표: <strong>${fn(remain)}천원</strong>
+        </td>
+        <td></td>
+        <td class="c strong">${fn(sumExp)}</td>
+      </tr>` : "";
+
+      const brkClass = (pi === 0 && !isFirstGroup) ? " pg-break-before" : "";
       return `
         ${pi > 0 ? `<hr class="page-dashed-sep">` : ""}
-        <div class="print-page">
+        <div class="print-page${brkClass}">
           ${isVeryFirst ? `<div class="print-logo-wrap">
             <div class="print-logo-sub">고객컨설팅 MASTER과정 지점별 면담일지<br><small>비전센터장 활동관리 시스템</small></div>
           </div>` : ""}
@@ -1803,14 +1969,14 @@
             ${isVeryFirst ? apvHtml : ""}
           </div>
           <div class="doc-hdr">
-            <div><strong>비젼센터:</strong> ${escapeHtml(s.center || "")} &nbsp;&nbsp; <strong>지점명:</strong> ${escapeHtml(s.branch || "")}</div>
+            <div><strong>비젼센터:</strong> ${escapeHtml(group.vc || "")} &nbsp;&nbsp; <strong>지점명:</strong> ${escapeHtml(group.branch || "")}</div>
             <div><strong>면담일시:</strong> ${escapeHtml(dateStr)} &nbsp;<span class="pg-cnt">(${pi + 1}/${pages.length})</span></div>
           </div>
           <table class="dt">
             ${tableHdr}
             <tbody>
-              ${rowHtml(pgRows, true)}
-              ${isLast ? summaryHtml : ""}
+              ${tbody}
+              ${summaryHtml}
             </tbody>
           </table>
           ${isLast ? cmtHtml : ""}
