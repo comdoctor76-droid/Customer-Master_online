@@ -2611,48 +2611,144 @@
 
   function renderProgressAdmin(list) {
     const rows = list.slice().sort((a, b) => (a.branch || "").localeCompare(b.branch || "") || (a.name || "").localeCompare(b.name || ""));
+    const stats = rows.map(getProgressStat);
+    const total = stats.length;
+    const over5 = stats.filter((s) => s.net >= 50000).length;
+    const mid80 = stats.filter((s) => s.rate >= 80 && s.rate < 100).length;
+    const mid50 = stats.filter((s) => s.rate >= 50 && s.rate < 80).length;
+    const low50 = stats.filter((s) => s.rate < 50).length;
+    const avgR = total > 0 ? (stats.reduce((a, s) => a + s.rate, 0) / total) : 0;
+    const elig = stats.filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank).length;
+    const a5 = stats.filter((s) => s.net >= 500000).length;
+    const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
+    const cash = stats.filter((s) => s.net >= 50000 && s.net < 300000).length;
+    const exc = total - elig - over5 + a5 + a4; // 제외: 순증 5만 미만
+    const exclude = stats.filter((s) => s.net < 50000).length;
+    const today = new Date();
+    const baseDate = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+    const firstCohort = rows[0]?.cohort || "";
+    const cohortTitle = firstCohort ? `${firstCohort} ` : "";
+
     return `
       <div class="pg-wrap">
+        <!-- [1] 과정 기본 정보 카드 -->
+        <div class="pg-info-grid">
+          <div class="pg-info-card">
+            <h5>📘 과정 기본 정보</h5>
+            <dl>
+              <dt>과정명</dt><dd>${escapeHtml(cohortTitle)}고객마스터</dd>
+              <dt>지역단</dt><dd>${escapeHtml(state.progressRegion)}</dd>
+              <dt>기준일</dt><dd>${baseDate}</dd>
+              <dt>총 인원</dt><dd><strong>${total}명</strong></dd>
+            </dl>
+          </div>
+          <!-- [2] 달성 현황 카드 -->
+          <div class="pg-info-card">
+            <h5>🎯 달성 현황</h5>
+            <dl>
+              <dt>순증 5만원↑</dt><dd class="ok"><strong>${over5}명</strong></dd>
+              <dt>80~100%</dt><dd>${mid80}명</dd>
+              <dt>50~80%</dt><dd>${mid50}명</dd>
+              <dt>50% 미만</dt><dd class="warn">${low50}명</dd>
+              <dt>평균 달성률</dt><dd><strong>${avgR.toFixed(1)}%</strong></dd>
+            </dl>
+          </div>
+          <!-- [3] 시상 현황 카드 -->
+          <div class="pg-info-card">
+            <h5>🏆 시상 현황</h5>
+            <dl>
+              <dt>순증 30만원↑</dt><dd class="ok"><strong>${elig}명</strong></dd>
+              <dt>150% 지급</dt><dd>${a5}명</dd>
+              <dt>120% 지급</dt><dd>${a4}명</dd>
+              <dt>현금 시상</dt><dd>${cash}명</dd>
+              <dt>제외</dt><dd class="warn">${exclude}명</dd>
+            </dl>
+          </div>
+        </div>
+
+        <!-- [4] 안내 -->
         <div class="pg-admin-note">
           <strong>🔧 ${escapeHtml(state.progressRegion)} 실적 입력</strong>
           <p>현재실적(원) / 인품 계약건 / 인품 실적(원) 을 입력하고 [💾 저장] 을 누르세요. 기준실적은 교육생 등록화면에서 수정할 수 있어요.</p>
         </div>
+
+        <!-- [5] 현재실적 일괄 붙여넣기 -->
         <div class="pg-admin-paste">
-          <strong>📋 일괄 붙여넣기 — "이름 현재실적" (탭/공백 구분)</strong>
-          <textarea id="pg-paste" rows="5" placeholder="예) 정경화  2193493"></textarea>
+          <strong>📋 현재실적 일괄 붙여넣기 — "이름 현재실적" (탭/공백 구분)</strong>
+          <textarea id="pg-paste" rows="5" placeholder="예)
+정경화  2193493
+박희자  1500000"></textarea>
           <div class="pg-actions">
             <button class="btn-outline" id="btn-pg-paste-apply">📥 붙여넣기 반영</button>
             <button class="btn-outline small" id="btn-pg-paste-clear">🗑 초기화</button>
             <span id="pg-paste-msg" class="pg-msg"></span>
           </div>
         </div>
-        <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
-          <thead><tr>
-            <th>#</th><th>지점</th><th>성명</th>
-            <th>기준실적(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
-            <th>인품건</th><th>인품실적(원)</th>
-          </tr></thead>
-          <tbody>${rows.map((s, i) => {
-            const base = Number(s.base || 0);
-            const cur = Number(s.current || 0);
-            const net = cur - base;
-            const rate = base > 0 ? (cur / base) * 100 : 0;
-            return `<tr>
+
+        <!-- [6] 메인 편집 테이블 -->
+        <div class="pg-card">
+          <h4>✏️ 메인 편집 테이블 <small>(현재실적 / 인품건 / 인품실적 수정)</small></h4>
+          <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+            <thead><tr>
+              <th>#</th><th>지점</th><th>성명</th>
+              <th>기준실적(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
+              <th>인품건</th><th>인품실적(원)</th>
+            </tr></thead>
+            <tbody>${rows.map((s, i) => {
+              const base = Number(s.base || 0);
+              const cur = Number(s.current || 0);
+              const net = cur - base;
+              const rate = base > 0 ? (cur / base) * 100 : 0;
+              return `<tr>
+                <td>${i + 1}</td>
+                <td>${escapeHtml(s.branch || "")}</td>
+                <td><strong>${escapeHtml(s.name || "")}</strong></td>
+                <td class="r">${Nf(base)}</td>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}"></td>
+                <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
+                <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
+              </tr>`;
+            }).join("")}</tbody>
+          </table></div>
+          <div class="pg-actions" style="margin-top:12px;">
+            <button class="btn-primary" id="btn-pg-save">💾 저장 (Firestore)</button>
+            <span id="pg-save-msg" class="pg-msg"></span>
+          </div>
+        </div>
+
+        <!-- [7] 인품 데이터 편집 섹션 -->
+        <div class="pg-card pg-ipum-card">
+          <h4>✨ 인품 데이터 편집 <small>(신상품 계약건 / 신상품 실적)</small></h4>
+          <div class="pg-admin-paste">
+            <strong>📋 인품 붙여넣기 — "이름 인품건 인품실적" (탭/공백 구분)</strong>
+            <textarea id="pg-ipum-paste" rows="4" placeholder="예)
+정경화  3  450000
+박희자  2  300000"></textarea>
+            <div class="pg-actions">
+              <button class="btn-outline" id="btn-pg-ipum-paste-apply">📥 인품 붙여넣기 반영</button>
+              <button class="btn-outline small" id="btn-pg-ipum-paste-clear">🗑 초기화</button>
+              <span id="pg-ipum-paste-msg" class="pg-msg"></span>
+            </div>
+          </div>
+          <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+            <thead><tr>
+              <th>#</th><th>지점</th><th>성명</th>
+              <th>신상품 계약건</th><th>신상품 실적(원)</th>
+            </tr></thead>
+            <tbody>${rows.map((s, i) => `<tr>
               <td>${i + 1}</td>
               <td>${escapeHtml(s.branch || "")}</td>
               <td><strong>${escapeHtml(s.name || "")}</strong></td>
-              <td class="r">${Nf(base)}</td>
-              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}"></td>
-              <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
-              <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
-              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
-              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
-            </tr>`;
-          }).join("")}</tbody>
-        </table></div>
-        <div class="pg-actions" style="margin-top:12px;">
-          <button class="btn-primary" id="btn-pg-save">💾 저장 (Firestore)</button>
-          <span id="pg-save-msg" class="pg-msg"></span>
+              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
+              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
+            </tr>`).join("")}</tbody>
+          </table></div>
+          <div class="pg-actions" style="margin-top:12px;">
+            <button class="btn-primary" id="btn-pg-ipum-save">💾 인품 저장 (Firestore)</button>
+            <span id="pg-ipum-save-msg" class="pg-msg"></span>
+          </div>
         </div>
       </div>
     `;
@@ -2732,6 +2828,86 @@
     });
     const pasteClear = $("#btn-pg-paste-clear");
     if (pasteClear) pasteClear.addEventListener("click", () => { $("#pg-paste").value = ""; });
+
+    // 인품 테이블 ↔ 메인 테이블 동기화 (같은 empNo 의 두 입력을 동시 반영)
+    document.querySelectorAll("#progress-body .pg-input[data-f2]").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const emp = e.target.dataset.emp;
+        const f = e.target.dataset.f2; // "ipumCount" or "ipumAmt"
+        const twin = document.querySelector(`#progress-body .pg-input[data-emp="${emp}"][data-f="${f}"]`);
+        if (twin) twin.value = e.target.value;
+      });
+    });
+    document.querySelectorAll("#progress-body .pg-input[data-f='ipumCount'], #progress-body .pg-input[data-f='ipumAmt']").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const emp = e.target.dataset.emp;
+        const f = e.target.dataset.f;
+        const twin = document.querySelector(`#progress-body .pg-input[data-emp="${emp}"][data-f2="${f}"]`);
+        if (twin) twin.value = e.target.value;
+      });
+    });
+
+    // 인품 붙여넣기 반영: "이름 건수 실적"
+    const ipumPasteApply = $("#btn-pg-ipum-paste-apply");
+    if (ipumPasteApply) ipumPasteApply.addEventListener("click", () => {
+      const txt = $("#pg-ipum-paste").value;
+      let cnt = 0;
+      txt.split(/\r?\n/).forEach((line) => {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 3) return;
+        const name = parts[0];
+        const count = parseInt(parts[1].replace(/,/g, ""), 10);
+        const amt = parseInt(parts[parts.length - 1].replace(/,/g, ""), 10);
+        if (isNaN(count) || isNaN(amt)) return;
+        const s = list.find((x) => x.name === name);
+        if (s) {
+          ["f2", "f"].forEach((attr) => {
+            const cEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="ipumCount"]`);
+            const aEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="ipumAmt"]`);
+            if (cEl) cEl.value = count;
+            if (aEl) aEl.value = amt;
+          });
+          cnt++;
+        }
+      });
+      const m = $("#pg-ipum-paste-msg");
+      if (m) { m.textContent = `✅ ${cnt}명 반영 (인품 저장 눌러 확정)`; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 4000); }
+    });
+    const ipumPasteClear = $("#btn-pg-ipum-paste-clear");
+    if (ipumPasteClear) ipumPasteClear.addEventListener("click", () => { $("#pg-ipum-paste").value = ""; });
+
+    // 인품 전용 저장 (ipumCount/ipumAmt 만 업데이트)
+    const ipumSaveBtn = $("#btn-pg-ipum-save");
+    if (ipumSaveBtn) ipumSaveBtn.addEventListener("click", async () => {
+      const updates = {};
+      document.querySelectorAll("#progress-body .pg-input[data-f2]").forEach((inp) => {
+        const emp = inp.dataset.emp;
+        const f = inp.dataset.f2;
+        if (!updates[emp]) updates[emp] = {};
+        updates[emp][f] = parseFloat(inp.value) || 0;
+      });
+      const msg = $("#pg-ipum-save-msg");
+      if (msg) msg.textContent = "저장중...";
+      ipumSaveBtn.disabled = true;
+      try {
+        const records = Object.keys(updates).map((emp) => {
+          const s = state.students.find((x) => x.empNo === emp);
+          return { ...s, ...updates[emp] };
+        });
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(records);
+        } else {
+          for (const r of records) await window.DataAPI.save(r);
+        }
+        if (msg) { msg.textContent = `✅ ${records.length}건 저장 완료`; msg.className = "pg-msg ok"; }
+        toast(`인품 ${records.length}건 저장 완료`, "success");
+      } catch (e) {
+        console.error(e);
+        if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      }
+      ipumSaveBtn.disabled = false;
+    });
   }
 
   // 학생 doc 저장 시 current/ipumCount/ipumAmt 도 포함되도록 확장

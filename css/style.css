@@ -2118,11 +2118,49 @@ body {
 .pg-admin-tbl th, .pg-admin-tbl td { padding: 4px 6px; }
 .pg-admin-tbl td { vertical-align: middle; }
 
+/* 관리자 상단 3분할 정보 카드 */
+.pg-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.pg-info-card {
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  padding: 12px 14px;
+  border-top: 3px solid var(--orange);
+}
+.pg-info-card h5 {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--line-soft);
+}
+.pg-info-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+.pg-info-card dt { color: var(--ink-3); font-weight: 600; }
+.pg-info-card dd { color: var(--navy); text-align: right; }
+.pg-info-card dd.ok { color: var(--success); }
+.pg-info-card dd.warn { color: var(--danger); }
+.pg-info-card dd strong { font-size: 14px; font-weight: 900; }
+
+/* 인품 편집 카드 강조 */
+.pg-ipum-card { border-top: 3px solid #B0006A; }
+.pg-ipum-card h4 { color: #B0006A; }
+
 /* 반응형 */
 @media (max-width: 900px) {
   .pg-kpi-card { grid-template-columns: repeat(3, 1fr); }
   .pg-kpi:nth-child(3n) { border-right: none; }
   .pg-grid2 { grid-template-columns: 1fr; }
+  .pg-info-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .pg-tier { min-width: 0; }
