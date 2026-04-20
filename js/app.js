@@ -3,6 +3,8 @@
 (function () {
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
+  // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
+  const APP_VERSION = "0.42";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3629,8 +3631,9 @@
       });
     });
 
-    // 설정 탭
-    const v = $("#app-version"); if (v) v.textContent = "20260418m";
+    // 설정 탭 / 푸터 — 앱 버전 (커밋마다 +0.01)
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420e)`;
+    const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
     $("#btn-export-json-all").addEventListener("click", () => exportJSON(state.students, "all"));
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
