@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.49";
+  const APP_VERSION = "0.50";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2575,6 +2575,67 @@
     const a5 = stats.filter((s) => s.net >= 500000).length;
     const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
 
+    // 그룹(지점) 순증 시상 — 지점별 달성률 평균
+    const groupMap = {};
+    stats.forEach((st) => {
+      const k = st.s.branch || "(미지정)";
+      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [] };
+      groupMap[k].base += st.base;
+      groupMap[k].current += st.current;
+      groupMap[k].members.push(st.s.name || "");
+    });
+    const groupRanking = Object.entries(groupMap).map(([name, g]) => ({
+      name,
+      rate: g.base > 0 ? (g.current / g.base) * 100 : 0,
+      members: g.members,
+      base: g.base,
+      current: g.current
+    })).sort((a, b) => b.rate - a.rate);
+
+    // TOP3 미리보기 행 (신장률/신장액/인품/그룹 공통)
+    const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
+      const rate = st.base > 0 ? (st.net / st.base) * 100 : 0;
+      const belowMin = st.net < PROGRESS_AWARDS.minNetForRank;
+      const prizeAmt = PROGRESS_AWARDS.rateTop10[i] || 0;
+      const prizeTxt = belowMin ? "기준미달 (시상 20만원)" :
+        (prizeAmt >= 100000 ? `시상 ${Math.round(prizeAmt/10000)}만원` : `주유권 ${Math.round(prizeAmt/10000)}만`);
+      return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
+        <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
+        <span class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> ${rate.toFixed(1)}%</span>
+        <span class="pg-pcard-prize ${belowMin?"pg-b-no":""}">${prizeTxt}</span>
+      </li>`;
+    }).join("");
+
+    const pcardAmtTop3 = byAmt.slice(0, 3).map((st, i) => {
+      const belowMin = st.net < PROGRESS_AWARDS.minNetForRank;
+      const prizeAmt = PROGRESS_AWARDS.amtTop10[i] || 0;
+      const prizeTxt = belowMin ? "기준미달" :
+        (prizeAmt >= 200000 ? `시상 ${Math.round(prizeAmt/10000)}만원` : `주유권 ${Math.round(prizeAmt/10000)}만`);
+      return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
+        <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
+        <span class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> ${st.net>=0?"+":""}${Nf(st.net)}원</span>
+        <span class="pg-pcard-prize ${belowMin?"pg-b-no":""}">${prizeTxt}</span>
+      </li>`;
+    }).join("");
+
+    const pcardIpumTop3 = byIpum.slice(0, 3).map((st, i) => {
+      const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i] || "";
+      return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
+        <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
+        <span class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> ${Nf(st.ipumAmt)}원</span>
+        <span class="pg-pcard-prize pg-b-p">${grade}</span>
+      </li>`;
+    }).join("") || `<li class="pg-pcard-empty">관리자 탭에서 인품 데이터를 입력하세요</li>`;
+
+    const pcardGroupTop3 = groupRanking.slice(0, 3).map((g, i) => {
+      const short = g.members.slice(0, 3).join("·") + (g.members.length > 3 ? "…" : "");
+      return `<li class="pg-pcard-row pg-pcard-group-row">
+        <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
+        <span class="pg-pcard-nm"><strong>${escapeHtml(g.name)}</strong><br><small>${escapeHtml(short)}</small></span>
+        <span class="pg-pcard-prize pg-b-g">${g.rate.toFixed(1)}%</span>
+      </li>`;
+    }).join("");
+
     // 시상안 박스 + KPI 영역
     return `
       <div class="pg-wrap">
@@ -2602,7 +2663,75 @@
           <div class="pg-kpi or"><div class="pgl">120% 지급</div><div class="pgv">${a4}명</div></div>
         </div>
 
-        <div class="pg-grid2">
+        <!-- 모바일 전용 TOP3 미리보기 카드 (2x2) — ≤640px 에서만 노출 -->
+        <div class="pg-mobile-grid">
+          <details class="pg-pcard pg-pcard-rate" data-pcard="rate">
+            <summary>
+              <div class="pg-pcard-head">
+                <div class="pg-pcard-icon">📈</div>
+                <div class="pg-pcard-titles">
+                  <h5>최고 신장률 TOP10</h5>
+                  <p>기준실적 대비 순증률</p>
+                </div>
+                <span class="pg-pcard-chev">›</span>
+              </div>
+              <ol class="pg-top3-list">${pcardRateTop3}</ol>
+            </summary>
+            <div class="pg-pcard-full">${renderProgressTop10(rateFinalList, "rate")}</div>
+          </details>
+
+          <details class="pg-pcard pg-pcard-amt" data-pcard="amt">
+            <summary>
+              <div class="pg-pcard-head">
+                <div class="pg-pcard-icon">💰</div>
+                <div class="pg-pcard-titles">
+                  <h5>최고 신장액 TOP10</h5>
+                  <p>순증 금액 절대값</p>
+                </div>
+                <span class="pg-pcard-chev">›</span>
+              </div>
+              <ol class="pg-top3-list">${pcardAmtTop3}</ol>
+            </summary>
+            <div class="pg-pcard-full">${renderProgressTop10(byAmt, "amt")}</div>
+          </details>
+
+          <details class="pg-pcard pg-pcard-ipum" data-pcard="ipum">
+            <summary>
+              <div class="pg-pcard-head">
+                <div class="pg-pcard-icon">✨</div>
+                <div class="pg-pcard-titles">
+                  <h5>인품왕 TOP10</h5>
+                  <p>신상품 판매액</p>
+                </div>
+                <span class="pg-pcard-chev">›</span>
+              </div>
+              <ol class="pg-top3-list">${pcardIpumTop3}</ol>
+            </summary>
+            <div class="pg-pcard-full">${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`}</div>
+          </details>
+
+          <details class="pg-pcard pg-pcard-group" data-pcard="group">
+            <summary>
+              <div class="pg-pcard-head">
+                <div class="pg-pcard-icon">🏅</div>
+                <div class="pg-pcard-titles">
+                  <h5>그룹 순증 시상</h5>
+                  <p>지점별 인보험 순증</p>
+                </div>
+                <span class="pg-pcard-chev">›</span>
+              </div>
+              <ol class="pg-top3-list">${pcardGroupTop3}</ol>
+            </summary>
+            <div class="pg-pcard-full">
+              <table class="pg-tbl">
+                <thead><tr><th>#</th><th>지점</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead>
+                <tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i+1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+
+        <div class="pg-grid2 pg-desktop-only">
           <div class="pg-card">
             <h4>📈 신장률 TOP10 <small>(신장액 TOP2 제외)</small></h4>
             ${renderProgressTop10(rateFinalList, "rate")}
@@ -2613,12 +2742,12 @@
           </div>
         </div>
 
-        <div class="pg-card">
+        <div class="pg-card pg-desktop-only">
           <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
           ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`}
         </div>
 
-        <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
+        <div class="pg-card pg-full-tbl-card pg-desktop-only" id="pg-full-tbl-card">
           <h4>📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
           </h4>
@@ -2675,6 +2804,14 @@
   function bindProgressHomeEvents(list) {
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
       tr.addEventListener("click", () => openProgressStudentPopup(tr.dataset.emp));
+    });
+    // 모바일 TOP3 미리보기 카드의 이름 행 클릭 → 팝업
+    document.querySelectorAll("#progress-body .pg-pcard-row[data-emp]").forEach((row) => {
+      row.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        openProgressStudentPopup(row.dataset.emp);
+      });
     });
     // 모바일: 전체 실적표 접기/펼치기
     const fullCard = document.getElementById("pg-full-tbl-card");
@@ -3741,7 +3878,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
