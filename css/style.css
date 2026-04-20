@@ -104,7 +104,25 @@ body {
 .top-nav a:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .top-nav a.active { background: var(--orange); color: #fff; }
 
-.header-actions { margin-left: auto; }
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.btn-hard-refresh {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease, background 0.2s ease;
+}
+.btn-hard-refresh:hover { background: rgba(255, 255, 255, 0.32); transform: rotate(90deg); }
+.btn-hard-refresh:active { transform: rotate(360deg); }
+.btn-hard-refresh.spinning { animation: hrf-spin 0.8s linear infinite; }
+@keyframes hrf-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .conn-badge {
   background: rgba(255, 255, 255, 0.18);
   color: #fff;

@@ -3460,6 +3460,32 @@
 
   // ========== 초기화 ==========
   function bindEvents() {
+    // 상단 헤더 — 캐시 초기화 후 새로고침
+    const hrBtn = $("#btn-hard-refresh");
+    if (hrBtn) hrBtn.addEventListener("click", async () => {
+      if (!confirm("캐시를 초기화하고 페이지를 새로고침 합니다. 계속할까요?")) return;
+      hrBtn.classList.add("spinning");
+      hrBtn.disabled = true;
+      try {
+        // 1) Service Worker 등록 전체 해제
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        // 2) Cache Storage 전체 삭제
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+      } catch (e) {
+        console.warn("[hard-refresh] 캐시 정리 중 오류:", e);
+      }
+      // 3) 쿼리스트링에 타임스탬프 붙여 강제 새로고침
+      const url = new URL(window.location.href);
+      url.searchParams.set("_r", Date.now().toString());
+      window.location.replace(url.toString());
+    });
+
     // 사이드바 인라인 셀렉트
     populateFilterRegionSelect();
     $("#filter-region-select").addEventListener("change", (e) => {
