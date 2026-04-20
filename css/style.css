@@ -2595,6 +2595,50 @@ body {
 .toast.success { background: var(--success); }
 .toast.error { background: var(--danger); }
 
+/* 휴대폰 전용 하단 메인 메뉴 — 기본 숨김, 좁은 폰 해상도에서만 노출 */
+.mobile-bottom-nav { display: none; }
+@media (max-width: 640px) {
+  .mobile-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: #fff;
+    border-top: 1px solid var(--line-soft);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .mbn-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 2px;
+    text-decoration: none;
+    color: var(--ink-3);
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+  .mbn-btn .mbn-icon { font-size: 18px; line-height: 1; }
+  .mbn-btn .mbn-label { font-size: 10px; letter-spacing: -0.2px; }
+  .mbn-btn:hover { background: var(--bg-soft); }
+  .mbn-btn:active { transform: scale(0.95); }
+  .mbn-btn.active {
+    color: var(--orange);
+    background: var(--orange-light);
+    font-weight: 800;
+  }
+  /* 바텀 바가 컨텐츠를 가리지 않도록 하단 여백 확보 */
+  body { padding-bottom: 72px; }
+  .app-footer { margin-bottom: 8px; }
+}
+
 /* 반응형 */
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 1fr; }

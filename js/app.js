@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.45";
+  const APP_VERSION = "0.46";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3571,6 +3571,14 @@
       });
     });
 
+    // 휴대폰 하단 바 — 같은 switchView 재사용
+    $$(".mobile-bottom-nav .mbn-btn").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        switchView(a.getAttribute("href") || "#dashboard");
+      });
+    });
+
     // 등록 버튼
     $("#btn-open-add").addEventListener("click", () => {
       resetForm();
@@ -3642,7 +3650,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -3875,8 +3883,8 @@
       }
       sessionStorage.setItem("adminAuth", "1");
     }
-    // nav active 토글
-    $$(".top-nav a").forEach((a) => {
+    // nav active 토글 (데스크톱 상단 + 모바일 하단 동시)
+    $$(".top-nav a, .mobile-bottom-nav .mbn-btn").forEach((a) => {
       a.classList.toggle("active", a.getAttribute("href") === href);
     });
     // 모든 view-panel 숨기고 target 만 노출
