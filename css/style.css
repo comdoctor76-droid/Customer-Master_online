@@ -2270,6 +2270,59 @@ body {
 .pg-ipum-card { border-top: 3px solid #B0006A; }
 .pg-ipum-card h4 { color: #B0006A; }
 
+/* 팀 배정 섹션 */
+.pg-team-accordion summary { border-left-color: #6A3EC8; }
+.pg-team-accordion .pg-ac-title { color: #6A3EC8; }
+.pg-team-accordion .pg-ac-chev { color: #6A3EC8; }
+.pg-team-accordion summary:hover { background: #F0E8FF; }
+.pg-team-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: #F7F3FF;
+  border-radius: var(--radius-s);
+  margin-bottom: 12px;
+}
+.pg-team-count-label { font-size: 12px; font-weight: 700; color: var(--navy); }
+.pg-team-summary { margin-bottom: 12px; }
+.pg-team-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.pg-team-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  border-left: 3px solid #6A3EC8;
+}
+.pg-team-rank {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.pg-team-rank.r1 { background: #FFD700; color: #5A3C00; }
+.pg-team-rank.r2 { background: #C0C0C0; color: #333; }
+.pg-team-rank.r3 { background: #CD7F32; color: #fff; }
+.pg-team-rank.rt { background: var(--blue-bg); color: var(--navy); }
+.pg-team-info { flex: 1; min-width: 0; }
+.pg-team-name { font-size: 13px; font-weight: 800; color: var(--navy); }
+.pg-team-name small { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.pg-team-mem { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-team-stat { text-align: right; flex-shrink: 0; }
+.pg-team-rate { font-size: 16px; font-weight: 900; color: var(--orange); font-family: "Consolas", "Menlo", monospace; }
+.pg-team-net { font-size: 11px; font-weight: 700; font-family: "Consolas", "Menlo", monospace; }
+.pg-team-input { min-width: 70px; text-align: center; }
+
 /* 관리자 편집 아코디언 */
 .pg-accordion {
   background: #fff;

@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.50";
+  const APP_VERSION = "0.51";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2575,10 +2575,14 @@
     const a5 = stats.filter((s) => s.net >= 500000).length;
     const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
 
-    // 그룹(지점) 순증 시상 — 지점별 달성률 평균
+    // 그룹 시상 — team 필드가 설정된 학생이 있으면 team 기준, 아니면 branch(지점)
+    const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
+    const groupKeyFn = hasAnyTeam
+      ? ((s) => (s.s.team || "").toString().trim() || "(팀 미배정)")
+      : ((s) => s.s.branch || "(미지정)");
     const groupMap = {};
     stats.forEach((st) => {
-      const k = st.s.branch || "(미지정)";
+      const k = groupKeyFn(st);
       if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [] };
       groupMap[k].base += st.base;
       groupMap[k].current += st.current;
@@ -2591,6 +2595,7 @@
       base: g.base,
       current: g.current
     })).sort((a, b) => b.rate - a.rate);
+    const groupLabel = hasAnyTeam ? "팀별 인보험 순증" : "지점별 인보험 순증 (팀 미배정)";
 
     // TOP3 미리보기 행 (신장률/신장액/인품/그룹 공통)
     const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
@@ -2716,7 +2721,7 @@
                 <div class="pg-pcard-icon">🏅</div>
                 <div class="pg-pcard-titles">
                   <h5>그룹 순증 시상</h5>
-                  <p>지점별 인보험 순증</p>
+                  <p>${escapeHtml(groupLabel)}</p>
                 </div>
                 <span class="pg-pcard-chev">›</span>
               </div>
@@ -2724,7 +2729,7 @@
             </summary>
             <div class="pg-pcard-full">
               <table class="pg-tbl">
-                <thead><tr><th>#</th><th>지점</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead>
+                <thead><tr><th>#</th><th>${hasAnyTeam ? "팀" : "지점"}</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead>
                 <tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i+1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody>
               </table>
             </div>
@@ -3001,6 +3006,104 @@
             </div>
           </div>
         </details>
+
+        <!-- [8] 팀 배정 섹션 -->
+        <details class="pg-accordion pg-team-accordion">
+          <summary>
+            <span class="pg-ac-title">🏅 팀 배정</span>
+            <span class="pg-ac-sub">— 그룹 순증 시상용 팀 구성</span>
+            <span class="pg-ac-chev">▾</span>
+          </summary>
+          <div class="pg-ac-body">
+            <div class="pg-team-controls">
+              <label class="pg-team-count-label">팀 수
+                <input type="number" id="pg-team-count" min="2" max="20" value="8" style="width:60px;margin-left:6px;">
+              </label>
+              <button class="btn-outline" id="btn-pg-team-auto">🎲 자동 배정 (랜덤 고르게)</button>
+              <button class="btn-outline small" id="btn-pg-team-clear">🗑 전체 초기화</button>
+              <span id="pg-team-msg" class="pg-msg"></span>
+            </div>
+            <div class="pg-team-summary" id="pg-team-summary">
+              <!-- 팀별 합산 실적 박스 (실시간) -->
+            </div>
+            <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+              <thead><tr>
+                <th>#</th><th>지점</th><th>성명</th>
+                <th>기준실적</th><th>현재실적</th><th>팀</th>
+              </tr></thead>
+              <tbody>${rows.map((s, i) => {
+                const base = Number(s.base || 0);
+                const cur = Number(s.current || 0);
+                return `<tr>
+                  <td>${i + 1}</td>
+                  <td>${escapeHtml(s.branch || "")}</td>
+                  <td><strong>${escapeHtml(s.name || "")}</strong></td>
+                  <td class="r">${Nf(base)}</td>
+                  <td class="r">${Nf(cur)}</td>
+                  <td><input type="text" class="pg-input pg-team-input" data-emp="${escapeHtml(s.empNo)}" value="${escapeHtml(s.team || "")}" placeholder="예) 1팀"></td>
+                </tr>`;
+              }).join("")}</tbody>
+            </table></div>
+            <div class="pg-actions" style="margin-top:12px;">
+              <button class="btn-primary" id="btn-pg-team-save">💾 팀 배정 저장 (Firestore)</button>
+              <span id="pg-team-save-msg" class="pg-msg"></span>
+            </div>
+          </div>
+        </details>
+      </div>
+    `;
+  }
+
+  // 팀별 합산 실적 계산 — 입력 중인 현재값(DOM) 반영
+  function computeTeamSummary(list) {
+    const byTeam = {};
+    list.forEach((s) => {
+      const inp = document.querySelector(`#progress-body .pg-team-input[data-emp="${s.empNo}"]`);
+      const team = (inp ? inp.value : s.team || "").toString().trim();
+      if (!team) return;
+      if (!byTeam[team]) byTeam[team] = { base: 0, current: 0, members: [] };
+      byTeam[team].base += Number(s.base || 0);
+      byTeam[team].current += Number(s.current || 0);
+      byTeam[team].members.push(s.name || "");
+    });
+    return byTeam;
+  }
+
+  function renderTeamSummary(list) {
+    const box = document.getElementById("pg-team-summary");
+    if (!box) return;
+    const byTeam = computeTeamSummary(list);
+    const keys = Object.keys(byTeam).sort((a, b) => {
+      // "1팀", "2팀"... 숫자 우선 정렬
+      const na = parseInt(a, 10), nb = parseInt(b, 10);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+    if (!keys.length) {
+      box.innerHTML = `<div class="pg-empty">팀 배정된 교육생이 없습니다. 아래 표의 "팀" 칸에 값을 입력하면 자동 집계됩니다.</div>`;
+      return;
+    }
+    const ranked = keys.map((k) => {
+      const g = byTeam[k];
+      const rate = g.base > 0 ? (g.current / g.base) * 100 : 0;
+      const net = g.current - g.base;
+      return { name: k, ...g, rate, net };
+    }).sort((a, b) => b.rate - a.rate);
+    box.innerHTML = `
+      <div class="pg-team-cards">
+        ${ranked.map((g, i) => `
+          <div class="pg-team-card">
+            <div class="pg-team-rank ${i===0?"r1":i===1?"r2":i===2?"r3":"rt"}">${i+1}</div>
+            <div class="pg-team-info">
+              <div class="pg-team-name">${escapeHtml(g.name)} <small>(${g.members.length}명)</small></div>
+              <div class="pg-team-mem" title="${escapeHtml(g.members.join(", "))}">${escapeHtml(g.members.slice(0, 4).join("·"))}${g.members.length > 4 ? "…" : ""}</div>
+            </div>
+            <div class="pg-team-stat">
+              <div class="pg-team-rate">${g.rate.toFixed(1)}%</div>
+              <div class="pg-team-net ${g.net >= 0 ? "pg-net-p" : "pg-net-m"}">${g.net >= 0 ? "+" : ""}${Nf(g.net)}</div>
+            </div>
+          </div>
+        `).join("")}
       </div>
     `;
   }
@@ -3158,6 +3261,75 @@
         toast("저장 실패: " + e.message, "error");
       }
       ipumSaveBtn.disabled = false;
+    });
+
+    // ========== 팀 배정 ==========
+    // 초기 요약
+    renderTeamSummary(list);
+
+    // 팀 입력 실시간 반영
+    document.querySelectorAll("#progress-body .pg-team-input").forEach((inp) => {
+      inp.addEventListener("input", () => renderTeamSummary(list));
+    });
+
+    // 자동 배정 (N 팀으로 랜덤 균등 분배)
+    const autoBtn = $("#btn-pg-team-auto");
+    if (autoBtn) autoBtn.addEventListener("click", () => {
+      const nInp = $("#pg-team-count");
+      const n = Math.max(2, Math.min(20, parseInt(nInp ? nInp.value : "8", 10) || 8));
+      if (!confirm(`현재 ${list.length}명을 ${n}개 팀으로 랜덤하게 고르게 배정합니다. 기존 배정은 덮어쓰여요. 계속할까요?`)) return;
+      // Fisher-Yates shuffle
+      const shuffled = list.slice();
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      shuffled.forEach((s, idx) => {
+        const teamNo = (idx % n) + 1;
+        const teamName = `${teamNo}팀`;
+        const inp = document.querySelector(`#progress-body .pg-team-input[data-emp="${s.empNo}"]`);
+        if (inp) inp.value = teamName;
+      });
+      renderTeamSummary(list);
+      const msg = $("#pg-team-msg");
+      if (msg) { msg.textContent = `✅ ${n}개 팀으로 고르게 배정 완료 (저장 버튼을 눌러 확정)`; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 4000); }
+    });
+
+    // 전체 초기화
+    const clrBtn = $("#btn-pg-team-clear");
+    if (clrBtn) clrBtn.addEventListener("click", () => {
+      if (!confirm("모든 교육생의 팀 배정을 비웁니다. 저장 버튼을 눌러야 반영됩니다. 계속할까요?")) return;
+      document.querySelectorAll("#progress-body .pg-team-input").forEach((inp) => { inp.value = ""; });
+      renderTeamSummary(list);
+    });
+
+    // 팀 저장
+    const teamSaveBtn = $("#btn-pg-team-save");
+    if (teamSaveBtn) teamSaveBtn.addEventListener("click", async () => {
+      const updates = [];
+      document.querySelectorAll("#progress-body .pg-team-input").forEach((inp) => {
+        const emp = inp.dataset.emp;
+        const team = inp.value.trim();
+        const s = state.students.find((x) => x.empNo === emp);
+        if (!s) return;
+        // 변경된 것만 저장 (네트워크 최적화)
+        if ((s.team || "") !== team) updates.push({ ...s, team });
+      });
+      const msg = $("#pg-team-save-msg");
+      if (!updates.length) { if (msg) { msg.textContent = "변경된 팀 배정이 없습니다."; msg.className = "pg-msg"; } return; }
+      if (msg) msg.textContent = "저장중...";
+      teamSaveBtn.disabled = true;
+      try {
+        if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(updates);
+        else for (const r of updates) await window.DataAPI.save(r);
+        if (msg) { msg.textContent = `✅ ${updates.length}명 팀 배정 저장 완료`; msg.className = "pg-msg ok"; }
+        toast(`팀 배정 ${updates.length}건 저장 완료`, "success");
+      } catch (e) {
+        console.error(e);
+        if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      }
+      teamSaveBtn.disabled = false;
     });
   }
 
@@ -3878,7 +4050,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420n)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
