@@ -134,6 +134,8 @@ window.DataAPI = {
     if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
     if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
     if (student.curAct !== undefined)    record.curAct    = Number(student.curAct)    || 0;
+    // 팀 배정
+    if (student.team !== undefined)      record.team      = String(student.team || "");
     await setDoc(doc(db, "students", empNo), record, { merge: true });
   },
 
@@ -166,6 +168,7 @@ window.DataAPI = {
       if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
       if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
       if (student.curAct !== undefined)    record.curAct    = Number(student.curAct)    || 0;
+      if (student.team !== undefined)      record.team      = String(student.team || "");
       valid.push({ empNo, record });
     });
 
