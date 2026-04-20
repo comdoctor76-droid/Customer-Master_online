@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.52";
+  const APP_VERSION = "0.53";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2878,12 +2878,13 @@
           <div class="pg-dm-cell pg-dm-wide"><div class="pg-dm-l">🏆 예상 시상</div><div class="pg-dm-v" style="color:var(--orange);">${awdText}</div></div>
           ${st.ipumAmt ? `<div class="pg-dm-cell pg-dm-wide"><div class="pg-dm-l">✨ 인품 (신상품)</div><div class="pg-dm-v">${st.ipumCount}건 · ${Nf(st.ipumAmt)}원</div></div>` : ""}
         </div>
-      `
+      `,
+      closeLabel: "← 돌아가기"
     });
   }
 
   // 재사용 가능한 풀스크린 실적진도 모달
-  function openPgFullModal({ title, subtitle, bodyHTML }) {
+  function openPgFullModal({ title, subtitle, bodyHTML, closeLabel }) {
     let modal = document.getElementById("modal-pg-full");
     if (!modal) {
       modal = document.createElement("div");
@@ -2902,7 +2903,7 @@
           </div>
           <div class="modal-body pg-full-modal-body" id="pg-full-modal-body"></div>
           <div class="modal-foot">
-            <button class="btn-primary" data-close>닫기</button>
+            <button class="btn-primary" id="pg-full-modal-close" data-close>닫기</button>
           </div>
         </div>
       `;
@@ -2912,6 +2913,8 @@
     modal.querySelector("#pg-full-modal-title").innerHTML = title || "";
     modal.querySelector("#pg-full-modal-sub").innerHTML = subtitle || "";
     modal.querySelector("#pg-full-modal-body").innerHTML = bodyHTML || "";
+    const closeBtn = modal.querySelector("#pg-full-modal-close");
+    if (closeBtn) closeBtn.textContent = closeLabel || "닫기";
     modal.hidden = false;
     // 모달 내부에서도 이름 클릭 팝업 재바인딩 (중첩 팝업 허용)
     modal.querySelectorAll(".pg-tr-click, .pg-pcard-row[data-emp]").forEach((el) => {
@@ -4128,7 +4131,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420o)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420p)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));

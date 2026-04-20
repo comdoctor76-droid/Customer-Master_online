@@ -786,6 +786,20 @@ body {
 .pg-dm-l { font-size: 11px; color: var(--ink-3); font-weight: 600; margin-bottom: 4px; }
 .pg-dm-v { font-size: 18px; font-weight: 800; color: var(--navy); font-family: "Consolas", "Menlo", monospace; }
 
+/* 실적진도 모달 하단 닫기/돌아가기 버튼 */
+.pg-full-modal .modal-foot {
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  justify-content: center;
+}
+.pg-full-modal .modal-foot .btn-primary {
+  min-width: 160px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 @media (max-width: 640px) {
   .pg-full-modal-panel {
     width: 100vw;
