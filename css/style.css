@@ -1115,13 +1115,22 @@ body {
     border-top: 1px dashed var(--line);
   }
 
-  /* 모바일 공통: 한국어 이름이 한 글자씩 깨지는 현상 방지 */
+  /* 모바일 공통: 한국어 이름이 한 글자씩 깨지는 현상 방지 — body 전체 */
+  body, .panel-head h2, .sub-tab, .kpi-label, .kpi-sub,
   .s-name, .s-phone, .iv-title, .iv-sub, .card-title,
   .hist-card-head, .branch-name, .center-name, .pg-pcard-nm,
-  .pg-team-name, .mb-grade, .doc-hdr {
+  .pg-team-name, .mb-grade, .doc-hdr, .detail-card h3,
+  .modal-head h3, .pg-award-box h3, .pg-an, .pg-an-crit, .pg-an-warn,
+  .settings-section h3, .hist-card h4, .hi-dt, .hi-bg {
     word-break: keep-all;
     overflow-wrap: break-word;
   }
+
+  /* 출력 서브탭과 같은 가로 레이아웃 축소 */
+  .panel-head { padding: 12px 14px; gap: 8px; flex-wrap: wrap; }
+  .panel-head h2 { font-size: 14px; }
+  .sub-tabs { gap: 4px; }
+  .sub-tab { padding: 6px 10px; font-size: 12px; }
 }
 .detail-card {
   border: 1px solid var(--line-soft);
