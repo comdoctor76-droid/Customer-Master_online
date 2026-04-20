@@ -1731,6 +1731,11 @@
       const firstItv = itvs.find((e) => e.seq === "1") || itvs[0];
       const stuIns = fn(firstItv?.ins);
       const stuTgt = fn(firstItv?.tgt);
+      // 코칭포인트: 모든 면담의 seq·date·coach 를 합쳐 한 줄로
+      const coachText = itvs
+        .filter((e) => (e.coach || "").trim())
+        .map((e) => `${e.seq ? `[${e.seq}차] ` : ""}${e.coach.trim()}`)
+        .join("\n");
       const rows = [];
       itvs.forEach((e) => {
         const clients = validClients(e.clients);
@@ -1751,7 +1756,7 @@
           });
         }
       });
-      return { s, itvs, stuIns, stuTgt, rows };
+      return { s, itvs, stuIns, stuTgt, rows, coachText };
     });
 
     // 그룹 합계 계산
@@ -1890,6 +1895,11 @@
             ${expTd}
           </tr>`;
         }).join("");
+        // 학생 블록의 마지막 슬라이스라면 코칭포인트 행 추가 (전폭 14열)
+        const isLastSliceOfStudent = endRow === blk.rows.length;
+        if (isLastSliceOfStudent && blk.coachText) {
+          tbody += `<tr class="coach-row"><td colspan="14" class="coach-cell">📌 <strong>코칭포인트</strong> — ${nl(blk.coachText)}</td></tr>`;
+        }
       });
 
       const summaryHtml = isLast ? `<tr class="sr">
@@ -2435,14 +2445,14 @@
     renderKPIs(list);
     renderSidebarStudentList(list);
     // 통계 패널이 보일 때만 렌더 (숨겨진 DOM 재구성 비용 제거)
-    if (isPanelVisible("stats-panel")) renderStats(list);
+    if (isPanelVisible("dashboard-panel")) renderStats(list, "dashboard-body");
     // 학생 상세도 패널이 보일 때만 렌더
     if (state.selectedEmpNo && isPanelVisible("student-detail-panel")) renderStudentDetail();
   }
 
   // ========== 통계 렌더링 ==========
-  function renderStats(list) {
-    const body = $("#stats-body");
+  function renderStats(list, targetId) {
+    const body = targetId ? document.getElementById(targetId) : $("#dashboard-body") || $("#stats-body");
     const scope = $("#stats-scope");
     if (!body) return;
     const f = state.filter;
@@ -3199,12 +3209,22 @@
 
   function switchView(href) {
     const map = {
-      "#dashboard": null,            // KPI 만 표시
-      "#students":  "students",      // 교육생 면담 관리
-      "#stats":     "stats",         // 통계
-      "#settings":  "settings"       // 설정
+      "#dashboard": "dashboard",
+      "#students":  "students",
+      "#progress":  "progress",
+      "#stats":     "stats",
+      "#settings":  "settings"
     };
     const target = map[href];
+    // 관리자(설정) 진입 시 암호 체크 (세션 1회 인증으로 캐시)
+    if (target === "settings" && !sessionStorage.getItem("adminAuth")) {
+      const pwd = prompt("관리자 암호를 입력하세요:");
+      if (pwd !== "2051") {
+        toast("암호가 일치하지 않습니다.", "error");
+        return;
+      }
+      sessionStorage.setItem("adminAuth", "1");
+    }
     // nav active 토글
     $$(".top-nav a").forEach((a) => {
       a.classList.toggle("active", a.getAttribute("href") === href);
@@ -3214,17 +3234,12 @@
       p.hidden = (p.dataset.view !== target);
     });
     // 노출된 패널로 스크롤 + 해당 패널 최신 렌더 보장
-    if (target) {
-      const el = document.querySelector(`.view-panel[data-view="${target}"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (target === "stats") renderStats(filteredStudents());
-      if (target === "students" && state.selectedEmpNo) renderStudentDetail();
-      if (target === "students" && !state.selectedEmpNo) {
-        toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
-      }
-    } else {
-      const el = document.getElementById("dashboard");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const el = document.querySelector(`.view-panel[data-view="${target}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (target === "dashboard") renderStats(filteredStudents(), "dashboard-body");
+    if (target === "students" && state.selectedEmpNo) renderStudentDetail();
+    if (target === "students" && !state.selectedEmpNo) {
+      toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
     }
   }
 

@@ -1111,6 +1111,17 @@ body {
 .dt td.c-amt { font-weight: 700; color: var(--orange-dark); }
 .dt td.c-bj { font-weight: 700; color: #3a3a8c; }
 .dt td.c-memo { text-align: left; font-size: 11px; line-height: 1.4; padding: 3px 5px; }
+.dt tr.coach-row td.coach-cell {
+  background: #FFF8F5;
+  border-left: 3px solid var(--orange);
+  color: var(--ink);
+  text-align: left;
+  font-size: 11px;
+  line-height: 1.55;
+  padding: 6px 10px;
+  white-space: pre-wrap;
+}
+.dt tr.coach-row td.coach-cell strong { color: var(--orange-dark); }
 .dt tr.sr td { background: #FFF3E0; font-weight: 700; }
 .dt tr.sr td.sr-text { text-align: left; font-size: 11px; }
 .dt tr.sr td.c { text-align: center; }
@@ -1934,6 +1945,7 @@ body {
 #stats-panel { margin-bottom: 20px; }
 .stats-hint { color: rgba(255, 255, 255, 0.7); font-size: 12px; }
 .stats-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.progress-body { padding: 20px; }
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

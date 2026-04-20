@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260419a" />
+  <link rel="stylesheet" href="css/style.css?v=20260419c" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -23,8 +23,9 @@
       <nav class="top-nav">
         <a href="#dashboard" class="active">대시보드</a>
         <a href="#students">교육생 관리</a>
+        <a href="#progress">실적진도</a>
         <a href="#stats">통계</a>
-        <a href="#settings">설정</a>
+        <a href="#settings">관리자</a>
       </nav>
       <div class="header-actions">
         <span id="connection-status" class="conn-badge">연결중...</span>
@@ -100,8 +101,8 @@
         <p class="desc">전국 지역단 / 비전센터 / 지점 교육생 실적을 실시간으로 관리합니다.</p>
       </section>
 
-      <!-- 상단 KPI 카드 -->
-      <section class="kpi-grid" id="dashboard">
+      <!-- 상단 KPI 카드 (모든 뷰에서 공통으로 표시) -->
+      <section class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-label">전체 교육생</div>
           <div class="kpi-value" id="kpi-total">0</div>
@@ -127,7 +128,7 @@
       <!-- 설정 -->
       <section class="panel view-panel" id="settings-panel" data-view="settings" hidden>
         <div class="panel-head">
-          <h2>⚙️ 설정</h2>
+          <h2>🔐 관리자</h2>
         </div>
         <div class="settings-body">
           <div class="settings-section">
@@ -168,15 +169,31 @@
         </div>
       </section>
 
-      <!-- 통계 -->
-      <section class="panel view-panel" id="stats-panel" data-view="stats" hidden>
+      <!-- 대시보드 — 예전 통계 내용 이관 -->
+      <section class="panel view-panel" id="dashboard-panel" data-view="dashboard">
         <div class="panel-head">
-          <h2>📊 통계 — <span id="stats-scope">전체</span></h2>
+          <h2>📊 대시보드 — <span id="stats-scope">전체</span></h2>
           <div class="panel-tools">
             <button class="btn-outline small" id="btn-print-awards" title="현재 필터(지역단/비전센터/지점) 범위 교육생의 시상 예상답안지를 A4 한 장씩 출력합니다">🏆 시상안 출력</button>
           </div>
         </div>
-        <div id="stats-body" class="stats-body"></div>
+        <div id="dashboard-body" class="stats-body"></div>
+      </section>
+
+      <!-- 실적진도 -->
+      <section class="panel view-panel" id="progress-panel" data-view="progress" hidden>
+        <div class="panel-head"><h2>📈 실적진도</h2></div>
+        <div id="progress-body" class="progress-body">
+          <div class="empty-state">실적진도 기능 준비중입니다. 코드가 제공되면 연동 예정.</div>
+        </div>
+      </section>
+
+      <!-- 통계 (비움) -->
+      <section class="panel view-panel" id="stats-panel" data-view="stats" hidden>
+        <div class="panel-head"><h2>📊 통계</h2></div>
+        <div class="stats-body">
+          <div class="empty-state">이 영역은 별도 통계 지표를 위해 예약되어 있습니다.</div>
+        </div>
       </section>
 
       <!-- 교육생 면담 관리 -->
@@ -354,9 +371,9 @@
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260419a"></script>
-  <script src="js/data.js?v=20260419a"></script>
-  <script src="js/app.js?v=20260419a"></script>
+  <script type="module" src="js/firebase-config.js?v=20260419c"></script>
+  <script src="js/data.js?v=20260419c"></script>
+  <script src="js/app.js?v=20260419c"></script>
   <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </body>
