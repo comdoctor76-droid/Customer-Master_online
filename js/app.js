@@ -73,6 +73,9 @@
     studentSubView: "form",
     // 교육생 개별 선택 삭제 모달 상태
     sdSelected: new Set(),
+    // 실적진도 패널 상태
+    progressRegion: "",
+    progressSubTab: "home",
     // 출력 서브뷰
     printMode: "personal",     // 'personal' | 'branch' | 'vc'
     printConsultCache: {}      // { empNo: consultations[] } — 다건 출력시 캐시
@@ -2334,6 +2337,406 @@
     win.document.close();
   }
 
+  // ========== 실적진도 (Progress) ==========
+  // 교육생 doc 의 base(기준실적) / current(현재실적, 신규) / ipumCount / ipumAmt 사용
+  // 현재실적·인품실적이 없으면 0으로 처리
+  // 시상 규칙은 호남지역단 기준 하드코딩 상수 (추후 per-region override 가능)
+
+  const PROGRESS_AWARDS = {
+    // 순증액별 고정시상/비율시상 (원)
+    tiers: [
+      { min: 500000, type: "pct", val: 1.5 },
+      { min: 300000, type: "pct", val: 1.2 },
+      { min: 200000, type: "fixed", val: 200000 },
+      { min: 100000, type: "fixed", val: 100000 },
+      { min: 50000,  type: "fixed", val: 50000 }
+    ],
+    rateTop10: [300000, 200000, 200000, 50000, 50000, 50000, 50000, 50000, 50000, 50000], // 1위 30만 / 2~3위 20만 / 4~10위 주유권 5만
+    amtTop10:  [500000, 300000, 300000, 100000, 100000, 100000, 100000, 100000, 100000, 100000], // 1위 50만 / 2~3위 30만 / 4~10위 주유권 10만
+    minNetForRank: 300000 // 개인 기준: 순증 30만 이상
+  };
+
+  function openProgressRegionPicker() {
+    // 학생이 존재하는 지역단만 추출
+    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    if (!regions.length) { toast("등록된 교육생이 없습니다.", "error"); return; }
+    // 간단 모달 대신 prompt + select — 모달 재사용 대신 빠른 구현
+    openPickerModal("지역단 선택", regions, (picked) => {
+      state.progressRegion = picked;
+      document.getElementById("progress-region-label").textContent = picked;
+      renderProgressPanel();
+    });
+  }
+
+  // 간단 선택 모달 (목록 + 검색)
+  function openPickerModal(title, options, onPick) {
+    let modal = document.getElementById("modal-simple-picker");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-simple-picker";
+      modal.className = "modal";
+      modal.hidden = true;
+      modal.innerHTML = `
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-panel">
+          <div class="modal-head">
+            <h3 id="sp-title">선택</h3>
+            <button class="modal-close" data-close>&times;</button>
+          </div>
+          <div class="modal-body">
+            <input type="search" id="sp-search" class="modal-search" placeholder="검색...">
+            <ul class="org-list" id="sp-list"></ul>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
+      modal.querySelector("#sp-search").addEventListener("input", (e) => renderSpList(e.target.value));
+    }
+    modal._opts = options;
+    modal._onPick = onPick;
+    modal.querySelector("#sp-title").textContent = title;
+    modal.querySelector("#sp-search").value = "";
+    function renderSpList(q) {
+      const list = modal.querySelector("#sp-list");
+      const needle = (q || "").toLowerCase();
+      const filtered = modal._opts.filter((o) => o.toLowerCase().includes(needle));
+      list.innerHTML = filtered.map((name) => `<li data-v="${escapeHtml(name)}">${escapeHtml(name)}</li>`).join("") || `<li class="disabled">검색 결과 없음</li>`;
+      list.querySelectorAll("li[data-v]").forEach((li) => {
+        li.addEventListener("click", () => {
+          modal.hidden = true;
+          modal._onPick(li.dataset.v);
+        });
+      });
+    }
+    renderSpList("");
+    modal.hidden = false;
+    setTimeout(() => modal.querySelector("#sp-search").focus(), 50);
+  }
+
+  function renderProgressPanel() {
+    const body = $("#progress-body");
+    if (!body) return;
+    // 기본 지역단: progressRegion 없으면 filter.region 사용
+    if (!state.progressRegion) state.progressRegion = state.filter.region || "";
+    const label = document.getElementById("progress-region-label");
+    if (label) label.textContent = state.progressRegion || "지역단 선택";
+
+    if (!state.progressRegion) {
+      body.innerHTML = `<div class="empty-state">우상단 [🏢 지역단 선택] 버튼으로 지역단을 고르세요.</div>`;
+      return;
+    }
+    const list = state.students.filter((s) => s.region === state.progressRegion);
+    if (!list.length) {
+      body.innerHTML = `<div class="empty-state">${escapeHtml(state.progressRegion)} 에 등록된 교육생이 없습니다.</div>`;
+      return;
+    }
+
+    if (state.progressSubTab === "admin") {
+      body.innerHTML = renderProgressAdmin(list);
+      bindProgressAdminEvents(list);
+    } else {
+      body.innerHTML = renderProgressHome(list);
+      bindProgressHomeEvents(list);
+    }
+  }
+
+  // 학생 데이터에서 계산된 지표 얻기
+  function getProgressStat(s) {
+    const base = Number(s.base || 0);
+    const current = Number(s.current || 0);
+    const net = current - base;
+    const rate = base > 0 ? (current / base) * 100 : 0;
+    const ipumCount = Number(s.ipumCount || 0);
+    const ipumAmt = Number(s.ipumAmt || 0);
+    return { s, base, current, net, rate, ipumCount, ipumAmt };
+  }
+
+  function tierAward(net) {
+    for (const t of PROGRESS_AWARDS.tiers) {
+      if (net >= t.min) {
+        return t.type === "pct" ? Math.round(net * t.val) : t.val;
+      }
+    }
+    return 0;
+  }
+  function tierLabel(net) {
+    if (net >= 500000) return "150% 지급";
+    if (net >= 300000) return "120% 지급";
+    if (net >= 200000) return "20만원";
+    if (net >= 100000) return "10만원";
+    if (net >= 50000)  return "5만원";
+    return "-";
+  }
+  const Nf = (v) => Math.round(Number(v) || 0).toLocaleString();
+  const RB = (r) => {
+    if (!r) return `<span style="color:#ccc;font-size:10px;">-</span>`;
+    const cls = r === 1 ? "r1" : r === 2 ? "r2" : r === 3 ? "r3" : "rt";
+    return `<span class="pg-rb ${cls}">${r}</span>`;
+  };
+
+  function renderProgressHome(list) {
+    const stats = list.map(getProgressStat);
+    const total = stats.length;
+    const avgR = stats.reduce((a, s) => a + s.rate, 0) / total;
+    const over5 = stats.filter((s) => s.net >= 50000).length;
+    const elig = stats.filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank);
+    const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
+    const byAmt  = [...stats].sort((a, b) => b.net - a.net);
+    const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
+
+    // 신장액 TOP2 (기준 30만 이상)는 신장률 시상에서 제외
+    const amtExcludeIds = new Set(byAmt.slice(0, 2).filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank).map((s) => s.s.empNo));
+    const rateFinalList = byRate.filter((s) => !amtExcludeIds.has(s.s.empNo));
+
+    const a5 = stats.filter((s) => s.net >= 500000).length;
+    const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
+
+    // 시상안 박스 + KPI 영역
+    return `
+      <div class="pg-wrap">
+        <div class="pg-award-box">
+          <h3>📋 ${escapeHtml(state.progressRegion)} 고객마스터 활성화 시상안</h3>
+          <div class="pg-tier-row">
+            <div class="pg-tier"><div class="pg-tc">순증 5만원↑</div><div class="pg-tn">5만원</div></div>
+            <div class="pg-tier"><div class="pg-tc">순증 10만원↑</div><div class="pg-tn">10만원</div></div>
+            <div class="pg-tier"><div class="pg-tc">순증 20만원↑</div><div class="pg-tn">20만원</div></div>
+            <div class="pg-tier"><div class="pg-tc">순증 30만원↑</div><div class="pg-tn">120%</div></div>
+            <div class="pg-tier"><div class="pg-tc">순증 50만원↑</div><div class="pg-tn">150%</div></div>
+          </div>
+          <div class="pg-an"><strong>📈 신장률 TOP10:</strong> 1위 30만 / 2~3위 20만 / 4~10위 주유권 5만</div>
+          <div class="pg-an"><strong>💰 신장액 TOP10:</strong> 1위 50만 / 2~3위 30만 / 4~10위 주유권 10만</div>
+          <div class="pg-an-crit">⚠️ 개인 시상 기준: 기준실적 대비 <strong>순증 30만원 이상</strong> 달성자</div>
+          <div class="pg-an-warn">※ 신장률·신장액 중복시상 없음 — 신장액 TOP2 적용 시 신장률에서 제외</div>
+        </div>
+
+        <div class="pg-kpi-card">
+          <div class="pg-kpi"><div class="pgl">총 인원</div><div class="pgv">${total}명</div></div>
+          <div class="pg-kpi"><div class="pgl">평균 달성률</div><div class="pgv">${avgR.toFixed(1)}%</div></div>
+          <div class="pg-kpi g"><div class="pgl">5만원↑ 순증</div><div class="pgv">${over5}명</div></div>
+          <div class="pg-kpi gd"><div class="pgl">순증 30만↑</div><div class="pgv">${elig.length}명</div></div>
+          <div class="pg-kpi g"><div class="pgl">150% 지급</div><div class="pgv">${a5}명</div></div>
+          <div class="pg-kpi or"><div class="pgl">120% 지급</div><div class="pgv">${a4}명</div></div>
+        </div>
+
+        <div class="pg-grid2">
+          <div class="pg-card">
+            <h4>📈 신장률 TOP10 <small>(신장액 TOP2 제외)</small></h4>
+            ${renderProgressTop10(rateFinalList, "rate")}
+          </div>
+          <div class="pg-card">
+            <h4>💰 신장액 TOP10</h4>
+            ${renderProgressTop10(byAmt, "amt")}
+          </div>
+        </div>
+
+        <div class="pg-card">
+          <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
+          ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`}
+        </div>
+
+        <div class="pg-card">
+          <h4>📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small></h4>
+          <div class="pg-tbl-wrap"><table class="pg-tbl">
+            <thead><tr><th>순위</th><th>성명</th><th>지점</th><th>기준실적</th><th>현재실적</th><th>달성률</th><th>순증</th><th>시상</th></tr></thead>
+            <tbody>${byAmt.map((st, i) => {
+              const nc = st.rate >= 120 ? "pg-c-over" : st.rate >= 100 ? "pg-c-good" : st.rate >= 80 ? "pg-c-mid" : "pg-c-low";
+              const netC = st.net > 0 ? "pg-net-p" : st.net < 0 ? "pg-net-m" : "";
+              const aw = tierLabel(st.net);
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${Nf(st.base)}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${st.rate.toFixed(1)}%</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td>${aw}</td></tr>`;
+            }).join("")}</tbody>
+          </table></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProgressTop10(list, kind) {
+    const top = list.slice(0, 10);
+    if (!top.length) return `<div class="pg-empty">데이터 없음</div>`;
+    return `
+      <table class="pg-tbl">
+        <thead><tr><th>#</th><th>성명</th><th>지점</th><th>${kind === "ipum" ? "인품실적" : kind === "rate" ? "신장률" : "순증"}</th><th>시상</th></tr></thead>
+        <tbody>${top.map((st, i) => {
+          let value, prize;
+          if (kind === "ipum") {
+            value = Nf(st.ipumAmt) + "원";
+            const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i];
+            prize = grade ? `<span class="pg-bdg pg-b-p">${grade}</span>` : "-";
+          } else if (kind === "rate") {
+            const rate = st.base > 0 ? (st.net / st.base) * 100 : 0;
+            value = rate.toFixed(1) + "%";
+            if (st.net < PROGRESS_AWARDS.minNetForRank) {
+              prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+            } else {
+              const amt = PROGRESS_AWARDS.rateTop10[i] || 0;
+              prize = amt ? `<span class="pg-bdg pg-b-g">${amt >= 100000 ? Math.round(amt/10000)+"만원" : "주유권"+Math.round(amt/10000)+"만"}</span>` : "-";
+            }
+          } else {
+            value = (st.net >= 0 ? "+" : "") + Nf(st.net);
+            if (st.net < PROGRESS_AWARDS.minNetForRank) {
+              prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+            } else {
+              const amt = PROGRESS_AWARDS.amtTop10[i] || 0;
+              prize = amt ? `<span class="pg-bdg pg-b-g">${amt >= 200000 ? Math.round(amt/10000)+"만원" : "주유권"+Math.round(amt/10000)+"만"}</span>` : "-";
+            }
+          }
+          return `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${value}</td><td>${prize}</td></tr>`;
+        }).join("")}</tbody>
+      </table>
+    `;
+  }
+
+  function bindProgressHomeEvents(list) {
+    document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
+      tr.addEventListener("click", () => openProgressStudentPopup(tr.dataset.emp));
+    });
+  }
+
+  function openProgressStudentPopup(empNo) {
+    const s = state.students.find((x) => x.empNo === empNo);
+    if (!s) return;
+    const st = getProgressStat(s);
+    const netAwd = tierAward(st.net);
+    const msg = [
+      `${s.name || ""} (${s.branch || ""})`,
+      `기준실적: ${Nf(st.base)}원`,
+      `현재실적: ${Nf(st.current)}원`,
+      `달성률: ${st.rate.toFixed(1)}%`,
+      `순증: ${st.net >= 0 ? "+" : ""}${Nf(st.net)}원`,
+      `예상 시상: ${netAwd > 0 ? Nf(netAwd) + "원" : "해당없음"}`
+    ].join("\n");
+    alert(msg);
+  }
+
+  function renderProgressAdmin(list) {
+    const rows = list.slice().sort((a, b) => (a.branch || "").localeCompare(b.branch || "") || (a.name || "").localeCompare(b.name || ""));
+    return `
+      <div class="pg-wrap">
+        <div class="pg-admin-note">
+          <strong>🔧 ${escapeHtml(state.progressRegion)} 실적 입력</strong>
+          <p>현재실적(원) / 인품 계약건 / 인품 실적(원) 을 입력하고 [💾 저장] 을 누르세요. 기준실적은 교육생 등록화면에서 수정할 수 있어요.</p>
+        </div>
+        <div class="pg-admin-paste">
+          <strong>📋 일괄 붙여넣기 — "이름 현재실적" (탭/공백 구분)</strong>
+          <textarea id="pg-paste" rows="5" placeholder="예) 정경화  2193493"></textarea>
+          <div class="pg-actions">
+            <button class="btn-outline" id="btn-pg-paste-apply">📥 붙여넣기 반영</button>
+            <button class="btn-outline small" id="btn-pg-paste-clear">🗑 초기화</button>
+            <span id="pg-paste-msg" class="pg-msg"></span>
+          </div>
+        </div>
+        <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+          <thead><tr>
+            <th>#</th><th>지점</th><th>성명</th>
+            <th>기준실적(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
+            <th>인품건</th><th>인품실적(원)</th>
+          </tr></thead>
+          <tbody>${rows.map((s, i) => {
+            const base = Number(s.base || 0);
+            const cur = Number(s.current || 0);
+            const net = cur - base;
+            const rate = base > 0 ? (cur / base) * 100 : 0;
+            return `<tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(s.branch || "")}</td>
+              <td><strong>${escapeHtml(s.name || "")}</strong></td>
+              <td class="r">${Nf(base)}</td>
+              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}"></td>
+              <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
+              <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
+              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
+              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div>
+        <div class="pg-actions" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-pg-save">💾 저장 (Firestore)</button>
+          <span id="pg-save-msg" class="pg-msg"></span>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindProgressAdminEvents(list) {
+    // 실시간 계산 (현재실적 변경 시 달성률/순증 재계산)
+    document.querySelectorAll("#progress-body .pg-input[data-f='current']").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const emp = e.target.dataset.emp;
+        const s = state.students.find((x) => x.empNo === emp);
+        const base = Number(s?.base || 0);
+        const cur = parseFloat(e.target.value) || 0;
+        const net = cur - base;
+        const rate = base > 0 ? (cur / base) * 100 : 0;
+        const rateEl = document.querySelector(`[data-calc="rate-${emp}"]`);
+        const netEl = document.querySelector(`[data-calc="net-${emp}"]`);
+        if (rateEl) rateEl.textContent = rate.toFixed(1) + "%";
+        if (netEl) netEl.textContent = (net >= 0 ? "+" : "") + Nf(net);
+      });
+    });
+
+    // 저장
+    const saveBtn = $("#btn-pg-save");
+    if (saveBtn) saveBtn.addEventListener("click", async () => {
+      const updates = {};
+      document.querySelectorAll("#progress-body .pg-input").forEach((inp) => {
+        const emp = inp.dataset.emp;
+        const f = inp.dataset.f;
+        if (!updates[emp]) updates[emp] = {};
+        updates[emp][f] = parseFloat(inp.value) || 0;
+      });
+      const msg = $("#pg-save-msg");
+      if (msg) msg.textContent = "저장중...";
+      saveBtn.disabled = true;
+      try {
+        const records = Object.keys(updates).map((emp) => {
+          const s = state.students.find((x) => x.empNo === emp);
+          return { ...s, ...updates[emp] };
+        });
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(records);
+        } else {
+          for (const r of records) await window.DataAPI.save(r);
+        }
+        if (msg) { msg.textContent = `✅ ${records.length}건 저장 완료`; msg.className = "pg-msg ok"; }
+        toast(`${records.length}건 저장 완료`, "success");
+      } catch (e) {
+        console.error(e);
+        if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      }
+      saveBtn.disabled = false;
+    });
+
+    // 붙여넣기 반영
+    const pasteApply = $("#btn-pg-paste-apply");
+    if (pasteApply) pasteApply.addEventListener("click", () => {
+      const txt = $("#pg-paste").value;
+      let cnt = 0;
+      txt.split(/\r?\n/).forEach((line) => {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 2) return;
+        const name = parts[0];
+        const val = parseInt(parts[parts.length - 1].replace(/,/g, ""), 10);
+        if (isNaN(val)) return;
+        const s = list.find((x) => x.name === name);
+        if (s) {
+          // DOM input 에도 반영
+          const inp = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-f="current"]`);
+          if (inp) { inp.value = val; inp.dispatchEvent(new Event("input")); }
+          cnt++;
+        }
+      });
+      const m = $("#pg-paste-msg");
+      if (m) { m.textContent = `✅ ${cnt}명 반영 (저장 버튼 눌러 확정)`; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 4000); }
+    });
+    const pasteClear = $("#btn-pg-paste-clear");
+    if (pasteClear) pasteClear.addEventListener("click", () => { $("#pg-paste").value = ""; });
+  }
+
+  // 학생 doc 저장 시 current/ipumCount/ipumAmt 도 포함되도록 확장
+  // (DataAPI.save 는 이미 record 통째를 merge 하므로 추가 필드만 있으면 그대로 저장됨)
+
   // 이력 항목을 폼으로 불러와 수정 모드 진입
   function editInterview(consultId) {
     const c = state.consultations.find((x) => x.id === consultId);
@@ -2446,6 +2849,7 @@
     renderSidebarStudentList(list);
     // 통계 패널이 보일 때만 렌더 (숨겨진 DOM 재구성 비용 제거)
     if (isPanelVisible("dashboard-panel")) renderStats(list, "dashboard-body");
+    if (isPanelVisible("progress-panel")) renderProgressPanel();
     // 학생 상세도 패널이 보일 때만 렌더
     if (state.selectedEmpNo && isPanelVisible("student-detail-panel")) renderStudentDetail();
   }
@@ -2993,6 +3397,17 @@
     const awardBtn = $("#btn-print-awards");
     if (awardBtn) awardBtn.addEventListener("click", printAwardSheets);
 
+    // 실적진도 서브탭 + 지역단 선택
+    const progRegionBtn = $("#btn-progress-region");
+    if (progRegionBtn) progRegionBtn.addEventListener("click", openProgressRegionPicker);
+    document.querySelectorAll("#progress-panel .sub-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.progressSubTab = btn.dataset.psub;
+        document.querySelectorAll("#progress-panel .sub-tab").forEach((b) => b.classList.toggle("active", b.dataset.psub === state.progressSubTab));
+        renderProgressPanel();
+      });
+    });
+
     // 설정 탭
     const v = $("#app-version"); if (v) v.textContent = "20260418m";
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -3237,6 +3652,7 @@
     const el = document.querySelector(`.view-panel[data-view="${target}"]`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     if (target === "dashboard") renderStats(filteredStudents(), "dashboard-body");
+    if (target === "progress") renderProgressPanel();
     if (target === "students" && state.selectedEmpNo) renderStudentDetail();
     if (target === "students" && !state.selectedEmpNo) {
       toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");

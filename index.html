@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260419c" />
+  <link rel="stylesheet" href="css/style.css?v=20260419d" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -182,9 +182,18 @@
 
       <!-- 실적진도 -->
       <section class="panel view-panel" id="progress-panel" data-view="progress" hidden>
-        <div class="panel-head"><h2>📈 실적진도</h2></div>
+        <div class="panel-head">
+          <h2>📈 실적진도</h2>
+          <div class="panel-tools">
+            <button class="btn-outline small" id="btn-progress-region">🏢 <span id="progress-region-label">지역단 선택</span> ▾</button>
+            <div class="sub-tabs">
+              <button class="sub-tab active" data-psub="home">🏠 홈</button>
+              <button class="sub-tab" data-psub="admin">⚙️ 관리자</button>
+            </div>
+          </div>
+        </div>
         <div id="progress-body" class="progress-body">
-          <div class="empty-state">실적진도 기능 준비중입니다. 코드가 제공되면 연동 예정.</div>
+          <div class="empty-state">지역단을 선택하면 실적진도 현황이 표시됩니다.</div>
         </div>
       </section>
 
@@ -371,9 +380,9 @@
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260419c"></script>
-  <script src="js/data.js?v=20260419c"></script>
-  <script src="js/app.js?v=20260419c"></script>
+  <script type="module" src="js/firebase-config.js?v=20260419d"></script>
+  <script src="js/data.js?v=20260419d"></script>
+  <script src="js/app.js?v=20260419d"></script>
   <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </body>
