@@ -1945,7 +1945,190 @@ body {
 #stats-panel { margin-bottom: 20px; }
 .stats-hint { color: rgba(255, 255, 255, 0.7); font-size: 12px; }
 .stats-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
-.progress-body { padding: 20px; }
+
+/* ============ 실적진도 패널 ============ */
+.progress-body { padding: 16px 20px; }
+.pg-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+/* 시상안 박스 */
+.pg-award-box {
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  padding: 14px 16px;
+}
+.pg-award-box h3 { font-size: 13px; font-weight: 800; color: var(--orange); margin-bottom: 10px; }
+.pg-tier-row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.pg-tier {
+  flex: 1;
+  min-width: 110px;
+  text-align: center;
+  padding: 8px 4px;
+  background: var(--blue-bg);
+  border-radius: 6px;
+  border: 1px solid #BBDEFB;
+}
+.pg-tc { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.pg-tn { font-size: 13px; font-weight: 800; color: var(--orange); }
+.pg-an { font-size: 11px; color: var(--ink-2); padding: 2px 0; display: block; }
+.pg-an strong { color: var(--navy); font-weight: 700; }
+.pg-an-crit {
+  display: block;
+  background: var(--danger-bg);
+  color: var(--danger);
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  margin: 4px 0;
+  border: 1px solid #FFAAAA;
+}
+.pg-an-warn { display: block; font-size: 10px; color: var(--amber); font-weight: 600; margin-top: 2px; }
+
+/* KPI 카드 */
+.pg-kpi-card {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+.pg-kpi { padding: 10px 8px; border-right: 1px solid var(--line-soft); text-align: center; }
+.pg-kpi:last-child { border-right: none; }
+.pg-kpi .pgl { font-size: 11px; color: var(--ink-3); font-weight: 600; margin-bottom: 3px; }
+.pg-kpi .pgv { font-size: 18px; font-weight: 900; color: var(--navy); }
+.pg-kpi.g .pgv { color: var(--success); }
+.pg-kpi.gd .pgv { color: #7a5000; }
+.pg-kpi.or .pgv { color: var(--amber); }
+
+/* 2열 그리드 */
+.pg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pg-card {
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  padding: 12px 14px;
+}
+.pg-card h4 {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--orange);
+}
+.pg-card h4 small { font-size: 11px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+.pg-empty { text-align: center; color: var(--ink-3); padding: 14px; font-size: 12px; }
+
+/* 테이블 */
+.pg-tbl-wrap { overflow-x: auto; }
+.pg-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pg-tbl th {
+  background: var(--navy);
+  color: #fff;
+  padding: 6px 8px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+.pg-tbl td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: center;
+}
+.pg-tbl td.r { text-align: right; font-family: "Consolas", "Menlo", monospace; }
+.pg-tbl tr:nth-child(even) td { background: #F7FAFD; }
+.pg-tbl tr.pg-tr-click { cursor: pointer; }
+.pg-tbl tr.pg-tr-click:hover td { background: var(--orange-light); }
+.pg-c-over { color: #0040b0; font-weight: 900; }
+.pg-c-good { color: #006030; font-weight: 700; }
+.pg-c-mid { color: #884400; font-weight: 600; }
+.pg-c-low { color: #880000; }
+.pg-net-p { color: #0040b0; font-weight: 700; }
+.pg-net-m { color: #880000; }
+.pg-bdg {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pg-b-g { background: #FFF0B0; color: #5A3800; border: 1px solid #D4A800; }
+.pg-b-p { background: #FFE8F4; color: #B0006A; border: 1px solid #E080B0; }
+.pg-b-no { color: #888; }
+.pg-rb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+}
+.pg-rb.r1 { background: #FFD700; color: #5A3C00; }
+.pg-rb.r2 { background: #C0C0C0; color: #333; }
+.pg-rb.r3 { background: #CD7F32; color: #fff; }
+.pg-rb.rt { background: var(--blue-bg); color: var(--navy); }
+
+/* 관리자 서브탭 */
+.pg-admin-note {
+  background: var(--blue-bg);
+  border-left: 3px solid var(--blue);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+}
+.pg-admin-note strong { color: var(--blue); font-size: 13px; }
+.pg-admin-note p { margin-top: 4px; font-size: 12px; color: var(--ink-2); }
+.pg-admin-paste {
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  padding: 12px;
+}
+.pg-admin-paste strong { font-size: 13px; color: var(--navy); display: block; margin-bottom: 6px; }
+.pg-admin-paste textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+.pg-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.pg-msg { font-size: 12px; font-weight: 700; }
+.pg-msg.ok { color: var(--success); }
+.pg-msg.err { color: var(--danger); }
+
+.pg-input {
+  width: 100%;
+  min-width: 100px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: right;
+  font-family: inherit;
+}
+.pg-input:focus { outline: none; border-color: var(--orange); }
+
+.pg-admin-tbl th, .pg-admin-tbl td { padding: 4px 6px; }
+.pg-admin-tbl td { vertical-align: middle; }
+
+/* 반응형 */
+@media (max-width: 900px) {
+  .pg-kpi-card { grid-template-columns: repeat(3, 1fr); }
+  .pg-kpi:nth-child(3n) { border-right: none; }
+  .pg-grid2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .pg-tier { min-width: 0; }
+  .pg-tn { font-size: 11px; }
+  .pg-kpi-card { grid-template-columns: repeat(2, 1fr); }
+}
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

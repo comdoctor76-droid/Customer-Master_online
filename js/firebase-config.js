@@ -126,6 +126,12 @@ window.DataAPI = {
     if (student.tenureMonths !== undefined && student.tenureMonths !== "") {
       record.tenureMonths = Number(student.tenureMonths) || 0;
     }
+    // 실적진도용 확장 필드
+    if (student.current !== undefined)   record.current   = Number(student.current)   || 0;
+    if (student.ipumCount !== undefined) record.ipumCount = Number(student.ipumCount) || 0;
+    if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
+    if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
+    if (student.curAct !== undefined)    record.curAct    = Number(student.curAct)    || 0;
     await setDoc(doc(db, "students", empNo), record, { merge: true });
   },
 
@@ -153,6 +159,11 @@ window.DataAPI = {
       if (student.tenureMonths !== undefined && student.tenureMonths !== "") {
         record.tenureMonths = Number(student.tenureMonths) || 0;
       }
+      if (student.current !== undefined)   record.current   = Number(student.current)   || 0;
+      if (student.ipumCount !== undefined) record.ipumCount = Number(student.ipumCount) || 0;
+      if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
+      if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
+      if (student.curAct !== undefined)    record.curAct    = Number(student.curAct)    || 0;
       valid.push({ empNo, record });
     });
 
