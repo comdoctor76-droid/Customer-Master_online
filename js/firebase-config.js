@@ -33,6 +33,7 @@ import {
   orderBy,
   serverTimestamp,
   writeBatch,
+  increment,
   enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -281,6 +282,10 @@ window.DataAPI = {
       createdAt: serverTimestamp()
     };
     await addDoc(collection(db, "students", id, "consultations"), record);
+    // 사이드바 면담 횟수 배지용 카운터
+    try {
+      await setDoc(doc(db, "students", id), { consultCount: increment(1), updatedAt: serverTimestamp() }, { merge: true });
+    } catch (e) { console.warn("[Firebase] consultCount +1 실패:", e); }
   },
 
   // 면담 기록 수정 (Phase 4)
@@ -327,6 +332,16 @@ window.DataAPI = {
     const id = normalizeEmpNo(empNo);
     if (!id || !consultationId) return;
     await deleteDoc(doc(db, "students", id, "consultations", consultationId));
+    try {
+      await setDoc(doc(db, "students", id), { consultCount: increment(-1), updatedAt: serverTimestamp() }, { merge: true });
+    } catch (e) { console.warn("[Firebase] consultCount -1 실패:", e); }
+  },
+
+  // 기존 교육생의 consultCount 재계산 (자기치유: 구독 시 최신값으로 동기화)
+  async syncConsultCount(empNo, count) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) return;
+    await setDoc(doc(db, "students", id), { consultCount: Number(count) || 0 }, { merge: true });
   },
 
   // 교육생의 인보험 평균 동기화 (최근 면담값)
