@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260418x" />
+  <link rel="stylesheet" href="css/style.css?v=20260419a" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -150,9 +150,10 @@
 
           <div class="settings-section danger">
             <h3>위험 구역</h3>
-            <p class="settings-desc">현재 필터에 해당하는 교육생 데이터를 일괄 삭제합니다. 면담 기록은 Firestore 의 서브컬렉션에 남을 수 있습니다.</p>
+            <p class="settings-desc">교육생 데이터 삭제. 선택한 교육생의 <strong>면담 기록까지 함께</strong> 삭제됩니다. 복구 불가능.</p>
             <div class="settings-actions">
-              <button class="btn-outline danger" id="btn-delete-filtered">🗑️ 필터 대상 교육생 전체 삭제</button>
+              <button class="btn-outline danger" id="btn-open-student-delete">🗑️ 교육생 삭제 (개별 선택)</button>
+              <button class="btn-outline danger" id="btn-delete-filtered">🗑️ 필터 대상 일괄 삭제</button>
             </div>
           </div>
 
@@ -326,12 +327,36 @@
   </div>
 
   <!-- 알림 토스트 -->
+  <!-- 교육생 개별 선택 삭제 팝업 -->
+  <div class="modal" id="modal-student-delete" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel wide">
+      <div class="modal-head">
+        <h3>🗑️ 교육생 삭제 (개별 선택)</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="form-hint">체크한 교육생의 기본정보 + 모든 면담 기록이 함께 영구 삭제됩니다.</p>
+        <div class="sd-toolbar">
+          <input type="search" id="sd-search" placeholder="이름·사번·지점 검색" class="side-input">
+          <span class="sd-cnt"><strong id="sd-sel-cnt">0</strong>명 선택 / 전체 <strong id="sd-total">0</strong>명</span>
+          <button class="btn-outline small" id="btn-sd-clear">선택 해제</button>
+        </div>
+        <div id="sd-list" class="sd-list"><div class="empty-mini">불러오는 중...</div></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-outline" data-close>취소</button>
+        <button class="btn-outline danger" id="btn-sd-delete" disabled>🗑️ 선택 교육생 삭제</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260418x"></script>
-  <script src="js/data.js?v=20260418x"></script>
-  <script src="js/app.js?v=20260418x"></script>
+  <script type="module" src="js/firebase-config.js?v=20260419a"></script>
+  <script src="js/data.js?v=20260419a"></script>
+  <script src="js/app.js?v=20260419a"></script>
   <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </body>

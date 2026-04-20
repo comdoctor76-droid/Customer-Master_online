@@ -183,6 +183,24 @@ window.DataAPI = {
     await deleteDoc(doc(db, "students", id));
   },
 
+  // 교육생 + 모든 면담기록 원자적 삭제 (서브컬렉션 포함)
+  async removeStudentWithConsultations(empNo) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) return;
+    const consultRef = collection(db, "students", id, "consultations");
+    const snap = await getDocs(consultRef);
+    // 최대 500 batch 제한 고려 (면담 + 학생 = N+1)
+    const CHUNK = 450;
+    const docs = [];
+    snap.forEach((d) => docs.push(d.ref));
+    for (let i = 0; i < docs.length; i += CHUNK) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+    await deleteDoc(doc(db, "students", id));
+  },
+
   // ========== 면담 기록 ==========
   // 특정 교육생의 면담 기록 실시간 구독
   subscribeConsultations(empNo, callback) {
