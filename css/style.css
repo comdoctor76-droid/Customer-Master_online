@@ -1071,6 +1071,58 @@ body {
   .sib-stats { padding-left: 10px; gap: 10px; }
   .sib-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
 }
+/* 모바일: 교육생 정보 바 수직 스택 + 아바타 제거 + 이름 가로 표시 */
+@media (max-width: 640px) {
+  .student-info-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+    flex-wrap: nowrap;
+  }
+  .sib-avatar { display: none; }
+  .sib-main { width: 100%; flex: 0 0 auto; }
+  .sib-name {
+    font-size: 17px;
+    flex-wrap: wrap;
+    gap: 6px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .sib-meta {
+    white-space: normal;
+    word-break: keep-all;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .sib-stats {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 10px;
+    border-left: none;
+    border-top: 1px dashed var(--line);
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .sib-stats > div { align-items: flex-start; flex: 1; min-width: 0; font-size: 10.5px; }
+  .sib-stats strong { font-size: 15px; white-space: nowrap; }
+  .sib-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+  }
+
+  /* 모바일 공통: 한국어 이름이 한 글자씩 깨지는 현상 방지 */
+  .s-name, .s-phone, .iv-title, .iv-sub, .card-title,
+  .hist-card-head, .branch-name, .center-name, .pg-pcard-nm,
+  .pg-team-name, .mb-grade, .doc-hdr {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+}
 .detail-card {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
