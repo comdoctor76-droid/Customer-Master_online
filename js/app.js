@@ -2670,87 +2670,107 @@
         <!-- [4] 안내 -->
         <div class="pg-admin-note">
           <strong>🔧 ${escapeHtml(state.progressRegion)} 실적 입력</strong>
-          <p>현재실적(원) / 인품 계약건 / 인품 실적(원) 을 입력하고 [💾 저장] 을 누르세요. 기준실적은 교육생 등록화면에서 수정할 수 있어요.</p>
+          <p>아래 각 섹션을 클릭해 펼친 뒤, 값을 입력하고 [💾 저장] 을 누르세요. 기준실적은 교육생 등록화면에서 수정할 수 있어요.</p>
         </div>
 
-        <!-- [5] 현재실적 일괄 붙여넣기 -->
-        <div class="pg-admin-paste">
-          <strong>📋 현재실적 일괄 붙여넣기 — "이름 현재실적" (탭/공백 구분)</strong>
-          <textarea id="pg-paste" rows="5" placeholder="예)
+        <!-- [5] 현재실적 일괄 붙여넣기 (접기/펼치기) -->
+        <details class="pg-accordion">
+          <summary>
+            <span class="pg-ac-title">📋 현재실적 일괄 붙여넣기</span>
+            <span class="pg-ac-sub">— "이름 현재실적" 탭/공백 구분</span>
+            <span class="pg-ac-chev">▾</span>
+          </summary>
+          <div class="pg-ac-body">
+            <div class="pg-admin-paste">
+              <textarea id="pg-paste" rows="5" placeholder="예)
 정경화  2193493
 박희자  1500000"></textarea>
-          <div class="pg-actions">
-            <button class="btn-outline" id="btn-pg-paste-apply">📥 붙여넣기 반영</button>
-            <button class="btn-outline small" id="btn-pg-paste-clear">🗑 초기화</button>
-            <span id="pg-paste-msg" class="pg-msg"></span>
+              <div class="pg-actions">
+                <button class="btn-outline" id="btn-pg-paste-apply">📥 붙여넣기 반영</button>
+                <button class="btn-outline small" id="btn-pg-paste-clear">🗑 초기화</button>
+                <span id="pg-paste-msg" class="pg-msg"></span>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
 
-        <!-- [6] 메인 편집 테이블 -->
-        <div class="pg-card">
-          <h4>✏️ 메인 편집 테이블 <small>(현재실적 / 인품건 / 인품실적 수정)</small></h4>
-          <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
-            <thead><tr>
-              <th>#</th><th>지점</th><th>성명</th>
-              <th>기준실적(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
-              <th>인품건</th><th>인품실적(원)</th>
-            </tr></thead>
-            <tbody>${rows.map((s, i) => {
-              const base = Number(s.base || 0);
-              const cur = Number(s.current || 0);
-              const net = cur - base;
-              const rate = base > 0 ? (cur / base) * 100 : 0;
-              return `<tr>
+        <!-- [6] 메인 편집 테이블 (접기/펼치기) -->
+        <details class="pg-accordion">
+          <summary>
+            <span class="pg-ac-title">✏️ 메인 편집 테이블</span>
+            <span class="pg-ac-sub">— 현재실적 / 인품건 / 인품실적 수정 (${rows.length}명)</span>
+            <span class="pg-ac-chev">▾</span>
+          </summary>
+          <div class="pg-ac-body">
+            <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+              <thead><tr>
+                <th>#</th><th>지점</th><th>성명</th>
+                <th>기준실적(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
+                <th>인품건</th><th>인품실적(원)</th>
+              </tr></thead>
+              <tbody>${rows.map((s, i) => {
+                const base = Number(s.base || 0);
+                const cur = Number(s.current || 0);
+                const net = cur - base;
+                const rate = base > 0 ? (cur / base) * 100 : 0;
+                return `<tr>
+                  <td>${i + 1}</td>
+                  <td>${escapeHtml(s.branch || "")}</td>
+                  <td><strong>${escapeHtml(s.name || "")}</strong></td>
+                  <td class="r">${Nf(base)}</td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}"></td>
+                  <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
+                  <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
+                </tr>`;
+              }).join("")}</tbody>
+            </table></div>
+            <div class="pg-actions" style="margin-top:12px;">
+              <button class="btn-primary" id="btn-pg-save">💾 저장 (Firestore)</button>
+              <span id="pg-save-msg" class="pg-msg"></span>
+            </div>
+          </div>
+        </details>
+
+        <!-- [7] 인품 데이터 편집 섹션 (접기/펼치기) -->
+        <details class="pg-accordion pg-ipum-accordion">
+          <summary>
+            <span class="pg-ac-title">✨ 인품 데이터 편집</span>
+            <span class="pg-ac-sub">— 신상품 계약건 / 신상품 실적</span>
+            <span class="pg-ac-chev">▾</span>
+          </summary>
+          <div class="pg-ac-body">
+            <div class="pg-admin-paste">
+              <strong>📋 인품 붙여넣기 — "이름 인품건 인품실적" (탭/공백 구분)</strong>
+              <textarea id="pg-ipum-paste" rows="4" placeholder="예)
+정경화  3  450000
+박희자  2  300000"></textarea>
+              <div class="pg-actions">
+                <button class="btn-outline" id="btn-pg-ipum-paste-apply">📥 인품 붙여넣기 반영</button>
+                <button class="btn-outline small" id="btn-pg-ipum-paste-clear">🗑 초기화</button>
+                <span id="pg-ipum-paste-msg" class="pg-msg"></span>
+              </div>
+            </div>
+            <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+              <thead><tr>
+                <th>#</th><th>지점</th><th>성명</th>
+                <th>신상품 계약건</th><th>신상품 실적(원)</th>
+              </tr></thead>
+              <tbody>${rows.map((s, i) => `<tr>
                 <td>${i + 1}</td>
                 <td>${escapeHtml(s.branch || "")}</td>
                 <td><strong>${escapeHtml(s.name || "")}</strong></td>
-                <td class="r">${Nf(base)}</td>
-                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}"></td>
-                <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
-                <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
-                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
-                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
-              </tr>`;
-            }).join("")}</tbody>
-          </table></div>
-          <div class="pg-actions" style="margin-top:12px;">
-            <button class="btn-primary" id="btn-pg-save">💾 저장 (Firestore)</button>
-            <span id="pg-save-msg" class="pg-msg"></span>
-          </div>
-        </div>
-
-        <!-- [7] 인품 데이터 편집 섹션 -->
-        <div class="pg-card pg-ipum-card">
-          <h4>✨ 인품 데이터 편집 <small>(신상품 계약건 / 신상품 실적)</small></h4>
-          <div class="pg-admin-paste">
-            <strong>📋 인품 붙여넣기 — "이름 인품건 인품실적" (탭/공백 구분)</strong>
-            <textarea id="pg-ipum-paste" rows="4" placeholder="예)
-정경화  3  450000
-박희자  2  300000"></textarea>
-            <div class="pg-actions">
-              <button class="btn-outline" id="btn-pg-ipum-paste-apply">📥 인품 붙여넣기 반영</button>
-              <button class="btn-outline small" id="btn-pg-ipum-paste-clear">🗑 초기화</button>
-              <span id="pg-ipum-paste-msg" class="pg-msg"></span>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
+              </tr>`).join("")}</tbody>
+            </table></div>
+            <div class="pg-actions" style="margin-top:12px;">
+              <button class="btn-primary" id="btn-pg-ipum-save">💾 인품 저장 (Firestore)</button>
+              <span id="pg-ipum-save-msg" class="pg-msg"></span>
             </div>
           </div>
-          <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
-            <thead><tr>
-              <th>#</th><th>지점</th><th>성명</th>
-              <th>신상품 계약건</th><th>신상품 실적(원)</th>
-            </tr></thead>
-            <tbody>${rows.map((s, i) => `<tr>
-              <td>${i + 1}</td>
-              <td>${escapeHtml(s.branch || "")}</td>
-              <td><strong>${escapeHtml(s.name || "")}</strong></td>
-              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
-              <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
-            </tr>`).join("")}</tbody>
-          </table></div>
-          <div class="pg-actions" style="margin-top:12px;">
-            <button class="btn-primary" id="btn-pg-ipum-save">💾 인품 저장 (Firestore)</button>
-            <span id="pg-ipum-save-msg" class="pg-msg"></span>
-          </div>
-        </div>
+        </details>
       </div>
     `;
   }

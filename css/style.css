@@ -2188,6 +2188,55 @@ body {
 .pg-ipum-card { border-top: 3px solid #B0006A; }
 .pg-ipum-card h4 { color: #B0006A; }
 
+/* 관리자 편집 아코디언 */
+.pg-accordion {
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+.pg-accordion[open] { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.pg-accordion summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  background: var(--bg-soft);
+  border-left: 3px solid var(--orange);
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.pg-accordion summary::-webkit-details-marker { display: none; }
+.pg-accordion summary:hover { background: #FFF4EA; }
+.pg-accordion .pg-ac-title {
+  font-weight: 800;
+  color: var(--navy);
+}
+.pg-accordion .pg-ac-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 500;
+  flex: 1;
+}
+.pg-accordion .pg-ac-chev {
+  font-size: 14px;
+  color: var(--orange);
+  transition: transform 0.2s ease;
+}
+.pg-accordion[open] .pg-ac-chev { transform: rotate(180deg); }
+.pg-accordion .pg-ac-body {
+  padding: 14px;
+  border-top: 1px dashed var(--line-soft);
+}
+.pg-ipum-accordion summary { border-left-color: #B0006A; }
+.pg-ipum-accordion .pg-ac-title { color: #B0006A; }
+.pg-ipum-accordion .pg-ac-chev { color: #B0006A; }
+.pg-ipum-accordion summary:hover { background: #FFE8F4; }
+
 /* 반응형 */
 @media (max-width: 900px) {
   .pg-kpi-card { grid-template-columns: repeat(3, 1fr); }
