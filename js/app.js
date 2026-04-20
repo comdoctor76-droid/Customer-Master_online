@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.43";
+  const APP_VERSION = "0.44";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -277,12 +277,15 @@
             ${rows.map((s) => {
               const nm = s.name || "(이름 미입력)";
               const initial = (s.name || "?").trim().charAt(0) || "?";
+              const cc = Number(s.consultCount || 0);
+              const ccBadge = cc > 0 ? `<span class="s-ivcnt" title="면담 기록 ${cc}회">${cc}회</span>` : "";
               return `
               <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}" data-initial="${escapeHtml(initial)}">
                 <span class="s-name-wrap">
                   <span class="s-name">${escapeHtml(nm)}</span>
                   <span class="s-phone">${escapeHtml(s.phone || "")}</span>
                 </span>
+                ${ccBadge}
               </li>
             `;}).join("")}
           </ul>
@@ -310,7 +313,14 @@
         renderConsultations();
         // 차수/ins/tgt 자동채움 재실행 (빈 필드만 보정)
         const s = state.students.find((x) => x.empNo === empNo);
-        if (s) autoFillInterviewForm(s);
+        if (s) {
+          autoFillInterviewForm(s);
+          // 자기치유: 저장된 consultCount 가 실제 목록 길이와 다르면 동기화
+          const stored = Number(s.consultCount || 0);
+          if (stored !== list.length && typeof window.DataAPI.syncConsultCount === "function") {
+            window.DataAPI.syncConsultCount(empNo, list.length).catch(() => {});
+          }
+        }
       });
     }
   }
@@ -3632,7 +3642,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
