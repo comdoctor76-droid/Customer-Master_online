@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.44";
+  const APP_VERSION = "0.45";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3642,7 +3642,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -3897,6 +3897,7 @@
   function retrySubscription() {
     toast("Firestore 재구독 시도중...", "");
     state.studentsLoaded = false;
+    state._consultCountsFetched = false;
     if (state._subscribeUnsub) {
       try { state._subscribeUnsub(); } catch (e) {}
     }
@@ -3906,6 +3907,7 @@
       state.syncMeta = meta || { fromCache: false };
       renderDebounced();
       if (list && list.length > 0) toast(`${list.length}건 동기화 완료`, "success");
+      prefetchConsultCountsOnce();
     });
     render();
   }
@@ -3953,7 +3955,36 @@
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
       renderDebounced();
+      prefetchConsultCountsOnce();
     });
+  }
+
+  // 최초 1회만 전체 면담 횟수 사전 수집 → state.students 에 consultCount merge → 사이드바 재렌더
+  async function prefetchConsultCountsOnce() {
+    if (state._consultCountsFetched) return;
+    if (!state.students.length) return;
+    if (!window.DataAPI || typeof window.DataAPI.fetchAllConsultCounts !== "function") return;
+    state._consultCountsFetched = true;
+    try {
+      const empNos = state.students.map((s) => s.empNo).filter(Boolean);
+      const counts = await window.DataAPI.fetchAllConsultCounts(empNos);
+      let changed = false;
+      state.students = state.students.map((s) => {
+        const c = counts[s.empNo] || 0;
+        if (Number(s.consultCount || 0) !== c) changed = true;
+        return { ...s, consultCount: c };
+      });
+      if (changed) renderDebounced();
+      // 서버측 consultCount 와 실제 값이 다르면 비동기 자가치유 (best-effort)
+      if (typeof window.DataAPI.syncConsultCount === "function") {
+        state.students.forEach((s) => {
+          window.DataAPI.syncConsultCount(s.empNo, s.consultCount || 0).catch(() => {});
+        });
+      }
+    } catch (e) {
+      console.warn("[app] 면담 횟수 사전 수집 실패:", e);
+      state._consultCountsFetched = false; // 재시도 가능
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);

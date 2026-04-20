@@ -23,6 +23,7 @@ import { getAnalytics, isSupported as isAnalyticsSupported }
 import {
   getFirestore,
   collection,
+  collectionGroup,
   doc,
   addDoc,
   setDoc,
@@ -342,6 +343,40 @@ window.DataAPI = {
     const id = normalizeEmpNo(empNo);
     if (!id) return;
     await setDoc(doc(db, "students", id), { consultCount: Number(count) || 0 }, { merge: true });
+  },
+
+  // 전체 학생의 면담 횟수를 한번에 수집 (사이드바 배지용 사전계산)
+  // 1) 우선 collectionGroup("consultations") 으로 단일 쿼리 시도
+  // 2) 실패(규칙/인덱스 미설정) 시 학생별 getDocs 로 폴백 (병렬 8개씩)
+  async fetchAllConsultCounts(empNos) {
+    const counts = {};
+    try {
+      const cg = await getDocs(collectionGroup(db, "consultations"));
+      cg.forEach((d) => {
+        const parent = d.ref.parent.parent; // students/{empNo}
+        const id = parent && parent.id;
+        if (!id) return;
+        counts[id] = (counts[id] || 0) + 1;
+      });
+      return counts;
+    } catch (err) {
+      console.warn("[Firebase] collectionGroup 실패 → 폴백:", err && (err.code || err.message));
+    }
+    // 폴백: 학생별 병렬 조회 (8개씩 청크)
+    const ids = Array.isArray(empNos) ? empNos.map(normalizeEmpNo).filter(Boolean) : [];
+    const CHUNK = 8;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      await Promise.all(slice.map(async (id) => {
+        try {
+          const snap = await getDocs(collection(db, "students", id, "consultations"));
+          counts[id] = snap.size;
+        } catch (e) {
+          counts[id] = 0;
+        }
+      }));
+    }
+    return counts;
   },
 
   // 교육생의 인보험 평균 동기화 (최근 면담값)
