@@ -71,6 +71,8 @@
     syncMeta: { fromCache: false },
     // 교육생 패널 서브뷰 (form | history | print)
     studentSubView: "form",
+    // 교육생 개별 선택 삭제 모달 상태
+    sdSelected: new Set(),
     // 출력 서브뷰
     printMode: "personal",     // 'personal' | 'branch' | 'vc'
     printConsultCache: {}      // { empNo: consultations[] } — 다건 출력시 캐시
@@ -2988,6 +2990,18 @@
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
     $("#file-import-json").addEventListener("change", onImportJSONFile);
     $("#btn-delete-filtered").addEventListener("click", onDeleteFiltered);
+    const openSdBtn = $("#btn-open-student-delete");
+    if (openSdBtn) openSdBtn.addEventListener("click", openStudentDeleteModal);
+    const sdSearch = $("#sd-search");
+    if (sdSearch) sdSearch.addEventListener("input", (e) => renderStudentDeleteList(e.target.value));
+    const sdClear = $("#btn-sd-clear");
+    if (sdClear) sdClear.addEventListener("click", () => {
+      state.sdSelected = new Set();
+      renderStudentDeleteList($("#sd-search").value);
+      updateSdCounts();
+    });
+    const sdDelete = $("#btn-sd-delete");
+    if (sdDelete) sdDelete.addEventListener("click", doStudentsDeleteFromModal);
   }
 
   // ========== 설정 ==========
@@ -3042,19 +3056,145 @@
 
   async function onDeleteFiltered() {
     const list = filteredStudents();
-    if (!list.length) { toast("삭제 대상이 없습니다.", "error"); return; }
-    const msg = `경고: 현재 필터(${[state.filter.region, state.filter.center, state.filter.branch, state.filter.cohort].filter(Boolean).join(" · ") || "전체"})에 해당하는 ${list.length}명의 교육생을 삭제합니다.\n\n복구할 수 없습니다. 정말 삭제하시겠습니까?`;
-    if (!confirm(msg)) return;
+    await confirmAndDeleteStudents(list, {
+      label: `현재 필터(${[state.filter.region, state.filter.center, state.filter.branch, state.filter.cohort].filter(Boolean).join(" · ") || "전체"})`
+    });
+  }
+
+  // 공통: 2단계 확인 후 학생 + 면담 원자적 삭제
+  async function confirmAndDeleteStudents(list, opts) {
+    const lbl = opts?.label || "선택한 범위";
+    if (!list.length) { toast("삭제 대상이 없습니다.", "error"); return false; }
+    const msg = `경고: ${lbl}에 해당하는 ${list.length}명의 교육생과 그 면담 기록을 모두 삭제합니다.\n\n복구할 수 없습니다. 정말 삭제하시겠습니까?`;
+    if (!confirm(msg)) return false;
     const typed = prompt(`다시 한 번 확인합니다. 삭제를 진행하려면 아래와 동일하게 입력하세요:\n\n삭제 ${list.length}명`);
     if (typed !== `삭제 ${list.length}명`) {
       toast("입력이 일치하지 않아 취소되었습니다.", "");
-      return;
+      return false;
     }
     let ok = 0, fail = 0;
-    for (const s of list) {
-      try { await window.DataAPI.remove(s.empNo); ok++; } catch (e) { console.error(e); fail++; }
+    const useBatch = typeof window.DataAPI.removeStudentWithConsultations === "function";
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      try {
+        if (useBatch) await window.DataAPI.removeStudentWithConsultations(s.empNo);
+        else await window.DataAPI.remove(s.empNo);
+        ok++;
+        if (i % 5 === 4 || i === list.length - 1) {
+          toast(`삭제중... ${i + 1}/${list.length}`, "");
+        }
+      } catch (e) { console.error(e); fail++; }
     }
     toast(`${ok}명 삭제 완료${fail ? ` / ${fail}명 실패` : ""}`, fail ? "error" : "success");
+    return true;
+  }
+
+  // ========== 교육생 개별 선택 삭제 모달 ==========
+  function openStudentDeleteModal() {
+    state.sdSelected = new Set();
+    $("#sd-search").value = "";
+    renderStudentDeleteList("");
+    openModal("#modal-student-delete");
+    updateSdCounts();
+    setTimeout(() => $("#sd-search").focus(), 60);
+  }
+
+  function updateSdCounts() {
+    const total = state.students.length;
+    const sel = state.sdSelected ? state.sdSelected.size : 0;
+    $("#sd-total").textContent = total;
+    $("#sd-sel-cnt").textContent = sel;
+    const btn = $("#btn-sd-delete");
+    if (btn) { btn.disabled = sel === 0; btn.textContent = sel > 0 ? `🗑️ ${sel}명 삭제` : "🗑️ 선택 교육생 삭제"; }
+  }
+
+  function renderStudentDeleteList(q) {
+    const container = $("#sd-list");
+    if (!container) return;
+    const needle = (q || "").trim().toLowerCase();
+    const all = state.students.slice();
+    const filtered = needle
+      ? all.filter((s) => [s.empNo, s.name, s.branch, s.center, s.region].join(" ").toLowerCase().includes(needle))
+      : all;
+    if (!filtered.length) {
+      container.innerHTML = `<div class="empty-mini">일치하는 교육생이 없습니다.</div>`;
+      return;
+    }
+    // 지역단 > 비전센터 > 지점 순 그룹핑
+    const byRegion = {};
+    filtered.forEach((s) => {
+      const r = s.region || "(미지정)";
+      const c = s.center || "(미지정)";
+      if (!byRegion[r]) byRegion[r] = {};
+      if (!byRegion[r][c]) byRegion[r][c] = [];
+      byRegion[r][c].push(s);
+    });
+    const regions = Object.keys(byRegion).sort();
+    container.innerHTML = regions.map((r) => {
+      const centers = byRegion[r];
+      const regionCount = Object.values(centers).reduce((a, arr) => a + arr.length, 0);
+      const regionSelCount = Object.values(centers).flat().filter((s) => state.sdSelected.has(s.empNo)).length;
+      return `
+        <div class="sd-region">
+          <div class="sd-region-head">
+            <label class="sd-chk-region">
+              <input type="checkbox" data-region="${escapeHtml(r)}" ${regionSelCount > 0 && regionSelCount === regionCount ? "checked" : ""}>
+              <strong>${escapeHtml(r)}</strong>
+              <span class="sd-count">${regionSelCount}/${regionCount}</span>
+            </label>
+          </div>
+          ${Object.keys(centers).sort().map((c) => `
+            <div class="sd-center">
+              <div class="sd-center-head">↳ ${escapeHtml(c)}</div>
+              <div class="sd-student-list">
+                ${centers[c].slice().sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((s) => `
+                  <label class="sd-item ${state.sdSelected.has(s.empNo) ? "selected" : ""}">
+                    <input type="checkbox" data-emp="${escapeHtml(s.empNo)}" ${state.sdSelected.has(s.empNo) ? "checked" : ""}>
+                    <span class="sd-name">${escapeHtml(s.name || "(이름 미입력)")}</span>
+                    <span class="sd-emp">${escapeHtml(s.empNo)}</span>
+                    <span class="sd-branch">${escapeHtml(s.branch || "")}</span>
+                    <span class="sd-cohort">${escapeHtml(s.cohort || "")}</span>
+                  </label>
+                `).join("")}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }).join("");
+
+    // 개별 체크
+    container.querySelectorAll("input[data-emp]").forEach((inp) => {
+      inp.addEventListener("change", (e) => {
+        const emp = e.target.dataset.emp;
+        if (e.target.checked) state.sdSelected.add(emp);
+        else state.sdSelected.delete(emp);
+        renderStudentDeleteList($("#sd-search").value);
+        updateSdCounts();
+      });
+    });
+    // 지역단 전체 토글
+    container.querySelectorAll("input[data-region]").forEach((inp) => {
+      inp.addEventListener("change", (e) => {
+        const region = e.target.dataset.region;
+        const centers = byRegion[region];
+        const emps = Object.values(centers).flat().map((s) => s.empNo);
+        if (e.target.checked) emps.forEach((emp) => state.sdSelected.add(emp));
+        else emps.forEach((emp) => state.sdSelected.delete(emp));
+        renderStudentDeleteList($("#sd-search").value);
+        updateSdCounts();
+      });
+    });
+  }
+
+  async function doStudentsDeleteFromModal() {
+    const selected = state.students.filter((s) => state.sdSelected.has(s.empNo));
+    if (!selected.length) { toast("선택된 교육생이 없습니다.", "error"); return; }
+    const ok = await confirmAndDeleteStudents(selected, { label: "선택한" });
+    if (ok) {
+      state.sdSelected = new Set();
+      closeModal("#modal-student-delete");
+    }
   }
 
   function switchView(href) {
