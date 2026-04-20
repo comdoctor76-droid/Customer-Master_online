@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20260420j" />
+  <link rel="stylesheet" href="css/style.css?v=20260420k" />
 </head>
 <body>
   <!-- 상단 헤더 -->
@@ -391,11 +391,15 @@
 
   <!-- 휴대폰 전용 하단 메뉴 바 (≤640px 에서만 노출, 그 외에는 display:none) -->
   <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="모바일 메인 메뉴">
-    <a href="#dashboard" class="mbn-btn active" data-mview="dashboard">
+    <button type="button" class="mbn-btn mbn-home" id="mbn-home-btn" data-action="toggleSidebar">
       <span class="mbn-icon" aria-hidden="true">🏠</span>
       <span class="mbn-label">홈</span>
+    </button>
+    <a href="#dashboard" class="mbn-btn" data-mview="dashboard">
+      <span class="mbn-icon" aria-hidden="true">📊</span>
+      <span class="mbn-label">대시보드</span>
     </a>
-    <a href="#students" class="mbn-btn" data-mview="students">
+    <a href="#students" class="mbn-btn active" data-mview="students">
       <span class="mbn-icon" aria-hidden="true">👥</span>
       <span class="mbn-label">교육생</span>
     </a>
@@ -404,7 +408,7 @@
       <span class="mbn-label">실적진도</span>
     </a>
     <a href="#stats" class="mbn-btn" data-mview="stats">
-      <span class="mbn-icon" aria-hidden="true">📊</span>
+      <span class="mbn-icon" aria-hidden="true">📑</span>
       <span class="mbn-label">통계</span>
     </a>
     <a href="#settings" class="mbn-btn" data-mview="settings">
@@ -413,10 +417,13 @@
     </a>
   </nav>
 
+  <!-- 모바일 사이드바 백드롭 (열림 시 어둡게) -->
+  <div class="mobile-sidebar-backdrop" id="mobile-sidebar-backdrop" hidden></div>
+
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
-  <script type="module" src="js/firebase-config.js?v=20260420j"></script>
-  <script src="js/data.js?v=20260420j"></script>
-  <script src="js/app.js?v=20260420j"></script>
+  <script type="module" src="js/firebase-config.js?v=20260420k"></script>
+  <script src="js/data.js?v=20260420k"></script>
+  <script src="js/app.js?v=20260420k"></script>
   <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </body>
