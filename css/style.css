@@ -2326,10 +2326,33 @@ body {
   .pg-grid2 { grid-template-columns: 1fr; }
   .pg-info-grid { grid-template-columns: 1fr; }
 }
+@media (max-width: 640px) {
+  /* 모바일: KPI 를 2행 3열(총 6칸) — 빈공간 최소화 */
+  .pg-kpi-card { grid-template-columns: repeat(3, 1fr); gap: 0; }
+  .pg-kpi { padding: 8px 4px; border-bottom: 1px solid var(--line-soft); }
+  .pg-kpi:nth-child(3n) { border-right: none; }
+  .pg-kpi:nth-last-child(-n+3) { border-bottom: none; }
+  .pg-kpi .pgl { font-size: 10px; }
+  .pg-kpi .pgv { font-size: 15px; }
+  /* 신장률·신장액 2열 유지 (1열로 펼치면 공간 낭비) */
+  .pg-grid2 { grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* 모바일 컴팩트 카드: 제목·테이블 셀 타이트하게 */
+  .pg-card { padding: 10px 10px; }
+  .pg-card h4 { font-size: 12px; }
+  .pg-card h4 small { font-size: 10px; display: block; margin-left: 0; margin-top: 2px; }
+  .pg-tbl { font-size: 11px; }
+  .pg-tbl th, .pg-tbl td { padding: 4px 4px; }
+  .pg-tier-row { gap: 4px; }
+  .pg-tier { padding: 6px 4px; }
+  .pg-tc { font-size: 10px; }
+  .pg-tn { font-size: 11px; }
+  /* 홈 탭의 전체 교육생 실적표 — 기본 접힘(details) */
+  .pg-full-tbl-card > .pg-tbl-wrap { display: none; }
+  .pg-full-tbl-card.show > .pg-tbl-wrap { display: block; }
+  .pg-full-tbl-toggle { display: inline-block; }
+}
 @media (max-width: 600px) {
   .pg-tier { min-width: 0; }
-  .pg-tn { font-size: 11px; }
-  .pg-kpi-card { grid-template-columns: repeat(2, 1fr); }
 }
 .stats-grid {
   display: grid;

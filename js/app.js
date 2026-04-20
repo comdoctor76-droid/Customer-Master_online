@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.48";
+  const APP_VERSION = "0.49";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2618,8 +2618,10 @@
           ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`}
         </div>
 
-        <div class="pg-card">
-          <h4>📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small></h4>
+        <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
+          <h4>📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
+            <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
+          </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl">
             <thead><tr><th>순위</th><th>성명</th><th>지점</th><th>기준실적</th><th>현재실적</th><th>달성률</th><th>순증</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
@@ -2674,6 +2676,15 @@
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
       tr.addEventListener("click", () => openProgressStudentPopup(tr.dataset.emp));
     });
+    // 모바일: 전체 실적표 접기/펼치기
+    const fullCard = document.getElementById("pg-full-tbl-card");
+    const toggleBtn = document.getElementById("btn-pg-full-toggle");
+    if (fullCard && toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
+        fullCard.classList.toggle("show");
+        toggleBtn.textContent = fullCard.classList.contains("show") ? "접기" : "펼쳐보기";
+      });
+    }
   }
 
   function openProgressStudentPopup(empNo) {
@@ -3730,7 +3741,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
