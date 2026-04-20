@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.46";
+  const APP_VERSION = "0.47";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -75,6 +75,8 @@
     studentSubView: "form",
     // 교육생 개별 선택 삭제 모달 상태
     sdSelected: new Set(),
+    // 좌측 사이드바 — 펼쳐진 지점 (기본 모두 접힘)
+    openBranches: new Set(),
     // 실적진도 패널 상태
     progressRegion: "",
     progressSubTab: "home",
@@ -218,6 +220,11 @@
     });
   }
 
+  // 현재 필터(지역단 등) 범위에서 면담을 1회 이상 받은 교육생 수
+  function regionInterviewedCount() {
+    return filteredStudents().filter((s) => Number(s.consultCount || 0) > 0).length;
+  }
+
   function renderKPIs(list) {
     const sum = (k) => list.reduce((a, s) => a + (Number(s[k]) || 0), 0);
     $("#kpi-total").textContent = list.length.toLocaleString();
@@ -265,14 +272,22 @@
       groups[key].push(s);
     });
 
+    // 선택한 교육생이 속한 지점은 자동 펼침 (사용자 편의)
+    const selectedBranch = state.selectedEmpNo
+      ? (list.find((s) => s.empNo === state.selectedEmpNo) || {}).branch
+      : null;
+
     container.innerHTML = Object.keys(groups).sort().map((branch) => {
       const rows = groups[branch].slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      const interviewed = rows.filter((s) => Number(s.consultCount || 0) > 0).length;
+      const isOpen = state.openBranches.has(branch) || branch === selectedBranch;
       return `
-        <div class="branch-mini">
-          <div class="branch-mini-head">
+        <details class="branch-mini" data-branch="${escapeHtml(branch)}"${isOpen ? " open" : ""}>
+          <summary class="branch-mini-head">
             <span class="branch-name">${escapeHtml(branch)}</span>
-            <span class="branch-cnt">${rows.length}</span>
-          </div>
+            <span class="branch-cnt" title="교육생 / 면담된 교육생">${rows.length}/<em>${interviewed}</em></span>
+            <span class="branch-chev">▾</span>
+          </summary>
           <ul class="student-mini-list">
             ${rows.map((s) => {
               const nm = s.name || "(이름 미입력)";
@@ -289,12 +304,21 @@
               </li>
             `;}).join("")}
           </ul>
-        </div>
+        </details>
       `;
     }).join("");
 
     container.querySelectorAll("li[data-emp]").forEach((li) => {
       li.addEventListener("click", () => selectStudent(li.dataset.emp));
+    });
+    // 지점 펼침 상태 유지 (재렌더 시 복원용)
+    container.querySelectorAll("details.branch-mini").forEach((d) => {
+      d.addEventListener("toggle", () => {
+        const name = d.dataset.branch;
+        if (!name) return;
+        if (d.open) state.openBranches.add(name);
+        else state.openBranches.delete(name);
+      });
     });
   }
 
@@ -389,7 +413,7 @@
       btn.onclick = () => setStudentSubView(btn.dataset.sub);
     });
     const cnt = document.getElementById("hist-cnt");
-    if (cnt) cnt.textContent = state.consultations.length;
+    if (cnt) cnt.textContent = regionInterviewedCount();
   }
 
   function setStudentSubView(sub) {
@@ -1244,7 +1268,7 @@
   function renderConsultations() {
     // 서브탭 배지 갱신
     const cnt = document.getElementById("hist-cnt");
-    if (cnt) cnt.textContent = state.consultations.length;
+    if (cnt) cnt.textContent = regionInterviewedCount();
 
     // history 서브뷰: 풍부한 카드
     if (state.studentSubView === "history") {
@@ -3650,7 +3674,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));

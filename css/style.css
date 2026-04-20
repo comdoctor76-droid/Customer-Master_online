@@ -340,6 +340,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
   padding: 7px 12px;
   background: #F5F7FF;
   border-bottom: 1px solid var(--line-soft);
@@ -349,7 +350,13 @@ body {
   position: sticky;
   top: 0;
   z-index: 1;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
+.branch-mini-head::-webkit-details-marker { display: none; }
+.branch-mini-head::marker { content: ""; }
+.branch-mini-head .branch-name { flex: 1; }
 .branch-mini-head .branch-cnt {
   background: #9E9E9E;
   color: #fff;
@@ -357,10 +364,24 @@ body {
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
+.branch-mini-head .branch-cnt em {
+  font-style: normal;
+  color: #FFD580;
+  font-weight: 800;
+}
+.branch-mini-head .branch-chev {
+  font-size: 12px;
+  color: var(--ink-3);
+  transition: transform 0.2s ease;
+}
+.branch-mini[open] .branch-mini-head .branch-chev { transform: rotate(180deg); }
+.branch-mini-head:hover { background: var(--orange-light); color: var(--orange); }
 .branch-mini:hover .branch-mini-head,
 .branch-mini:has(.selected) .branch-mini-head { color: var(--orange); }
 .branch-mini:has(.selected) .branch-mini-head .branch-cnt { background: var(--orange); }
+.branch-mini:has(.selected) .branch-mini-head .branch-cnt em { color: #FFE8D0; }
 
 .student-mini-list {
   list-style: none;
