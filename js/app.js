@@ -2417,18 +2417,19 @@
   function renderProgressPanel() {
     const body = $("#progress-body");
     if (!body) return;
-    // 기본 지역단: progressRegion 없으면 filter.region 사용
-    if (!state.progressRegion) state.progressRegion = state.filter.region || "";
+    // 좌측 필터에서 선택한 지역단 기준
+    const region = state.filter.region || "";
+    state.progressRegion = region;
     const label = document.getElementById("progress-region-label");
-    if (label) label.textContent = state.progressRegion || "지역단 선택";
+    if (label) label.textContent = region || "지역단 미선택";
 
-    if (!state.progressRegion) {
-      body.innerHTML = `<div class="empty-state">우상단 [🏢 지역단 선택] 버튼으로 지역단을 고르세요.</div>`;
+    if (!region) {
+      body.innerHTML = `<div class="empty-state">좌측 필터에서 <strong>지역단</strong>을 선택하면 해당 지역단의 실적진도가 표시됩니다.</div>`;
       return;
     }
-    const list = state.students.filter((s) => s.region === state.progressRegion);
+    const list = state.students.filter((s) => s.region === region);
     if (!list.length) {
-      body.innerHTML = `<div class="empty-state">${escapeHtml(state.progressRegion)} 에 등록된 교육생이 없습니다.</div>`;
+      body.innerHTML = `<div class="empty-state">${escapeHtml(region)} 에 등록된 교육생이 없습니다.</div>`;
       return;
     }
 
@@ -3573,9 +3574,7 @@
     const awardBtn = $("#btn-print-awards");
     if (awardBtn) awardBtn.addEventListener("click", printAwardSheets);
 
-    // 실적진도 서브탭 + 지역단 선택
-    const progRegionBtn = $("#btn-progress-region");
-    if (progRegionBtn) progRegionBtn.addEventListener("click", openProgressRegionPicker);
+    // 실적진도 서브탭 (지역단은 좌측 필터에서 선택)
     document.querySelectorAll("#progress-panel .sub-tab").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.progressSubTab = btn.dataset.psub;

@@ -2118,6 +2118,21 @@ body {
 .pg-admin-tbl th, .pg-admin-tbl td { padding: 4px 6px; }
 .pg-admin-tbl td { vertical-align: middle; }
 
+/* 실적진도 헤더 — 좌측 필터 지역단 표시 태그 */
+.pg-region-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--navy);
+}
+.pg-region-tag #progress-region-label { font-weight: 800; }
+
 /* 관리자 상단 3분할 정보 카드 */
 .pg-info-grid {
   display: grid;
