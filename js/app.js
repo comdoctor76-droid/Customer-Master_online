@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.47";
+  const APP_VERSION = "0.48";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -75,8 +75,11 @@
     studentSubView: "form",
     // 교육생 개별 선택 삭제 모달 상태
     sdSelected: new Set(),
-    // 좌측 사이드바 — 펼쳐진 지점 (기본 모두 접힘)
+    // 좌측 사이드바 — 펼쳐진 비전센터(기본 모두 펼침) / 지점(기본 모두 접힘)
+    openCenters: new Set(),
     openBranches: new Set(),
+    // 모바일 사이드바 열림 여부
+    mobileSidebarOpen: false,
     // 실적진도 패널 상태
     progressRegion: "",
     progressSubTab: "home",
@@ -265,45 +268,76 @@
       }
       return;
     }
-    const groups = {};
+    // 2단계 그룹: 비전센터 → 지점 → 교육생
+    const centerGroups = {};
     list.forEach((s) => {
-      const key = s.branch || "(지점 미지정)";
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(s);
+      const c = s.center || "(비전센터 미지정)";
+      const b = s.branch || "(지점 미지정)";
+      if (!centerGroups[c]) centerGroups[c] = {};
+      if (!centerGroups[c][b]) centerGroups[c][b] = [];
+      centerGroups[c][b].push(s);
     });
 
-    // 선택한 교육생이 속한 지점은 자동 펼침 (사용자 편의)
-    const selectedBranch = state.selectedEmpNo
-      ? (list.find((s) => s.empNo === state.selectedEmpNo) || {}).branch
-      : null;
+    // 선택한 교육생이 속한 지점/센터는 자동 펼침
+    const selectedStu = state.selectedEmpNo ? list.find((s) => s.empNo === state.selectedEmpNo) : null;
+    const selectedBranch = selectedStu ? selectedStu.branch : null;
+    const selectedCenter = selectedStu ? selectedStu.center : null;
 
-    container.innerHTML = Object.keys(groups).sort().map((branch) => {
-      const rows = groups[branch].slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      const interviewed = rows.filter((s) => Number(s.consultCount || 0) > 0).length;
-      const isOpen = state.openBranches.has(branch) || branch === selectedBranch;
+    // 신규 비전센터는 기본 펼침 (Set 에 없으면 추가)
+    Object.keys(centerGroups).forEach((c) => {
+      if (!state.openCenters.has(c) && !state._centerSeen?.has(c)) {
+        state.openCenters.add(c);
+      }
+    });
+    state._centerSeen = new Set(Object.keys(centerGroups));
+
+    container.innerHTML = Object.keys(centerGroups).sort().map((center) => {
+      const branches = centerGroups[center];
+      // 센터 합계 계산
+      let centerTotal = 0, centerInterviewed = 0;
+      Object.values(branches).forEach((arr) => {
+        centerTotal += arr.length;
+        centerInterviewed += arr.filter((s) => Number(s.consultCount || 0) > 0).length;
+      });
+      const centerOpen = state.openCenters.has(center) || center === selectedCenter;
+      const branchHtml = Object.keys(branches).sort().map((branch) => {
+        const rows = branches[branch].slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const interviewed = rows.filter((s) => Number(s.consultCount || 0) > 0).length;
+        const bOpen = state.openBranches.has(branch) || branch === selectedBranch;
+        return `
+          <details class="branch-mini" data-branch="${escapeHtml(branch)}"${bOpen ? " open" : ""}>
+            <summary class="branch-mini-head">
+              <span class="branch-name">${escapeHtml(branch)}</span>
+              <span class="branch-cnt" title="교육생 / 면담된 교육생">${rows.length}/<em>${interviewed}</em></span>
+              <span class="branch-chev">▾</span>
+            </summary>
+            <ul class="student-mini-list">
+              ${rows.map((s) => {
+                const nm = s.name || "(이름 미입력)";
+                const initial = (s.name || "?").trim().charAt(0) || "?";
+                const cc = Number(s.consultCount || 0);
+                const ccBadge = cc > 0 ? `<span class="s-ivcnt" title="면담 기록 ${cc}회">${cc}회</span>` : "";
+                return `
+                <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}" data-initial="${escapeHtml(initial)}">
+                  <span class="s-name-wrap">
+                    <span class="s-name">${escapeHtml(nm)}</span>
+                    <span class="s-phone">${escapeHtml(s.phone || "")}</span>
+                  </span>
+                  ${ccBadge}
+                </li>
+              `;}).join("")}
+            </ul>
+          </details>
+        `;
+      }).join("");
       return `
-        <details class="branch-mini" data-branch="${escapeHtml(branch)}"${isOpen ? " open" : ""}>
-          <summary class="branch-mini-head">
-            <span class="branch-name">${escapeHtml(branch)}</span>
-            <span class="branch-cnt" title="교육생 / 면담된 교육생">${rows.length}/<em>${interviewed}</em></span>
-            <span class="branch-chev">▾</span>
+        <details class="center-mini" data-center="${escapeHtml(center)}"${centerOpen ? " open" : ""}>
+          <summary class="center-mini-head">
+            <span class="center-name">🏢 ${escapeHtml(center)}</span>
+            <span class="center-cnt" title="교육생 / 면담된 교육생">${centerTotal}/<em>${centerInterviewed}</em></span>
+            <span class="center-chev">▾</span>
           </summary>
-          <ul class="student-mini-list">
-            ${rows.map((s) => {
-              const nm = s.name || "(이름 미입력)";
-              const initial = (s.name || "?").trim().charAt(0) || "?";
-              const cc = Number(s.consultCount || 0);
-              const ccBadge = cc > 0 ? `<span class="s-ivcnt" title="면담 기록 ${cc}회">${cc}회</span>` : "";
-              return `
-              <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}" data-initial="${escapeHtml(initial)}">
-                <span class="s-name-wrap">
-                  <span class="s-name">${escapeHtml(nm)}</span>
-                  <span class="s-phone">${escapeHtml(s.phone || "")}</span>
-                </span>
-                ${ccBadge}
-              </li>
-            `;}).join("")}
-          </ul>
+          <div class="center-branches">${branchHtml}</div>
         </details>
       `;
     }).join("");
@@ -311,13 +345,20 @@
     container.querySelectorAll("li[data-emp]").forEach((li) => {
       li.addEventListener("click", () => selectStudent(li.dataset.emp));
     });
-    // 지점 펼침 상태 유지 (재렌더 시 복원용)
     container.querySelectorAll("details.branch-mini").forEach((d) => {
       d.addEventListener("toggle", () => {
         const name = d.dataset.branch;
         if (!name) return;
         if (d.open) state.openBranches.add(name);
         else state.openBranches.delete(name);
+      });
+    });
+    container.querySelectorAll("details.center-mini").forEach((d) => {
+      d.addEventListener("toggle", () => {
+        const name = d.dataset.center;
+        if (!name) return;
+        if (d.open) state.openCenters.add(name);
+        else state.openCenters.delete(name);
       });
     });
   }
@@ -330,6 +371,11 @@
     state.consultations = [];
     renderSidebarStudentList(filteredStudents());
     renderStudentDetail();
+    // 모바일: 교육생 선택 시 사이드바 닫고 교육생 관리 패널로 전환
+    if (isMobileViewport()) {
+      closeMobileSidebar();
+      switchView("#students");
+    }
     // 면담 기록 실시간 구독
     if (window.DataAPI && typeof window.DataAPI.subscribeConsultations === "function") {
       state.consultUnsub = window.DataAPI.subscribeConsultations(empNo, (list) => {
@@ -3595,13 +3641,23 @@
       });
     });
 
-    // 휴대폰 하단 바 — 같은 switchView 재사용
+    // 휴대폰 하단 바 — 홈 버튼은 사이드바 토글, 나머지는 switchView
     $$(".mobile-bottom-nav .mbn-btn").forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
+        if (a.dataset.action === "toggleSidebar") {
+          toggleMobileSidebar();
+          return;
+        }
+        closeMobileSidebar();
         switchView(a.getAttribute("href") || "#dashboard");
       });
     });
+    // 백드롭 클릭 시 사이드바 닫기
+    const bd = $("#mobile-sidebar-backdrop");
+    if (bd) bd.addEventListener("click", closeMobileSidebar);
+    // 좌우 스와이프 제스처 (모바일 한정)
+    bindMobileSwipe();
 
     // 등록 버튼
     $("#btn-open-add").addEventListener("click", () => {
@@ -3674,7 +3730,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -3887,6 +3943,59 @@
       state.sdSelected = new Set();
       closeModal("#modal-student-delete");
     }
+  }
+
+  // ========== 모바일 사이드바 제어 ==========
+  function isMobileViewport() { return window.matchMedia("(max-width: 640px)").matches; }
+  function openMobileSidebar() {
+    state.mobileSidebarOpen = true;
+    document.body.classList.add("mobile-sidebar-open");
+    const bd = document.getElementById("mobile-sidebar-backdrop");
+    if (bd) bd.hidden = false;
+    const hb = document.getElementById("mbn-home-btn");
+    if (hb) hb.classList.add("mbn-sidebar-open");
+  }
+  function closeMobileSidebar() {
+    state.mobileSidebarOpen = false;
+    document.body.classList.remove("mobile-sidebar-open");
+    const bd = document.getElementById("mobile-sidebar-backdrop");
+    if (bd) bd.hidden = true;
+    const hb = document.getElementById("mbn-home-btn");
+    if (hb) hb.classList.remove("mbn-sidebar-open");
+  }
+  function toggleMobileSidebar() {
+    if (state.mobileSidebarOpen) closeMobileSidebar();
+    else openMobileSidebar();
+  }
+
+  // 좌우 스와이프로 사이드바 열고 닫기
+  function bindMobileSwipe() {
+    let startX = 0, startY = 0, dragging = null;
+    const THRESHOLD = 60;   // 성공 거리
+    const EDGE = 24;        // 왼쪽 가장자리 스와이프 열기 영역
+    document.addEventListener("touchstart", (e) => {
+      if (!isMobileViewport()) { dragging = null; return; }
+      const t = e.touches[0];
+      startX = t.clientX; startY = t.clientY;
+      if (!state.mobileSidebarOpen && startX < EDGE) dragging = "open";
+      else if (state.mobileSidebarOpen && e.target.closest(".sidebar, .mobile-sidebar-backdrop")) dragging = "close";
+      else dragging = null;
+    }, { passive: true });
+    document.addEventListener("touchmove", (e) => {
+      if (!dragging) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dy) > Math.abs(dx)) { dragging = null; return; }
+    }, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      if (!dragging) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      if (dragging === "open" && dx > THRESHOLD) openMobileSidebar();
+      else if (dragging === "close" && dx < -THRESHOLD) closeMobileSidebar();
+      dragging = null;
+    });
   }
 
   function switchView(href) {
