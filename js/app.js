@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.56";
+  const APP_VERSION = "0.57";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1386,6 +1386,123 @@
   }
 
   // 면담 이력 — 풍부한 카드 레이아웃 (면담이력 서브탭)
+  // 댓글 역할 선택지 (향후 결제 연동 대상)
+  const COMMENT_ROLES = ["비전센터장", "전임강사", "조직파트장", "지역단장"];
+
+  // 면담 이력 카드 하단의 댓글 섹션 렌더
+  function renderConsultComments(e) {
+    const comments = Array.isArray(e.comments) ? e.comments : [];
+    const nl = (s) => escapeHtml(s || "").replace(/\n/g, "<br>");
+    const fmtDate = (iso) => {
+      if (!iso) return "";
+      try {
+        const d = new Date(iso);
+        return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0") +
+               " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+      } catch { return iso; }
+    };
+    return `
+      <div class="cm-sec">
+        <div class="cm-hd">
+          <strong>💬 댓글 <span class="cm-cnt">${comments.length}</span></strong>
+          <button class="btn-outline small cm-add-btn" data-id="${escapeHtml(e.id)}">✏️ 댓글 달기</button>
+        </div>
+        ${comments.length ? `<ul class="cm-list">
+          ${comments.map((c) => `
+            <li class="cm-item cm-role-${escapeHtml(c.role || "")}">
+              <div class="cm-meta">
+                <span class="cm-role">${escapeHtml(c.role || "")}</span>
+                <span class="cm-by">${escapeHtml(c.author || "")}</span>
+                <span class="cm-dt">${escapeHtml(fmtDate(c.createdAt))}</span>
+                <button class="cm-del-btn" data-consult-id="${escapeHtml(e.id)}" data-comment-id="${escapeHtml(c.id)}" title="삭제">🗑</button>
+              </div>
+              <div class="cm-txt">${nl(c.text)}</div>
+            </li>
+          `).join("")}
+        </ul>` : `<div class="cm-empty">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</div>`}
+      </div>
+    `;
+  }
+
+  // 댓글 작성 모달
+  function openCommentModal(consultationId) {
+    let modal = document.getElementById("modal-comment");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-comment";
+      modal.className = "modal";
+      modal.hidden = true;
+      modal.innerHTML = `
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-panel">
+          <div class="modal-head">
+            <h3>💬 댓글 달기</h3>
+            <button class="modal-close" data-close aria-label="닫기">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="cm-form">
+              <label class="cm-label">역할 (작성자 직책) <em class="req">*</em></label>
+              <div class="cm-role-chips">
+                ${COMMENT_ROLES.map((r) => `<button type="button" class="cm-role-chip" data-role="${escapeHtml(r)}">${escapeHtml(r)}</button>`).join("")}
+              </div>
+              <label class="cm-label" style="margin-top:14px;">작성자 이름 <span class="cm-hint">(선택)</span></label>
+              <input type="text" id="cm-author" class="side-input" placeholder="예) 박부장">
+              <label class="cm-label" style="margin-top:14px;">댓글 내용 <em class="req">*</em></label>
+              <textarea id="cm-text" rows="5" class="cm-textarea" placeholder="의견을 남겨주세요"></textarea>
+              <p class="cm-note">※ 결제 창 연동 시 역할·이름·작성일시가 승인 이력으로 기록됩니다.</p>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn-outline" data-close>취소</button>
+            <button class="btn-primary" id="btn-cm-save">💾 저장</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
+      // 역할 칩 토글
+      modal.querySelectorAll(".cm-role-chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          modal.querySelectorAll(".cm-role-chip").forEach((c) => c.classList.remove("on"));
+          chip.classList.add("on");
+          modal.dataset.selectedRole = chip.dataset.role;
+        });
+      });
+      // 저장
+      modal.querySelector("#btn-cm-save").addEventListener("click", async () => {
+        const role = modal.dataset.selectedRole;
+        const text = modal.querySelector("#cm-text").value.trim();
+        const author = modal.querySelector("#cm-author").value.trim();
+        if (!role) { toast("역할을 선택하세요.", "error"); return; }
+        if (!text) { toast("댓글 내용을 입력하세요.", "error"); modal.querySelector("#cm-text").focus(); return; }
+        const consultId = modal.dataset.consultId;
+        const empNo = state.selectedEmpNo;
+        if (!consultId || !empNo) { toast("대상 면담을 찾을 수 없습니다.", "error"); return; }
+        const saveBtn = modal.querySelector("#btn-cm-save");
+        saveBtn.disabled = true;
+        try {
+          await window.DataAPI.addConsultationComment(empNo, consultId, {
+            id: "cm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+            role, author, text,
+            createdAt: new Date().toISOString()
+          });
+          toast("댓글이 등록되었습니다.", "success");
+          modal.hidden = true;
+        } catch (err) {
+          toast("댓글 저장 실패: " + (err.message || err), "error");
+        }
+        saveBtn.disabled = false;
+      });
+    }
+    // 모달 초기화
+    modal.dataset.consultId = consultationId;
+    modal.dataset.selectedRole = "";
+    modal.querySelectorAll(".cm-role-chip").forEach((c) => c.classList.remove("on"));
+    modal.querySelector("#cm-text").value = "";
+    modal.querySelector("#cm-author").value = "";
+    modal.hidden = false;
+  }
+
   function renderHistoryCards() {
     const el = document.getElementById("hist-list");
     if (!el) return;
@@ -1411,14 +1528,14 @@
           <tbody>
             ${clients.map((c, ci) => `
               <tr>
-                <td>${ci + 1}</td>
-                <td class="cc-name-td">${escapeHtml(c.name || "")}</td>
-                <td>${escapeHtml((c.types || []).join(", ")) || "-"}</td>
-                <td>${escapeHtml((c.consult || []).join(", ")) || "-"}</td>
-                <td>${escapeHtml((c.material || []).join(", ")) || "-"}</td>
-                <td class="hi-ct-amt">${escapeHtml((c.amount || []).join(", ")) || "-"}${c.amountDirect ? ` <span class="amt-direct">+${escapeHtml(c.amountDirect)}만</span>` : ""}</td>
-                <td class="hi-ct-bj">${escapeHtml((c.bj || []).join(", ")) || "-"}</td>
-                <td class="cc-memo-td">${escapeHtml(c.memo || "")}</td>
+                <td data-label="#">${ci + 1}</td>
+                <td data-label="성명" class="cc-name-td">${escapeHtml(c.name || "")}</td>
+                <td data-label="고객유형">${escapeHtml((c.types || []).join(", ")) || "-"}</td>
+                <td data-label="상담단계">${escapeHtml((c.consult || []).join(", ")) || "-"}</td>
+                <td data-label="활용자료">${escapeHtml((c.material || []).join(", ")) || "-"}</td>
+                <td data-label="제안금액" class="hi-ct-amt">${escapeHtml((c.amount || []).join(", ")) || "-"}${c.amountDirect ? ` <span class="amt-direct">+${escapeHtml(c.amountDirect)}만</span>` : ""}</td>
+                <td data-label="보종" class="hi-ct-bj">${escapeHtml((c.bj || []).join(", ")) || "-"}</td>
+                <td data-label="면담내용" class="cc-memo-td">${escapeHtml(c.memo || "")}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -1460,10 +1577,30 @@
             ${e.coach ? `<div class="note nv"><strong>📌 코칭포인트</strong><p>${nl(e.coach)}</p></div>` : ""}
             ${e.calcComment ? `<div class="note blue"><strong>✍️ 면담자 의견</strong><p>${nl(e.calcComment)}</p></div>` : ""}
             ${calcHtml}
+            ${renderConsultComments(e)}
           </div>
         </div>
       `;
     }).join("");
+
+    // 댓글 추가 버튼
+    el.querySelectorAll(".cm-add-btn").forEach((btn) => {
+      btn.addEventListener("click", () => openCommentModal(btn.dataset.id));
+    });
+    // 댓글 삭제 버튼
+    el.querySelectorAll(".cm-del-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("댓글을 삭제하시겠습니까?")) return;
+        try {
+          await window.DataAPI.removeConsultationComment(
+            state.selectedEmpNo, btn.dataset.consultId, btn.dataset.commentId
+          );
+          toast("댓글 삭제 완료", "success");
+        } catch (err) {
+          toast("댓글 삭제 실패: " + err.message, "error");
+        }
+      });
+    });
 
     el.querySelectorAll(".ib").forEach((btn) => {
       const id = btn.dataset.id;
@@ -4126,7 +4263,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260420s)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));

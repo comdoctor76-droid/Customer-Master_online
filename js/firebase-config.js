@@ -35,6 +35,8 @@ import {
   serverTimestamp,
   writeBatch,
   increment,
+  arrayUnion,
+  arrayRemove,
   enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -339,6 +341,43 @@ window.DataAPI = {
     try {
       await setDoc(doc(db, "students", id), { consultCount: increment(-1), updatedAt: serverTimestamp() }, { merge: true });
     } catch (e) { console.warn("[Firebase] consultCount -1 실패:", e); }
+  },
+
+  // ========== 면담 댓글 (결제 승인 연동 예정) ==========
+  // 댓글 추가 — consultations/{id}.comments 배열에 arrayUnion
+  async addConsultationComment(empNo, consultationId, comment) {
+    const id = normalizeEmpNo(empNo);
+    if (!id || !consultationId) throw new Error("대상 면담 정보가 없습니다.");
+    if (!comment || !comment.text) throw new Error("댓글 내용이 비어있습니다.");
+    const safeComment = {
+      id: comment.id || ("cm_" + Date.now()),
+      role: String(comment.role || ""),
+      author: String(comment.author || ""),
+      text: String(comment.text || ""),
+      createdAt: comment.createdAt || new Date().toISOString()
+    };
+    await setDoc(
+      doc(db, "students", id, "consultations", consultationId),
+      { comments: arrayUnion(safeComment) },
+      { merge: true }
+    );
+  },
+
+  // 댓글 삭제 — id 일치 항목 arrayRemove
+  // arrayRemove 는 객체 완전 일치가 필요해서 원본을 다시 받아 삭제
+  async removeConsultationComment(empNo, consultationId, commentId) {
+    const id = normalizeEmpNo(empNo);
+    if (!id || !consultationId || !commentId) return;
+    const ref = doc(db, "students", id, "consultations", consultationId);
+    const snap = await getDocs(query(collection(db, "students", id, "consultations")));
+    let target = null;
+    snap.forEach((d) => {
+      if (d.id !== consultationId) return;
+      const list = (d.data().comments || []);
+      target = list.find((c) => c.id === commentId) || null;
+    });
+    if (!target) return;
+    await setDoc(ref, { comments: arrayRemove(target) }, { merge: true });
   },
 
   // 기존 교육생의 consultCount 재계산 (자기치유: 구독 시 최신값으로 동기화)
