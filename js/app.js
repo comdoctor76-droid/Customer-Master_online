@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.58";
+  const APP_VERSION = "0.59";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1734,6 +1734,30 @@
   .aw-total-v { color: #FFE082; font-size: 17px; font-weight: 900; }
 
   footer { margin-top: 6px; padding-top: 4px; border-top: 1px solid #D5D5D5; font-size: 9px; color: #999; text-align: center; }
+
+  /* 미리보기용 상단 바 — 화면에서만 노출, 인쇄 시에는 감춤 */
+  .print-ovl {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    background: #1A2744; color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-family: inherit;
+  }
+  .print-ovl .po-ttl { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
+  .print-ovl button {
+    border: none; border-radius: 6px; padding: 8px 14px;
+    font-size: 13px; font-weight: 800; cursor: pointer;
+    font-family: inherit; line-height: 1;
+  }
+  .po-back { background: #E8651A; color: #fff; }
+  .po-back:hover { background: #d65910; }
+  .po-print { background: #fff; color: #1A2744; }
+  .po-print:hover { background: #f0f2f8; }
+  body { padding-top: 50px; }
+  @media print {
+    .print-ovl { display: none !important; }
+    body { padding-top: 0 !important; }
+  }
 </style>
 </head><body>
   <header>
@@ -1770,7 +1794,13 @@
   ${cmtHtml}
 
   <footer>출력일시: ${new Date().toLocaleString("ko-KR")}</footer>
-<script>window.onload = () => { setTimeout(window.print, 150); };</script>
+
+  <!-- 모바일/데스크톱 공통 오버레이 — 인쇄 시에는 @media print 로 숨김 -->
+  <div class="print-ovl" id="print-ovl">
+    <button type="button" class="po-back" onclick="window.close();return false;">← 돌아가기</button>
+    <span class="po-ttl">📋 면담일지 미리보기</span>
+    <button type="button" class="po-print" onclick="window.print();return false;">🖨️ 인쇄하기</button>
+  </div>
 </body></html>`;
 
     const win = window.open("", "_blank", "width=900,height=1200");
@@ -2556,9 +2586,36 @@
     const scopeText = [f.region, f.center, f.branch].filter(Boolean).join(" · ");
     win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <title>시상 예상답안지 — ${escapeHtml(scopeText)}</title>
-<style>${AWARD_PRINT_CSS}</style>
-</head><body>${pages.join("")}
-<script>window.onload=function(){setTimeout(window.print, 200);}<\/script>
+<style>${AWARD_PRINT_CSS}
+  /* 미리보기용 상단 바 — 화면에서만 노출, 인쇄 시 숨김 */
+  .print-ovl {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    background: #1A2744; color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-family: inherit;
+  }
+  .print-ovl .po-ttl { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
+  .print-ovl button {
+    border: none; border-radius: 6px; padding: 8px 14px;
+    font-size: 13px; font-weight: 800; cursor: pointer;
+    font-family: inherit; line-height: 1;
+  }
+  .po-back { background: #E8651A; color: #fff; }
+  .po-print { background: #fff; color: #1A2744; }
+  body { padding-top: 50px; }
+  @media print {
+    .print-ovl { display: none !important; }
+    body { padding-top: 0 !important; }
+  }
+</style>
+</head><body>
+  <div class="print-ovl">
+    <button type="button" class="po-back" onclick="window.close();return false;">← 돌아가기</button>
+    <span class="po-ttl">🏆 시상 예상답안지 미리보기 (${pages.length}명)</span>
+    <button type="button" class="po-print" onclick="window.print();return false;">🖨️ 인쇄하기</button>
+  </div>
+  ${pages.join("")}
 </body></html>`);
     win.document.close();
   }
@@ -4275,7 +4332,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
