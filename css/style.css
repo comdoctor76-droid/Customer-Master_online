@@ -3384,6 +3384,13 @@ body {
     border-top: 1px solid var(--line-soft);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
     padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
+    /* iOS Safari: 강제 GPU 레이어 — position:fixed 가 스크롤 시
+       슬라이드처럼 딸려 올라오는 현상 방지 */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
   .mbn-btn {
     display: flex;
@@ -3451,8 +3458,9 @@ body {
   body.mobile-sidebar-open { overflow: hidden; }
 
   /* 바텀 바가 컨텐츠를 가리지 않도록 하단 여백 확보 */
-  body { padding-bottom: 72px; }
-  .app-footer { margin-bottom: 8px; }
+  body { padding-bottom: 92px; }
+  /* 푸터는 모바일에서 숨김 — 헤더 v 배지 + 하단 바가 대체 역할 */
+  .app-footer { display: none !important; }
 }
 
 /* 반응형 */
