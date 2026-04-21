@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.62";
+  const APP_VERSION = "0.63";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2903,25 +2903,25 @@
       </li>`;
     }).join("");
 
-    // 풀스크린 모달에 띄울 데이터 캐시
+    // 풀스크린 모달에 띄울 데이터 캐시 — 전체 순위 노출 (Infinity 사용)
     state._pgCardFullData = {
       rate: {
-        title: "📈 최고 신장률 TOP10",
-        subtitle: "기준실적 대비 순증률 (신장액 TOP2 제외)",
-        bodyHTML: renderProgressTop10(rateFinalList, "rate")
+        title: `📈 신장률 전체 순위 (${rateFinalList.length}명)`,
+        subtitle: "기준실적 대비 순증률 — 신장액 TOP2 제외",
+        bodyHTML: renderProgressTop10(rateFinalList, "rate", Infinity)
       },
       amt: {
-        title: "💰 최고 신장액 TOP10",
+        title: `💰 신장액 전체 순위 (${byAmt.length}명)`,
         subtitle: "순증 금액 절대값",
-        bodyHTML: renderProgressTop10(byAmt, "amt")
+        bodyHTML: renderProgressTop10(byAmt, "amt", Infinity)
       },
       ipum: {
-        title: "✨ 인품왕 TOP10",
+        title: `✨ 인품왕 전체 순위 (${byIpum.length}명)`,
         subtitle: "신상품 판매액 기준",
-        bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`
+        bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum", Infinity) : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`
       },
       group: {
-        title: "🏅 그룹 순증 시상",
+        title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
         subtitle: groupLabel,
         bodyHTML: `
           <table class="pg-tbl pg-tbl-wide">
@@ -3044,8 +3044,9 @@
     `;
   }
 
-  function renderProgressTop10(list, kind) {
-    const top = list.slice(0, 10);
+  function renderProgressTop10(list, kind, limit) {
+    const max = (limit === undefined || limit === null) ? 10 : limit;
+    const top = (max === Infinity || max <= 0) ? list.slice() : list.slice(0, max);
     if (!top.length) return `<div class="pg-empty">데이터 없음</div>`;
     return `
       <table class="pg-tbl">
@@ -3074,7 +3075,8 @@
               prize = amt ? `<span class="pg-bdg pg-b-g">${amt >= 200000 ? Math.round(amt/10000)+"만원" : "주유권"+Math.round(amt/10000)+"만"}</span>` : "-";
             }
           }
-          return `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${value}</td><td>${prize}</td></tr>`;
+          // 모달에서 클릭 가능한 행으로 표시 (data-emp 필요)
+          return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s.empNo)}"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${value}</td><td>${prize}</td></tr>`;
         }).join("")}</tbody>
       </table>
     `;
@@ -3120,10 +3122,23 @@
     const awdText = netAwd > 0 ? `${Nf(netAwd)}원 (${tierLabel(st.net)})` : "해당없음";
     const rateC = st.rate >= 120 ? "#0040b0" : st.rate >= 100 ? "#006030" : st.rate >= 80 ? "#884400" : "#880000";
     const netC  = st.net > 0 ? "#0040b0" : st.net < 0 ? "#880000" : "#333";
+    const initial = (s.name || "?").trim().charAt(0) || "?";
     openPgFullModal({
-      title: `👤 ${escapeHtml(s.name || "")}`,
-      subtitle: `${escapeHtml(s.branch || "")} · ${escapeHtml(s.empNo || "")}`,
+      title: `👤 ${escapeHtml(s.name || "")} 실적 상세`,
+      subtitle: `${escapeHtml(s.region || "")} · ${escapeHtml(s.center || "")} · ${escapeHtml(s.branch || "")}`,
       bodyHTML: `
+        <div class="pg-dm-id">
+          <div class="pg-dm-id-avatar">${escapeHtml(initial)}</div>
+          <div class="pg-dm-id-main">
+            <div class="pg-dm-id-name">${escapeHtml(s.name || "(이름 없음)")}</div>
+            <div class="pg-dm-id-meta">
+              <span class="pg-dm-id-branch">🏢 ${escapeHtml(s.branch || "(미지정)")}</span>
+              <span class="pg-dm-id-emp">사번 ${escapeHtml(s.empNo || "")}</span>
+              ${s.cohort ? `<span class="pg-dm-id-cohort">${escapeHtml(s.cohort)}</span>` : ""}
+              ${s.team ? `<span class="pg-dm-id-team">${escapeHtml(s.team)}</span>` : ""}
+            </div>
+          </div>
+        </div>
         <div class="pg-dm-grid">
           <div class="pg-dm-cell"><div class="pg-dm-l">기준실적</div><div class="pg-dm-v">${Nf(st.base)}원</div></div>
           <div class="pg-dm-cell"><div class="pg-dm-l">현재실적</div><div class="pg-dm-v">${Nf(st.current)}원</div></div>
@@ -4435,7 +4450,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
