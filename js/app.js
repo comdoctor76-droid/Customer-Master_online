@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.57";
+  const APP_VERSION = "0.58";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1631,7 +1631,17 @@
     const clientsHtml = clients.length ? `
       <section class="pr-section">
         <h3>상담고객 (${clients.length}명)</h3>
-        <table class="pr-table">
+        <table class="pr-table pr-cc-table">
+          <colgroup>
+            <col style="width:3%;">
+            <col style="width:7%;">
+            <col style="width:6%;">
+            <col style="width:7%;">
+            <col style="width:9%;">
+            <col style="width:6%;">
+            <col style="width:5%;">
+            <col style="width:57%;">
+          </colgroup>
           <thead><tr>
             <th>#</th><th>성명</th><th>유형</th><th>단계</th><th>자료</th><th>금액</th><th>보종</th><th>면담 내용</th>
           </tr></thead>
@@ -1681,7 +1691,7 @@
 <html lang="ko"><head><meta charset="UTF-8">
 <title>면담일지 - ${escapeHtml(s.name || "")} ${escapeHtml(c.seq || "")}차</title>
 <style>
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: A4 portrait; margin: 6mm 7mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; font-size: 10.5px; color: #1A1A1A; line-height: 1.35; }
   header { border-bottom: 2px solid #E8651A; padding-bottom: 5px; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: baseline; }
@@ -1693,10 +1703,12 @@
   .pr-info { width: 100%; border-collapse: collapse; font-size: 10px; }
   .pr-info th { background: #F5F5F5; color: #444; font-weight: 700; padding: 2px 6px; text-align: left; border: 1px solid #D5D5D5; white-space: nowrap; }
   .pr-info td { padding: 2px 6px; border: 1px solid #D5D5D5; }
-  .pr-table { width: 100%; border-collapse: collapse; font-size: 10px; }
-  .pr-table th, .pr-table td { border: 1px solid #D5D5D5; padding: 2px 5px; text-align: left; vertical-align: top; }
+  .pr-table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+  .pr-table th, .pr-table td { border: 1px solid #D5D5D5; padding: 2px 5px; text-align: left; vertical-align: top; word-break: keep-all; overflow-wrap: break-word; }
   .pr-table th { background: #F5F5F5; font-weight: 700; font-size: 9.5px; }
-  .pr-table td.memo { white-space: pre-wrap; max-width: 180px; line-height: 1.35; }
+  .pr-cc-table { table-layout: fixed; }
+  .pr-cc-table th, .pr-cc-table td { padding: 3px 4px; font-size: 10px; }
+  .pr-cc-table td.memo { white-space: pre-wrap; line-height: 1.35; font-size: 10.5px; word-break: keep-all; overflow-wrap: break-word; }
   .pr-coach { padding: 6px 10px; background: #FFF8F5; border-left: 3px solid #E8651A; border-radius: 0 5px 5px 0; white-space: pre-wrap; font-size: 10.5px; line-height: 1.5; }
   .pr-comment { padding: 4px 8px; background: #F5F7FF; border-left: 3px solid #1A2744; border-radius: 0 5px 5px 0; font-size: 10px; line-height: 1.4; }
   .pr-comment strong { color: #1A2744; margin-right: 4px; }
@@ -4263,7 +4275,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
