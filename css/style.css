@@ -786,6 +786,68 @@ body {
 .pg-dm-l { font-size: 11px; color: var(--ink-3); font-weight: 600; margin-bottom: 4px; }
 .pg-dm-v { font-size: 18px; font-weight: 800; color: var(--navy); font-family: "Consolas", "Menlo", monospace; }
 
+/* 교육생 상세 — 누구인지 표시 카드 */
+.pg-dm-id {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, var(--orange-light), #fff);
+  border: 1px solid var(--orange-l);
+  border-left: 4px solid var(--orange);
+  border-radius: 12px;
+}
+.pg-dm-id-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange), var(--orange-l));
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(232, 101, 26, 0.35);
+}
+.pg-dm-id-main { flex: 1; min-width: 0; }
+.pg-dm-id-name {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--navy);
+  letter-spacing: -0.3px;
+  word-break: keep-all;
+}
+.pg-dm-id-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.pg-dm-id-meta span { white-space: nowrap; }
+.pg-dm-id-branch { font-weight: 700; color: var(--navy); }
+.pg-dm-id-emp { font-family: "Consolas", "Menlo", monospace; color: var(--ink-3); }
+.pg-dm-id-cohort {
+  background: var(--orange);
+  color: #fff;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+}
+.pg-dm-id-team {
+  background: #6A3EC8;
+  color: #fff;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+}
+
 /* 실적진도 모달 하단 닫기/돌아가기 버튼 */
 .pg-full-modal .modal-foot {
   padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
