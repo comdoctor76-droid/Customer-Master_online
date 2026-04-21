@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.61";
+  const APP_VERSION = "0.62";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3112,7 +3112,7 @@
     }
   }
 
-  function openProgressStudentPopup(empNo) {
+  function openProgressStudentPopup(empNo, pushStack) {
     const s = state.students.find((x) => x.empNo === empNo);
     if (!s) return;
     const st = getProgressStat(s);
@@ -3133,36 +3133,62 @@
           ${st.ipumAmt ? `<div class="pg-dm-cell pg-dm-wide"><div class="pg-dm-l">✨ 인품 (신상품)</div><div class="pg-dm-v">${st.ipumCount}건 · ${Nf(st.ipumAmt)}원</div></div>` : ""}
         </div>
       `,
-      closeLabel: "← 돌아가기"
+      closeLabel: pushStack ? "← TOP10 으로" : "← 돌아가기",
+      pushStack: !!pushStack
     });
   }
 
   // 재사용 가능한 풀스크린 실적진도 모달
-  function openPgFullModal({ title, subtitle, bodyHTML, closeLabel }) {
+  // pushStack=true 면 현재 모달 내용을 스택에 저장 후 새 내용 노출 → 닫을 때 이전 내용 복원
+  function openPgFullModal({ title, subtitle, bodyHTML, closeLabel, pushStack }) {
     let modal = document.getElementById("modal-pg-full");
     if (!modal) {
       modal = document.createElement("div");
       modal.id = "modal-pg-full";
       modal.className = "modal pg-full-modal";
       modal.hidden = true;
+      state._pgModalStack = [];
       modal.innerHTML = `
-        <div class="modal-backdrop" data-close></div>
+        <div class="modal-backdrop" data-pg-close></div>
         <div class="modal-panel pg-full-modal-panel">
           <div class="modal-head pg-full-modal-head">
             <div class="pg-full-modal-titles">
               <h3 id="pg-full-modal-title">제목</h3>
               <p id="pg-full-modal-sub"></p>
             </div>
-            <button class="modal-close" data-close aria-label="닫기">&times;</button>
+            <button class="modal-close" data-pg-close aria-label="닫기">&times;</button>
           </div>
           <div class="modal-body pg-full-modal-body" id="pg-full-modal-body"></div>
           <div class="modal-foot">
-            <button class="btn-primary" id="pg-full-modal-close" data-close>닫기</button>
+            <button class="btn-primary" id="pg-full-modal-close" data-pg-close>닫기</button>
           </div>
         </div>
       `;
       document.body.appendChild(modal);
-      modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
+
+      // 닫기 요소(백드롭, ×, 하단 버튼)
+      modal.querySelectorAll("[data-pg-close]").forEach((el) => {
+        el.addEventListener("click", (e) => { e.stopPropagation(); closePgFullModal(); });
+      });
+
+      // 패널 내부의 빈 공간(인터랙티브 요소 제외) 탭 시에도 닫기
+      modal.querySelector(".modal-panel").addEventListener("click", (e) => {
+        if (e.target.closest(".pg-tr-click, .pg-pcard-row, .modal-close, button, a, input, textarea, select, .pg-rb, .pg-pcard-prize, .pg-pcard-chev")) return;
+        closePgFullModal();
+      });
+    }
+    // 현재 모달이 이미 열려 있고 pushStack 옵션이면 기존 상태를 스택에 저장
+    if (pushStack && !modal.hidden) {
+      state._pgModalStack = state._pgModalStack || [];
+      state._pgModalStack.push({
+        title: modal.querySelector("#pg-full-modal-title").innerHTML,
+        subtitle: modal.querySelector("#pg-full-modal-sub").innerHTML,
+        bodyHTML: modal.querySelector("#pg-full-modal-body").innerHTML,
+        closeLabel: modal.querySelector("#pg-full-modal-close").textContent
+      });
+    } else if (!pushStack) {
+      // 최상위 진입 — 스택 초기화
+      state._pgModalStack = [];
     }
     modal.querySelector("#pg-full-modal-title").innerHTML = title || "";
     modal.querySelector("#pg-full-modal-sub").innerHTML = subtitle || "";
@@ -3170,14 +3196,38 @@
     const closeBtn = modal.querySelector("#pg-full-modal-close");
     if (closeBtn) closeBtn.textContent = closeLabel || "닫기";
     modal.hidden = false;
-    // 모달 내부에서도 이름 클릭 팝업 재바인딩 (중첩 팝업 허용)
+    // 모달 바디의 이름 클릭 → 교육생 상세 팝업(스택 push)
     modal.querySelectorAll(".pg-tr-click, .pg-pcard-row[data-emp]").forEach((el) => {
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         const emp = el.dataset.emp;
-        if (emp) openProgressStudentPopup(emp);
+        if (emp) openProgressStudentPopup(emp, true /* pushStack */);
       });
     });
+  }
+
+  // 모달 닫기 — 스택에 이전 내용이 있으면 복원, 없으면 완전 닫기
+  function closePgFullModal() {
+    const modal = document.getElementById("modal-pg-full");
+    if (!modal) return;
+    if (state._pgModalStack && state._pgModalStack.length > 0) {
+      const prev = state._pgModalStack.pop();
+      modal.querySelector("#pg-full-modal-title").innerHTML = prev.title || "";
+      modal.querySelector("#pg-full-modal-sub").innerHTML = prev.subtitle || "";
+      modal.querySelector("#pg-full-modal-body").innerHTML = prev.bodyHTML || "";
+      const closeBtn = modal.querySelector("#pg-full-modal-close");
+      if (closeBtn) closeBtn.textContent = prev.closeLabel || "닫기";
+      // 복원된 바디의 이름 클릭 재바인딩
+      modal.querySelectorAll(".pg-tr-click, .pg-pcard-row[data-emp]").forEach((el) => {
+        el.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const emp = el.dataset.emp;
+          if (emp) openProgressStudentPopup(emp, true);
+        });
+      });
+      return;
+    }
+    modal.hidden = true;
   }
 
   function renderProgressAdmin(list) {
@@ -4385,7 +4435,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
