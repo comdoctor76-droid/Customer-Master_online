@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.60";
+  const APP_VERSION = "0.61";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1974,6 +1974,58 @@
   }
 
   // 그룹(지점 또는 개인) 단위로 페이지 HTML 생성
+  // 모바일 화면 전용: 출력 미리보기용 카드 렌더 (print 시에는 @media print 로 숨김)
+  function renderPrintMobileView(studentBlocks, fn, nl, validClients, showSel) {
+    return `
+      <div class="print-mobile-view">
+        ${studentBlocks.map((blk) => `
+          <div class="pm-stu-card">
+            <div class="pm-stu-hd">
+              <span class="pm-stu-nm">${escapeHtml(blk.s.name || "")}</span>
+              <span class="pm-stu-meta">월평균 ${blk.stuIns} · 당월목표 ${blk.stuTgt}</span>
+            </div>
+            ${blk.itvs.map((e) => {
+              const clients = validClients(e.clients);
+              return `
+                <div class="pm-itv-card">
+                  <div class="pm-itv-hd">
+                    <span class="pm-itv-seq">${escapeHtml(e.seq || "-")}차</span>
+                    <span class="pm-itv-dt">${escapeHtml(e.date || "")}</span>
+                    <span class="pm-itv-pct">진도 ${fn(e.pct)}%</span>
+                  </div>
+                  <div class="pm-itv-stat">
+                    <span><em>가입설계</em> ${fn(e.plan)}</span>
+                    <span><em>행복보장</em> ${fn(e.hap)}</span>
+                    <span><em>예상실적</em> ${fn(e.exp)}</span>
+                  </div>
+                  ${clients.length ? `
+                    <div class="pm-clients">
+                      ${clients.map((c, ci) => `
+                        <div class="pm-cli-card">
+                          <div class="pm-cli-num">${ci + 1} <small>번 고객</small></div>
+                          <dl class="pm-cli-dl">
+                            <dt>성명</dt><dd class="pm-strong">${escapeHtml(c.name || "")}</dd>
+                            <dt>고객유형</dt><dd>${showSel(c.types) || "-"}</dd>
+                            <dt>상담단계</dt><dd>${showSel(c.consult) || "-"}</dd>
+                            <dt>활용자료</dt><dd>${showSel(c.material) || "-"}</dd>
+                            <dt>제안금액</dt><dd>${showSel(c.amount) || "-"}${c.amountDirect ? ` <span class="pm-amt-d">+${escapeHtml(c.amountDirect)}만</span>` : ""}</dd>
+                            <dt>보종</dt><dd>${showSel(c.bj) || "-"}</dd>
+                            <dt>면담내용</dt><dd class="pm-memo">${nl(c.memo || "-")}</dd>
+                          </dl>
+                        </div>
+                      `).join("")}
+                    </div>
+                  ` : ""}
+                  ${e.coach ? `<div class="pm-coach"><strong>📌 코칭포인트</strong><p>${nl(e.coach)}</p></div>` : ""}
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function buildGroupPagesHtml(group, isFirstGroup) {
     // flatten 모든 학생의 행 + 학생 메타 유지
     const fn = (v) => {
@@ -2196,6 +2248,7 @@
               ${summaryHtml}
             </tbody>
           </table>
+          ${isVeryFirst ? renderPrintMobileView(studentBlocks, fn, nl, validClients, showSel) : ""}
           ${isLast ? cmtHtml : ""}
           ${isLast ? awardHtml : ""}
         </div>
@@ -4332,7 +4385,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
