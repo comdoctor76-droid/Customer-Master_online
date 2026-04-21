@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.64";
+  const APP_VERSION = "0.65";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -562,6 +562,16 @@
             <label>주간예상실적</label>
             <input type="number" id="iv-exp" placeholder="천원" step="10">
           </div>
+
+          <div class="iv-field">
+            <label>1차 마감 실적 <span class="iv-hint">중간점검</span></label>
+            <input type="number" id="iv-close1" placeholder="천원" step="10">
+          </div>
+          <div class="iv-field">
+            <label>2차 마감 실적 <span class="iv-hint">최종</span></label>
+            <input type="number" id="iv-close2" placeholder="천원" step="10">
+          </div>
+          <div class="iv-field"></div>
         </div>
 
         <div class="iv-clients">
@@ -1162,7 +1172,7 @@
   }
 
   function clearInterviewForm() {
-    ["iv-seq","iv-ins","iv-tgt","iv-curAct","iv-pct","iv-plan","iv-hap","iv-exp","iv-coach"]
+    ["iv-seq","iv-ins","iv-tgt","iv-curAct","iv-pct","iv-plan","iv-hap","iv-exp","iv-close1","iv-close2","iv-coach"]
       .forEach((id) => { const el = $("#" + id); if (el) el.value = ""; });
     const today = new Date().toISOString().slice(0, 10);
     const d = $("#iv-date"); if (d) d.value = today;
@@ -1199,6 +1209,8 @@
       plan: num("iv-plan"),
       hap: num("iv-hap"),
       exp: num("iv-exp"),
+      close1: num("iv-close1"),
+      close2: num("iv-close2"),
       coach: read("iv-coach"),
       clients: (state.crData || []).map((c) => ({
         name: (c.name || "").trim(),
@@ -1578,6 +1590,8 @@
               <div class="hf"><div class="hfl">가입설계</div><div class="hfv">${fn(e.plan)} <small>건</small></div></div>
               <div class="hf"><div class="hfl">행복보장</div><div class="hfv">${fn(e.hap)} <small>건</small></div></div>
               <div class="hf"><div class="hfl">주간예상</div><div class="hfv">${fn(e.exp)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">1차 마감</div><div class="hfv">${fn(e.close1)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">2차 마감</div><div class="hfv">${fn(e.close2)} <small>천원</small></div></div>
             </div>
             ${clientsHtml}
             ${e.coach ? `<div class="note nv"><strong>📌 코칭포인트</strong><p>${nl(e.coach)}</p></div>` : ""}
@@ -3758,6 +3772,8 @@
     setVal("iv-plan", c.plan || "");
     setVal("iv-hap", c.hap || "");
     setVal("iv-exp", c.exp || "");
+    setVal("iv-close1", c.close1 || "");
+    setVal("iv-close2", c.close2 || "");
     setVal("iv-coach", c.coach || c.content || "");
 
     // tgt 자동/수동 모드 판별
@@ -4456,7 +4472,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));

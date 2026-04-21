@@ -2099,7 +2099,10 @@ body {
   .iv-grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 700px) {
-  .iv-grid-3 { grid-template-columns: 1fr; }
+  .iv-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 8px 10px; }
+  .iv-field input, .iv-field textarea, .iv-field select { padding: 8px 10px; font-size: 13px; }
+  .iv-field label { font-size: 11.5px; }
+  .iv-field .iv-hint { font-size: 10.5px; }
 }
 
 /* 상담고객 섹션 (Phase 2) */

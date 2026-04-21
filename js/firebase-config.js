@@ -269,6 +269,8 @@ window.DataAPI = {
       plan: toNum(entry.plan),
       hap: toNum(entry.hap),
       exp: toNum(entry.exp),
+      close1: toNum(entry.close1),
+      close2: toNum(entry.close2),
       coach: (entry.coach || "").trim(),
       clients: Array.isArray(entry.clients) ? entry.clients.slice(0, 5).map((c) => ({
         name: (c.name || "").trim(),
@@ -313,6 +315,8 @@ window.DataAPI = {
       plan: toNum(entry.plan),
       hap: toNum(entry.hap),
       exp: toNum(entry.exp),
+      close1: toNum(entry.close1),
+      close2: toNum(entry.close2),
       coach: (entry.coach || "").trim(),
       clients: Array.isArray(entry.clients) ? entry.clients.slice(0, 5).map((c) => ({
         name: (c.name || "").trim(),
