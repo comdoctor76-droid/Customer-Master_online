@@ -1133,17 +1133,34 @@ body {
   .sib-stats { padding-left: 10px; gap: 10px; }
   .sib-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
 }
-/* 모바일: 교육생 정보 바 수직 스택 + 아바타 제거 + 이름 가로 표시 */
+/* 모바일: 교육생 정보 바 — 이름 옆에 버튼 / 아래에 통계 (2행) */
 @media (max-width: 640px) {
   .student-info-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "main  acts"
+      "stats stats";
+    align-items: flex-start;
+    gap: 10px 10px;
     padding: 12px 14px;
     flex-wrap: nowrap;
   }
   .sib-avatar { display: none; }
-  .sib-main { width: 100%; flex: 0 0 auto; }
+  .sib-main { grid-area: main; width: auto; min-width: 0; }
+  .sib-actions {
+    grid-area: acts;
+    margin-left: 0;
+    padding-top: 0;
+    border-top: none;
+    width: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: flex-start;
+    flex-shrink: 0;
+  }
+  .sib-actions .small { padding: 4px 10px; font-size: 10.5px; min-width: 60px; }
   .sib-name {
     font-size: 17px;
     flex-wrap: wrap;
@@ -1158,7 +1175,8 @@ body {
     text-overflow: clip;
   }
   .sib-stats {
-    width: 100%;
+    grid-area: stats;
+    width: auto;
     padding-left: 0;
     padding-top: 10px;
     border-left: none;
@@ -1169,13 +1187,6 @@ body {
   }
   .sib-stats > div { align-items: flex-start; flex: 1; min-width: 0; font-size: 10.5px; }
   .sib-stats strong { font-size: 15px; white-space: nowrap; }
-  .sib-actions {
-    width: 100%;
-    justify-content: flex-end;
-    margin-left: 0;
-    padding-top: 10px;
-    border-top: 1px dashed var(--line);
-  }
 
   /* 모바일 공통: 한국어 이름이 한 글자씩 깨지는 현상 방지 — body 전체 */
   body, .panel-head h2, .sub-tab, .kpi-label, .kpi-sub,
@@ -2454,6 +2465,18 @@ body {
 .rs-table tr.rs-on td.prize { color: var(--success); }
 .rs-table tr.rs-done td { color: var(--ink-2); }
 .rs-table tr.rs-miss td { color: var(--ink-3); }
+.rs-table td.nm { white-space: nowrap; word-break: keep-all; }
+.rs-table td.prize { white-space: nowrap; word-break: keep-all; }
+
+/* 모바일: 아너스클럽 표는 현재 등급 ± 1 만 노출 (data-dist 0,1 만 표시) */
+@media (max-width: 640px) {
+  .rs-table tbody tr { display: none; }
+  .rs-table tbody tr[data-dist="0"],
+  .rs-table tbody tr[data-dist="1"] { display: table-row; }
+  .rs-table th.crit, .rs-table td.crit { width: 70px; }
+  .rs-table th.prize, .rs-table td.prize { width: 80px; }
+  .rs-table td, .rs-table th { padding: 6px 6px; font-size: 12px; }
+}
 .rs-applied { padding: 8px 12px; background: var(--bg-soft); border-radius: var(--radius-s); margin-top: 8px; font-size: 13px; }
 .calc-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
 .calc-table td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft); }
@@ -2511,6 +2534,26 @@ body {
 .tb-cap { font-size: 11px; color: rgba(255,255,255,.75); }
 .tb-det { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 2px; }
 .tb-amt { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: -1px; }
+
+/* 모바일: 라벨을 상단, 금액을 하단으로 스택 */
+@media (max-width: 640px) {
+  .rc-total-box {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 14px 16px;
+  }
+  .rc-total-box > div:first-child { text-align: left; }
+  .tb-cap { font-size: 12.5px; font-weight: 800; color: rgba(255,255,255,.9); line-height: 1.3; }
+  .tb-det { font-size: 11px; color: rgba(255,255,255,.65); margin-top: 4px; line-height: 1.45; }
+  .tb-amt {
+    text-align: right;
+    font-size: 28px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,.15);
+    letter-spacing: -0.5px;
+  }
+}
 .next-tier {
   margin-top: 10px;
   border: 2px solid #FF8F00;

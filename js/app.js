@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.63";
+  const APP_VERSION = "0.64";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -967,11 +967,17 @@
       const isActive = i === award1Idx;
       const cls = isActive ? "rs-on" : achieved ? "rs-done" : "rs-miss";
       const icon = isActive ? "🏆" : achieved ? "✅" : "⬜";
-      return `<tr class="${cls}">
+      // 모바일에선 현재 등급 ± 1 만 노출 (data-dist 로 CSS 필터)
+      const dist = award1Idx >= 0 ? Math.abs(i - award1Idx) : 99;
+      // 한글만 표시 (영문 괄호 제거) + 줄바꿈 방지
+      const gradeKo = h.grade.replace(/\s*\([^)]*\)\s*/g, "").trim();
+      // 시상금 짧게: 500만 → "5백만원", 100만 → "1백만원", 나머지 "NN만원"
+      const prizeStr = (h.prize >= 100 && h.prize % 100 === 0) ? `${h.prize / 100}백만원` : `${h.prize}만원`;
+      return `<tr class="${cls}" data-dist="${dist}">
         <td class="c">${icon}</td>
-        <td>${escapeHtml(h.grade)}</td>
+        <td class="nm">${escapeHtml(gradeKo)}</td>
         <td class="crit">${h.criteria}</td>
-        <td class="prize">${(h.prize * 10000).toLocaleString()}원</td>
+        <td class="prize">${prizeStr}</td>
       </tr>`;
     }).join("");
 
@@ -991,7 +997,7 @@
         <table class="rs-table"><thead><tr>
           <th class="c">달성</th><th>시상등급</th><th class="crit">기준</th><th class="prize">시상금</th>
         </tr></thead><tbody>${honorRows}</tbody></table>
-        <div class="rs-applied">→ 현재 등급: <strong>${escapeHtml(award1Grade)}</strong> · 시상금: <strong>${award1 ? fmtW(award1) : "해당없음"}</strong></div>
+        <div class="rs-applied">→ 현재 등급: <strong>${escapeHtml((award1Grade || "").replace(/\s*\([^)]*\)\s*/g, "").trim() || "해당없음")}</strong> · 시상금: <strong>${award1 ? fmtW(award1) : "해당없음"}</strong></div>
 
         <div class="rc-sec-l">② 개인 순증시상 (하이포인트) ${!baseTgtMet ? `<span class="warn-badge">⚠ 기본순증목표 미달</span>` : ""}</div>
         ${!baseTgtMet
@@ -4450,7 +4456,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
