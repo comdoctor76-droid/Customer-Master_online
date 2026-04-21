@@ -1442,6 +1442,11 @@ body {
 
   /* 하단 요약 블록도 한 페이지 안에 */
   .print-award, .print-comment { page-break-inside: avoid; break-inside: avoid; }
+
+  /* 인쇄 시에는 모바일 카드 미리보기 감추고 원본 테이블만 출력 */
+  .print-mobile-view { display: none !important; }
+  .print-page .dt { display: table !important; }
+  .print-page .print-logo-wrap { display: flex !important; }
 }
 
 /* 화면상에서도 A4 landscape 느낌 주기 (pixel 환산 ≈ 1122×794, 여백 고려 ~1060) */
@@ -1457,6 +1462,121 @@ body {
 }
 @media print {
   .print-page { min-width: 0; width: auto; max-width: 100%; }
+}
+
+/* 모바일 미리보기 카드 — 화면에서만 노출, 인쇄 시 숨김 */
+.print-mobile-view { display: none; }
+@media (max-width: 640px) {
+  .print-page { width: 100%; min-width: 0; padding: 8px; }
+  .print-page .dt { display: none; }
+  .print-page .print-logo-wrap { display: none; }
+  .print-mobile-view { display: block; }
+  .pm-stu-card {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-left: 4px solid var(--orange);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  .pm-stu-hd {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line-soft);
+    margin-bottom: 8px;
+  }
+  .pm-stu-nm { font-size: 15px; font-weight: 900; color: var(--navy); }
+  .pm-stu-meta { font-size: 11px; color: var(--ink-3); font-weight: 700; }
+  .pm-itv-card {
+    background: var(--bg-soft);
+    border-radius: 8px;
+    padding: 10px 10px;
+    margin-bottom: 8px;
+  }
+  .pm-itv-hd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line-soft);
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    color: var(--ink-2);
+  }
+  .pm-itv-seq {
+    background: var(--orange);
+    color: #fff;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+  }
+  .pm-itv-dt { color: var(--ink-3); font-weight: 600; }
+  .pm-itv-pct { margin-left: auto; font-weight: 800; color: var(--navy); }
+  .pm-itv-stat {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 11px;
+    color: var(--ink-2);
+    margin-bottom: 8px;
+  }
+  .pm-itv-stat em { font-style: normal; color: var(--ink-3); font-weight: 600; margin-right: 2px; }
+  .pm-clients { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .pm-cli-card {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--orange);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .pm-cli-num {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--orange);
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line-soft);
+    margin-bottom: 6px;
+  }
+  .pm-cli-num small { font-size: 11px; color: var(--ink-3); font-weight: 600; margin-left: 3px; }
+  .pm-cli-dl {
+    display: grid;
+    grid-template-columns: 68px 1fr;
+    gap: 4px 8px;
+    margin: 0;
+    font-size: 12px;
+  }
+  .pm-cli-dl dt {
+    color: var(--navy);
+    font-weight: 700;
+    font-size: 11px;
+    padding-top: 1px;
+  }
+  .pm-cli-dl dd {
+    margin: 0;
+    color: var(--ink);
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .pm-cli-dl .pm-strong { font-weight: 800; color: var(--ink); font-size: 13px; }
+  .pm-cli-dl .pm-memo { font-size: 12px; line-height: 1.45; color: var(--ink); }
+  .pm-amt-d { color: var(--blue); font-weight: 700; }
+  .pm-coach {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #FFF8F5;
+    border-left: 3px solid var(--orange);
+    border-radius: 0 6px 6px 0;
+  }
+  .pm-coach strong { font-size: 12px; color: var(--orange-dark); display: block; margin-bottom: 4px; }
+  .pm-coach p { font-size: 12px; color: var(--ink); line-height: 1.45; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; }
 }
 
 @media (max-width: 1100px) {
