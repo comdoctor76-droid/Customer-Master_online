@@ -1,0 +1,37 @@
+name: Lint JS
+
+# 트리거: PR 생성/업데이트 + main 브랜치 push
+on:
+  pull_request:
+    paths:
+      - "js/**"
+      - ".github/workflows/lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "js/**"
+      - ".github/workflows/lint.yml"
+
+jobs:
+  syntax-check:
+    name: JS Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax check (app.js)
+        run: node --check js/app.js
+
+      - name: Syntax check (data.js)
+        run: node --check js/data.js
+
+      # firebase-config.js 는 ES module(import 구문)이라 node --check 가 거부.
+      # 대신 esm 호환 파서로 빠르게 확인.
+      - name: Syntax check (firebase-config.js)
+        run: node --input-type=module --check < js/firebase-config.js
