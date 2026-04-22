@@ -2731,6 +2731,7 @@ body {
 .pg-msg { font-size: 12px; font-weight: 700; }
 .pg-msg.ok { color: var(--success); }
 .pg-msg.err { color: var(--danger); }
+.pg-msg.warn { color: var(--amber); }
 
 .pg-input {
   width: 100%;

@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.66";
+  const APP_VERSION = "0.67";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3625,15 +3625,20 @@
     const ipumPasteApply = $("#btn-pg-ipum-paste-apply");
     if (ipumPasteApply) ipumPasteApply.addEventListener("click", () => {
       const txt = $("#pg-ipum-paste").value;
+      // 학생 이름 사전 정규화 (공백/제로폭 문자 제거) 후 lookup map
+      const normName = (n) => (n || "").replace(/\s+/g, "").replace(/[​-‍﻿]/g, "");
+      const nameMap = new Map();
+      list.forEach((s) => nameMap.set(normName(s.name), s));
       let cnt = 0;
+      const unmatched = [];
       txt.split(/\r?\n/).forEach((line) => {
         const parts = line.trim().split(/\s+/);
         if (parts.length < 3) return;
-        const name = parts[0];
+        const rawName = parts[0];
         const count = parseInt(parts[1].replace(/,/g, ""), 10);
         const amt = parseInt(parts[parts.length - 1].replace(/,/g, ""), 10);
         if (isNaN(count) || isNaN(amt)) return;
-        const s = list.find((x) => x.name === name);
+        const s = nameMap.get(normName(rawName));
         if (s) {
           ["f2", "f"].forEach((attr) => {
             const cEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="ipumCount"]`);
@@ -3642,10 +3647,22 @@
             if (aEl) aEl.value = amt;
           });
           cnt++;
+        } else {
+          unmatched.push(rawName);
         }
       });
       const m = $("#pg-ipum-paste-msg");
-      if (m) { m.textContent = `✅ ${cnt}명 반영 (인품 저장 눌러 확정)`; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 4000); }
+      if (m) {
+        const warnPart = unmatched.length ? ` · ⚠️ 이름 미일치 ${unmatched.length}명 (${unmatched.slice(0,3).join(", ")}${unmatched.length>3?"…":""})` : "";
+        m.innerHTML = `✅ ${cnt}명 반영 (아래 [💾 인품 저장] 눌러야 확정)${warnPart}`;
+        m.className = unmatched.length ? "pg-msg warn" : "pg-msg ok";
+        setTimeout(() => { m.textContent = ""; }, 8000);
+      }
+      if (cnt === 0) {
+        toast("매칭되는 이름이 없습니다. 좌측 지역단과 이름을 확인하세요.", "error");
+      } else {
+        toast(`${cnt}명 인품 데이터 반영 — [💾 인품 저장] 으로 확정`, "success");
+      }
     });
     const ipumPasteClear = $("#btn-pg-ipum-paste-clear");
     if (ipumPasteClear) ipumPasteClear.addEventListener("click", () => { $("#pg-ipum-paste").value = ""; });
@@ -3657,28 +3674,51 @@
       document.querySelectorAll("#progress-body .pg-input[data-f2]").forEach((inp) => {
         const emp = inp.dataset.emp;
         const f = inp.dataset.f2;
+        if (!emp || !f) return;
         if (!updates[emp]) updates[emp] = {};
         updates[emp][f] = parseFloat(inp.value) || 0;
       });
       const msg = $("#pg-ipum-save-msg");
-      if (msg) msg.textContent = "저장중...";
+      // 변경된 것만 저장 — 0→0 은 제외해 배치 크기 축소
+      const changedRecords = [];
+      Object.keys(updates).forEach((emp) => {
+        const s = state.students.find((x) => x.empNo === emp);
+        if (!s) return;
+        const newCount = Number(updates[emp].ipumCount || 0);
+        const newAmt = Number(updates[emp].ipumAmt || 0);
+        const oldCount = Number(s.ipumCount || 0);
+        const oldAmt = Number(s.ipumAmt || 0);
+        if (newCount !== oldCount || newAmt !== oldAmt) {
+          changedRecords.push({ ...s, ipumCount: newCount, ipumAmt: newAmt });
+        }
+      });
+      if (!changedRecords.length) {
+        if (msg) { msg.textContent = "변경된 인품 데이터가 없습니다. (붙여넣기 반영 먼저 필요)"; msg.className = "pg-msg warn"; }
+        toast("변경된 값이 없습니다.", "error");
+        return;
+      }
+      if (msg) msg.textContent = `저장중... (${changedRecords.length}명)`;
       ipumSaveBtn.disabled = true;
       try {
-        const records = Object.keys(updates).map((emp) => {
-          const s = state.students.find((x) => x.empNo === emp);
-          return { ...s, ...updates[emp] };
-        });
         if (typeof window.DataAPI.saveMany === "function") {
-          await window.DataAPI.saveMany(records);
+          const result = await window.DataAPI.saveMany(changedRecords);
+          if (result && result.errors && result.errors.length) {
+            console.warn("[saveMany] 일부 실패:", result.errors);
+            if (msg) { msg.textContent = `⚠️ ${result.committed || 0}건 성공 / ${result.errors.length}건 실패 — 콘솔 확인`; msg.className = "pg-msg err"; }
+            toast(`일부 실패: ${result.errors.length}건`, "error");
+          } else {
+            if (msg) { msg.textContent = `✅ ${changedRecords.length}명 인품 저장 완료`; msg.className = "pg-msg ok"; }
+            toast(`인품 ${changedRecords.length}명 저장 완료`, "success");
+          }
         } else {
-          for (const r of records) await window.DataAPI.save(r);
+          for (const r of changedRecords) await window.DataAPI.save(r);
+          if (msg) { msg.textContent = `✅ ${changedRecords.length}명 저장 완료`; msg.className = "pg-msg ok"; }
+          toast(`인품 ${changedRecords.length}명 저장 완료`, "success");
         }
-        if (msg) { msg.textContent = `✅ ${records.length}건 저장 완료`; msg.className = "pg-msg ok"; }
-        toast(`인품 ${records.length}건 저장 완료`, "success");
       } catch (e) {
-        console.error(e);
-        if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
-        toast("저장 실패: " + e.message, "error");
+        console.error("[ipumSave] 예외:", e);
+        if (msg) { msg.textContent = "❌ 저장 실패: " + (e.message || e); msg.className = "pg-msg err"; }
+        toast("저장 실패: " + (e.message || e), "error");
       }
       ipumSaveBtn.disabled = false;
     });
@@ -4472,7 +4512,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260421j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260422a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
