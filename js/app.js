@@ -60,7 +60,8 @@
     consultations: [],
     consultUnsub: null,
     // Phase 1 interview form
-    tgtAutoMode: true,       // ins→tgt 자동 계산 on/off
+    tgtAutoMode: true,       // ins→tgt 자동 계산 on/off (legacy, replaced by tgtAddAmount)
+    tgtAddAmount: null,      // 마스터 목표 팝업 선택값: null=수동입력, number=평균+N(천원)
     editingConsultId: null,  // Phase 4용 예약 (이번엔 사용 안 함)
     lastDetailEmpNo: null,   // 마지막으로 완전 렌더한 교육생 (폼 보존용)
     // Phase 2 clients
@@ -477,8 +478,8 @@
         </div>
         <div class="sib-stats">
           <div><span>평균실적</span><strong>${fmt(s.base)}</strong></div>
-          <div><span>순증목표</span><strong>${fmt(s.honors)}</strong></div>
-          <div><span>인보험평균</span><strong>${fmt(s.insAvg)}</strong></div>
+          <div><span>마스터목표</span><strong>${fmt(s.target)}</strong></div>
+          <div><span>아너스목표</span><strong>${fmt(s.honors)}</strong></div>
         </div>
         <div class="sib-actions">
           <button class="btn-outline small" id="btn-detail-edit">정보 수정</button>
@@ -533,13 +534,23 @@
             <input type="text" id="iv-name" value="${escapeHtml(s.name || "")}" readonly>
           </div>
           <div class="iv-field">
-            <label>인보험 평균 <span class="iv-hint" id="iv-ins-hint"></span></label>
+            <label>평균실적(6개월평균) <span class="iv-hint" id="iv-ins-hint"></span></label>
             <input type="number" id="iv-ins" placeholder="천원" step="10">
           </div>
 
           <div class="iv-field">
-            <label>당월목표 <span class="iv-hint" id="iv-tgt-hint">평균+20만원 자동</span></label>
-            <input type="number" id="iv-tgt" placeholder="천원" step="10">
+            <label>마스터 목표</label>
+            <div class="iv-tgt-wrap">
+              <input type="number" id="iv-tgt" placeholder="천원" step="10" readonly>
+              <button type="button" class="iv-tgt-btn" id="iv-tgt-popup-btn">목표 선택 ▼</button>
+              <div class="iv-tgt-popup" id="iv-tgt-popup" hidden>
+                <button type="button" data-add="50">평균 +5만원</button>
+                <button type="button" data-add="100">평균 +10만원</button>
+                <button type="button" data-add="200">평균 +20만원</button>
+                <button type="button" data-add="300">평균 +30만원</button>
+                <button type="button" data-add="input">입력</button>
+              </div>
+            </div>
           </div>
           <div class="iv-field">
             <label>현재실적</label>
@@ -629,10 +640,52 @@
     `;
   }
 
+  function bindTgtPopup() {
+    const popupBtn = $("#iv-tgt-popup-btn");
+    const popup = $("#iv-tgt-popup");
+    if (!popupBtn || !popup) return;
+
+    popupBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popup.hidden = !popup.hidden;
+    });
+
+    popup.querySelectorAll("button[data-add]").forEach((opt) => {
+      opt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const add = opt.dataset.add;
+        const tgtEl = $("#iv-tgt");
+        if (!tgtEl) return;
+        popup.hidden = true;
+
+        if (add === "input") {
+          tgtEl.removeAttribute("readonly");
+          tgtEl.value = "";
+          tgtEl.focus();
+          state.tgtAddAmount = null;
+        } else {
+          const addVal = parseInt(add, 10);
+          const insVal = parseFloat($("#iv-ins")?.value) || 0;
+          tgtEl.value = insVal > 0 ? insVal + addVal : addVal;
+          tgtEl.setAttribute("readonly", "readonly");
+          state.tgtAddAmount = addVal;
+          calcIvPct();
+        }
+      });
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!popup.hidden && !popup.contains(e.target) && e.target !== popupBtn) {
+        popup.hidden = true;
+      }
+    }, { capture: false });
+  }
+
   function bindInterviewFormEvents() {
     $("#iv-seq").addEventListener("input", updateIvTitle);
     $("#iv-ins").addEventListener("input", onIvInsInput);
     $("#iv-tgt").addEventListener("input", onIvTgtInput);
+    bindTgtPopup();
     $("#iv-curAct").addEventListener("input", calcIvPct);
     $("#btn-iv-clear").addEventListener("click", () => {
       const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
@@ -891,11 +944,10 @@
       const hint = $("#iv-ins-hint");
       if (hint) hint.textContent = "▲ 계산기에서 입력";
       // tgt 재계산
-      if (state.tgtAutoMode) {
+      if (state.tgtAddAmount !== null) {
         const tgtEl = $("#iv-tgt");
         if (tgtEl) {
-          tgtEl.value = Math.round(raw / 1000) + 200;
-          const th = $("#iv-tgt-hint"); if (th) th.textContent = "▲ 자동";
+          tgtEl.value = Math.round(raw / 1000) + state.tgtAddAmount;
         }
       }
     }
@@ -1060,16 +1112,13 @@
     const tgtEl = $("#iv-tgt");
     if (!insEl || !tgtEl) return;
     const insVal = parseFloat(insEl.value) || 0;
-    if (state.tgtAutoMode && insVal > 0) {
-      tgtEl.value = insVal + 200;
-      $("#iv-tgt-hint").textContent = "▲ 자동";
+    if (state.tgtAddAmount !== null && insVal > 0) {
+      tgtEl.value = insVal + state.tgtAddAmount;
     }
     calcIvPct();
   }
 
   function onIvTgtInput() {
-    state.tgtAutoMode = false;
-    $("#iv-tgt-hint").textContent = "✏️ 수동";
     calcIvPct();
   }
 
@@ -1095,20 +1144,19 @@
       updateIvTitle();
     }
 
-    // 인보험 평균 우선순위: student.insAvg → 최근 면담의 ins → student.base/1000
+    // 평균실적(6개월평균) 우선순위: s.target(마스터목표) → 최근 면담의 ins → s.base/1000
     const insEl = $("#iv-ins");
     const tgtEl = $("#iv-tgt");
     const hintIns = $("#iv-ins-hint");
-    const hintTgt = $("#iv-tgt-hint");
     if (!insEl || !tgtEl) return;
 
     const lastWithIns = state.consultations.find((c) => c.ins);
-    state.tgtAutoMode = true;
+    state.tgtAddAmount = null;
 
     if (!insEl.value) {
-      if (Number(s.insAvg) > 0) {
-        insEl.value = s.insAvg;
-        if (hintIns) hintIns.textContent = "▲ 기본 인보험 평균";
+      if (Number(s.target) > 0) {
+        insEl.value = s.target;
+        if (hintIns) hintIns.textContent = "▲ 마스터목표";
       } else if (lastWithIns) {
         insEl.value = lastWithIns.ins;
         if (hintIns) hintIns.textContent = `▲ ${lastWithIns.seq || ""}차 면담값`;
@@ -1118,26 +1166,7 @@
       }
     }
 
-    if (!tgtEl.value) {
-      // 최근 면담에 tgt 값이 있고 ins+200 이 아니면 수동값 → 복원하되 mode 수동
-      if (lastWithIns && lastWithIns.tgt) {
-        const insV = Number(lastWithIns.ins) || 0;
-        const tgtV = Number(lastWithIns.tgt) || 0;
-        tgtEl.value = tgtV;
-        if (tgtV !== insV + 200) {
-          state.tgtAutoMode = false;
-          if (hintTgt) hintTgt.textContent = "✏️ 수동";
-        } else {
-          if (hintTgt) hintTgt.textContent = "▲ 자동";
-        }
-      } else {
-        const insV = parseFloat(insEl.value) || 0;
-        if (insV > 0) {
-          tgtEl.value = insV + 200;
-          if (hintTgt) hintTgt.textContent = "▲ 자동";
-        }
-      }
-    }
+    // 마스터 목표(iv-tgt)는 팝업에서 선택 — 신규 폼에서는 자동입력하지 않음
 
     // 현재실적 복원
     const curActEl = $("#iv-curAct");
@@ -1177,9 +1206,9 @@
     const today = new Date().toISOString().slice(0, 10);
     const d = $("#iv-date"); if (d) d.value = today;
     const ihint = $("#iv-ins-hint"); if (ihint) ihint.textContent = "";
-    const thint = $("#iv-tgt-hint"); if (thint) thint.textContent = "평균+20만원 자동";
     const phint = $("#iv-pct-hint"); if (phint) phint.textContent = "";
-    state.tgtAutoMode = true;
+    state.tgtAddAmount = null;
+    const tgtEl = $("#iv-tgt"); if (tgtEl) tgtEl.setAttribute("readonly", "readonly");
     initCR([]); // 상담고객 리셋
     // 시상 계산기 필드 리셋
     ["calc-avg","calc-base-tgt","calc-tgt","calc-comment"].forEach((id) => {
@@ -1583,8 +1612,8 @@
           </div>
           <div class="hi-bd">
             <div class="hi-fg">
-              <div class="hf"><div class="hfl">인보험 평균</div><div class="hfv">${fn(e.ins)} <small>천원</small></div></div>
-              <div class="hf"><div class="hfl">당월 목표</div><div class="hfv">${fn(e.tgt)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">평균실적(6개월)</div><div class="hfv">${fn(e.ins)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">마스터 목표</div><div class="hfv">${fn(e.tgt)} <small>천원</small></div></div>
               <div class="hf"><div class="hfl">현재실적</div><div class="hfv">${fn(e.curAct)} <small>천원</small></div></div>
               <div class="hf"><div class="hfl">진도</div><div class="hfv">${fn(e.pct)} <small>%</small></div></div>
               <div class="hf"><div class="hfl">가입설계</div><div class="hfv">${fn(e.plan)} <small>건</small></div></div>
@@ -1792,8 +1821,8 @@
           <th>사번</th><td>${escapeHtml(s.empNo)}</td>
           <th>기수</th><td>${escapeHtml(s.cohort || "")}</td>
           <th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
-      <tr><th>인보험 평균</th><td>${fmt(c.ins)} 천원</td>
-          <th>당월목표</th><td>${fmt(c.tgt)} 천원</td>
+      <tr><th>평균실적(6개월)</th><td>${fmt(c.ins)} 천원</td>
+          <th>마스터 목표</th><td>${fmt(c.tgt)} 천원</td>
           <th>현재실적</th><td>${fmt(c.curAct)} 천원</td>
           <th>진도</th><td>${fmt(c.pct)} %</td></tr>
       <tr><th>가입설계</th><td>${fmt(c.plan)} 건</td>
@@ -2002,7 +2031,7 @@
           <div class="pm-stu-card">
             <div class="pm-stu-hd">
               <span class="pm-stu-nm">${escapeHtml(blk.s.name || "")}</span>
-              <span class="pm-stu-meta">월평균 ${blk.stuIns} · 당월목표 ${blk.stuTgt}</span>
+              <span class="pm-stu-meta">평균실적 ${blk.stuIns} · 마스터목표 ${blk.stuTgt}</span>
             </div>
             ${blk.itvs.map((e) => {
               const clients = validClients(e.clients);
@@ -3816,12 +3845,16 @@
     setVal("iv-close2", c.close2 || "");
     setVal("iv-coach", c.coach || c.content || "");
 
-    // tgt 자동/수동 모드 판별
+    // tgt 팝업 선택값 복원
     const ins = Number(c.ins) || 0;
     const tgt = Number(c.tgt) || 0;
-    state.tgtAutoMode = (ins > 0 && tgt === ins + 200);
-    const th = $("#iv-tgt-hint");
-    if (th) th.textContent = tgt ? (state.tgtAutoMode ? "▲ 자동" : "✏️ 수동") : "";
+    const diff = tgt - ins;
+    state.tgtAddAmount = [50, 100, 200, 300].includes(diff) ? diff : null;
+    const tgtEl2 = $("#iv-tgt");
+    if (tgtEl2) {
+      if (state.tgtAddAmount !== null) tgtEl2.setAttribute("readonly", "readonly");
+      else tgtEl2.removeAttribute("readonly");
+    }
     const ih = $("#iv-ins-hint");
     if (ih) ih.textContent = c.seq ? `▲ ${c.seq}차 면담값` : "";
 
@@ -4153,7 +4186,7 @@
     const fields = [
       ["지역단", "region"], ["비전센터", "center"], ["지점", "branch"],
       ["기수", "cohort"], ["이름", "name"], ["연락처", "phone"],
-      ["기준실적", "base"], ["목표실적", "target"], ["아너스실적", "honors"]
+      ["평균실적", "base"], ["마스터목표", "target"], ["아너스목표", "honors"]
     ];
     return fields.map(([label, key]) => {
       const v = rec[key];
@@ -4328,7 +4361,7 @@
   function exportCSV() {
     const list = filteredStudents();
     if (list.length === 0) { toast("내보낼 데이터가 없습니다.", "error"); return; }
-    const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","기준실적","목표실적","아너스실적"];
+    const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","평균실적","마스터목표","아너스목표"];
     const rows = list.map((s) => [
       s.region, s.center, s.branch, s.cohort, s.empNo, s.name, s.phone, s.base, s.target, s.honors
     ].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
