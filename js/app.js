@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.69";
+  const APP_VERSION = "0.70";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -407,6 +407,7 @@
     // 같은 학생 재렌더 요청이면 폼 입력 보존 (학생 정보 한 줄만 갱신)
     if (state.lastDetailEmpNo === s.empNo && document.getElementById("iv-coach")) {
       updateStudentInfoBar(s);
+      syncIvTgtFromStudent(s); // 마스터 목표 실시간 동기화
       renderConsultations();
       return;
     }
@@ -491,6 +492,13 @@
   }
 
   // 같은 학생의 기본정보만 부분 갱신 (폼 입력 보존)
+  // iv-tgt를 교육생 s.target 값으로 실시간 동기화
+  function syncIvTgtFromStudent(s) {
+    const el = $("#iv-tgt");
+    if (!el) return;
+    el.value = Number(s.target) > 0 ? Math.round(Number(s.target) * 1000) : "";
+  }
+
   function updateStudentInfoBar(s) {
     const bar = document.getElementById("student-info-bar");
     if (!bar) return;
@@ -540,8 +548,8 @@
           </div>
 
           <div class="iv-field">
-            <label>마스터 목표</label>
-            <input type="number" id="iv-tgt" placeholder="원" step="1000">
+            <label>마스터 목표 <span class="iv-hint">교육생 정보에서 연동</span></label>
+            <input type="number" id="iv-tgt" placeholder="원" readonly>
           </div>
           <div class="iv-field">
             <label>현재실적</label>
@@ -1150,7 +1158,9 @@
       }
     }
 
-    // 마스터 목표(iv-tgt)는 팝업에서 선택 — 신규 폼에서는 자동입력하지 않음
+    // 마스터 목표(iv-tgt)는 교육생 s.target 값과 동일 — 항상 동기화
+    const tgtEl = $("#iv-tgt");
+    if (tgtEl) tgtEl.value = Number(s.target) > 0 ? Math.round(Number(s.target) * 1000) : "";
 
     // 현재실적 복원
     const curActEl = $("#iv-curAct");
@@ -3817,7 +3827,9 @@
     setVal("iv-date", c.date || "");
     setVal("iv-seq", c.seq || "");
     setVal("iv-ins",    c.ins    ? Math.round(Number(c.ins)    * 1000) : ""); // 천원 → 원
-    setVal("iv-tgt",    c.tgt    ? Math.round(Number(c.tgt)    * 1000) : "");
+    // iv-tgt는 항상 교육생 s.target 기준 (consultation 저장값 무시)
+    const _s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    if (_s) syncIvTgtFromStudent(_s);
     setVal("iv-pct", c.pct || "");
     setVal("iv-curAct", c.curAct ? Math.round(Number(c.curAct) * 1000) : "");
     setVal("iv-plan", c.plan || "");
@@ -4522,7 +4534,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
