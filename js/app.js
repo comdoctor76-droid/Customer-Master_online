@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.71";
+  const APP_VERSION = "0.72";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -664,7 +664,7 @@
           tgtEl.focus();
           state.formTgtAddAmount = null;
         } else {
-          const addVal = parseInt(add, 10);
+          const addVal = parseInt(add, 10) * 1000; // data-fadd는 천원 단위 → 원 단위로 변환
           const baseVal = parseFloat($("#form-base")?.value) || 0;
           tgtEl.value = baseVal > 0 ? baseVal + addVal : addVal;
           tgtEl.setAttribute("readonly", "readonly");
@@ -4092,9 +4092,9 @@
     $("#form-empno").value = s.empNo;
     $("#form-name").value = s.name || "";
     $("#form-phone").value = s.phone || "";
-    $("#form-base").value = s.base || "";
-    $("#form-target").value = s.target || "";
-    $("#form-honors").value = s.honors || "";
+    $("#form-base").value   = Number(s.base)   > 0 ? Math.round(Number(s.base)   * 1000) : "";
+    $("#form-target").value = Number(s.target) > 0 ? Math.round(Number(s.target) * 1000) : "";
+    $("#form-honors").value = Number(s.honors) > 0 ? Math.round(Number(s.honors) * 1000) : "";
     $("#form-cohort").value = s.cohort || "";
     editingEmpNo = s.empNo;
     state.formTgtAddAmount = null;
@@ -4120,9 +4120,9 @@
       empNo,
       name: $("#form-name").value.trim(),
       phone: $("#form-phone").value.trim(),
-      base: Number($("#form-base").value || 0),
-      target: Number($("#form-target").value || 0),
-      honors: Number($("#form-honors").value || 0)
+      base:   Math.round(Number($("#form-base").value   || 0) / 1000),
+      target: Math.round(Number($("#form-target").value || 0) / 1000),
+      honors: Math.round(Number($("#form-honors").value || 0) / 1000)
     };
   }
 
@@ -4533,7 +4533,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
