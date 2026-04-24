@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.68";
+  const APP_VERSION = "0.69";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -60,8 +60,9 @@
     consultations: [],
     consultUnsub: null,
     // Phase 1 interview form
-    tgtAutoMode: true,       // ins→tgt 자동 계산 on/off (legacy, replaced by tgtAddAmount)
-    tgtAddAmount: null,      // 마스터 목표 팝업 선택값: null=수동입력, number=평균+N(천원)
+    tgtAutoMode: true,
+    // 교육생 등록 폼 마스터목표 팝업 선택값: null=수동입력, number=평균+N(천원)
+    formTgtAddAmount: null,
     editingConsultId: null,  // Phase 4용 예약 (이번엔 사용 안 함)
     lastDetailEmpNo: null,   // 마지막으로 완전 렌더한 교육생 (폼 보존용)
     // Phase 2 clients
@@ -540,17 +541,7 @@
 
           <div class="iv-field">
             <label>마스터 목표</label>
-            <div class="iv-tgt-wrap">
-              <input type="number" id="iv-tgt" placeholder="원" step="1000" readonly>
-              <button type="button" class="iv-tgt-btn" id="iv-tgt-popup-btn">목표 선택 ▼</button>
-              <div class="iv-tgt-popup" id="iv-tgt-popup" hidden>
-                <button type="button" data-add="50000">평균 +5만원</button>
-                <button type="button" data-add="100000">평균 +10만원</button>
-                <button type="button" data-add="200000">평균 +20만원</button>
-                <button type="button" data-add="300000">평균 +30만원</button>
-                <button type="button" data-add="input">입력</button>
-              </div>
-            </div>
+            <input type="number" id="iv-tgt" placeholder="원" step="1000">
           </div>
           <div class="iv-field">
             <label>현재실적</label>
@@ -640,9 +631,10 @@
     `;
   }
 
-  function bindTgtPopup() {
-    const popupBtn = $("#iv-tgt-popup-btn");
-    const popup = $("#iv-tgt-popup");
+  // 교육생 등록/수정 폼 — 마스터목표 팝업 버튼
+  function bindFormTargetPopup() {
+    const popupBtn = $("#form-tgt-popup-btn");
+    const popup = $("#form-tgt-popup");
     if (!popupBtn || !popup) return;
 
     popupBtn.addEventListener("click", (e) => {
@@ -650,11 +642,11 @@
       popup.hidden = !popup.hidden;
     });
 
-    popup.querySelectorAll("button[data-add]").forEach((opt) => {
+    popup.querySelectorAll("button[data-fadd]").forEach((opt) => {
       opt.addEventListener("click", (e) => {
         e.stopPropagation();
-        const add = opt.dataset.add;
-        const tgtEl = $("#iv-tgt");
+        const add = opt.dataset.fadd;
+        const tgtEl = $("#form-target");
         if (!tgtEl) return;
         popup.hidden = true;
 
@@ -662,14 +654,13 @@
           tgtEl.removeAttribute("readonly");
           tgtEl.value = "";
           tgtEl.focus();
-          state.tgtAddAmount = null;
+          state.formTgtAddAmount = null;
         } else {
           const addVal = parseInt(add, 10);
-          const insVal = parseFloat($("#iv-ins")?.value) || 0;
-          tgtEl.value = insVal > 0 ? insVal + addVal : addVal;
+          const baseVal = parseFloat($("#form-base")?.value) || 0;
+          tgtEl.value = baseVal > 0 ? baseVal + addVal : addVal;
           tgtEl.setAttribute("readonly", "readonly");
-          state.tgtAddAmount = addVal;
-          calcIvPct();
+          state.formTgtAddAmount = addVal;
         }
       });
     });
@@ -679,13 +670,20 @@
         popup.hidden = true;
       }
     }, { capture: false });
+
+    // 평균실적 변경 시 선택된 가산액으로 마스터목표 자동 재계산
+    $("#form-base").addEventListener("input", () => {
+      if (state.formTgtAddAmount === null) return;
+      const tgtEl = $("#form-target");
+      const baseVal = parseFloat($("#form-base")?.value) || 0;
+      if (tgtEl && baseVal > 0) tgtEl.value = baseVal + state.formTgtAddAmount;
+    });
   }
 
   function bindInterviewFormEvents() {
     $("#iv-seq").addEventListener("input", updateIvTitle);
     $("#iv-ins").addEventListener("input", onIvInsInput);
     $("#iv-tgt").addEventListener("input", onIvTgtInput);
-    bindTgtPopup();
     $("#iv-curAct").addEventListener("input", calcIvPct);
     $("#btn-iv-clear").addEventListener("click", () => {
       const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
@@ -943,11 +941,6 @@
       insEl.value = raw; // calc-avg 원 → iv-ins 원 (단위 동일, 변환 불필요)
       const hint = $("#iv-ins-hint");
       if (hint) hint.textContent = "▲ 계산기에서 입력";
-      // tgt 재계산
-      if (state.tgtAddAmount !== null) {
-        const tgtEl = $("#iv-tgt");
-        if (tgtEl) tgtEl.value = raw + state.tgtAddAmount; // 모두 원 단위
-      }
     }
     calc();
   }
@@ -1106,13 +1099,6 @@
   }
 
   function onIvInsInput() {
-    const insEl = $("#iv-ins");
-    const tgtEl = $("#iv-tgt");
-    if (!insEl || !tgtEl) return;
-    const insVal = parseFloat(insEl.value) || 0;
-    if (state.tgtAddAmount !== null && insVal > 0) {
-      tgtEl.value = insVal + state.tgtAddAmount;
-    }
     calcIvPct();
   }
 
@@ -1205,8 +1191,6 @@
     const d = $("#iv-date"); if (d) d.value = today;
     const ihint = $("#iv-ins-hint"); if (ihint) ihint.textContent = "";
     const phint = $("#iv-pct-hint"); if (phint) phint.textContent = "";
-    state.tgtAddAmount = null;
-    const tgtEl = $("#iv-tgt"); if (tgtEl) tgtEl.setAttribute("readonly", "readonly");
     initCR([]); // 상담고객 리셋
     // 시상 계산기 필드 리셋
     ["calc-avg","calc-base-tgt","calc-tgt","calc-comment"].forEach((id) => {
@@ -3843,16 +3827,6 @@
     setVal("iv-close2", c.close2 || "");
     setVal("iv-coach", c.coach || c.content || "");
 
-    // tgt 팝업 선택값 복원
-    const ins = Number(c.ins) || 0;
-    const tgt = Number(c.tgt) || 0;
-    const diff = tgt - ins;
-    state.tgtAddAmount = [50, 100, 200, 300].includes(diff) ? diff : null;
-    const tgtEl2 = $("#iv-tgt");
-    if (tgtEl2) {
-      if (state.tgtAddAmount !== null) tgtEl2.setAttribute("readonly", "readonly");
-      else tgtEl2.removeAttribute("readonly");
-    }
     const ih = $("#iv-ins-hint");
     if (ih) ih.textContent = c.seq ? `▲ ${c.seq}차 면담값` : "";
 
@@ -4095,6 +4069,8 @@
     $("#form-cohort").value = "";
     $("#form-bulk").value = "";
     editingEmpNo = null;
+    state.formTgtAddAmount = null;
+    const ft = $("#form-target"); if (ft) ft.removeAttribute("readonly");
     syncOrgLabels();
   }
 
@@ -4110,6 +4086,8 @@
     $("#form-honors").value = s.honors || "";
     $("#form-cohort").value = s.cohort || "";
     editingEmpNo = s.empNo;
+    state.formTgtAddAmount = null;
+    const ft = $("#form-target"); if (ft) ft.removeAttribute("readonly");
     syncOrgLabels();
     switchTab("single");
     openModal("#modal-add");
@@ -4473,6 +4451,7 @@
     bindMobileSwipe();
 
     // 등록 버튼
+    bindFormTargetPopup(); // 마스터목표 팝업 버튼 초기화 (DOM 1회 바인딩)
     $("#btn-open-add").addEventListener("click", () => {
       resetForm();
       switchTab("single");
@@ -4543,7 +4522,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
