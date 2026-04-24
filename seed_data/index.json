@@ -1,0 +1,12 @@
+{
+  "seeds": [
+    {
+      "id": "honam_1gi",
+      "label": "호남지역단 1기 (43명)",
+      "file": "honam_1gi_students.tsv",
+      "region": "호남지역단",
+      "cohort": "1기",
+      "count": 43
+    }
+  ]
+}
