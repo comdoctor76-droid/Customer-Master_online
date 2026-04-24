@@ -535,26 +535,26 @@
           </div>
           <div class="iv-field">
             <label>평균실적(6개월평균) <span class="iv-hint" id="iv-ins-hint"></span></label>
-            <input type="number" id="iv-ins" placeholder="천원" step="10">
+            <input type="number" id="iv-ins" placeholder="원" step="1000">
           </div>
 
           <div class="iv-field">
             <label>마스터 목표</label>
             <div class="iv-tgt-wrap">
-              <input type="number" id="iv-tgt" placeholder="천원" step="10" readonly>
+              <input type="number" id="iv-tgt" placeholder="원" step="1000" readonly>
               <button type="button" class="iv-tgt-btn" id="iv-tgt-popup-btn">목표 선택 ▼</button>
               <div class="iv-tgt-popup" id="iv-tgt-popup" hidden>
-                <button type="button" data-add="50">평균 +5만원</button>
-                <button type="button" data-add="100">평균 +10만원</button>
-                <button type="button" data-add="200">평균 +20만원</button>
-                <button type="button" data-add="300">평균 +30만원</button>
+                <button type="button" data-add="50000">평균 +5만원</button>
+                <button type="button" data-add="100000">평균 +10만원</button>
+                <button type="button" data-add="200000">평균 +20만원</button>
+                <button type="button" data-add="300000">평균 +30만원</button>
                 <button type="button" data-add="input">입력</button>
               </div>
             </div>
           </div>
           <div class="iv-field">
             <label>현재실적</label>
-            <input type="number" id="iv-curAct" placeholder="천원" step="10">
+            <input type="number" id="iv-curAct" placeholder="원" step="1000">
           </div>
           <div class="iv-field">
             <label>진도 <span class="iv-hint" id="iv-pct-hint"></span></label>
@@ -571,7 +571,7 @@
           </div>
           <div class="iv-field">
             <label>주간예상실적</label>
-            <input type="number" id="iv-exp" placeholder="천원" step="10">
+            <input type="number" id="iv-exp" placeholder="원" step="1000">
           </div>
 
           <div class="iv-field">
@@ -911,7 +911,7 @@
       if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Math.round(Number(s.honors)).toLocaleString();
       if (tgtEl && !tgtEl.value) {
         const fTgt = parseFloat($("#iv-tgt")?.value) || 0;
-        if (fTgt) tgtEl.value = Math.round(fTgt * 1000).toLocaleString();
+        if (fTgt) tgtEl.value = Math.round(fTgt).toLocaleString();
         else if (s?.honors) tgtEl.value = Math.round(Number(s.honors)).toLocaleString();
       }
       calc();
@@ -940,15 +940,13 @@
     if (!avgEl || !insEl) return;
     const raw = parseFloat((avgEl.value || "").replace(/,/g, "")) || 0;
     if (raw > 0) {
-      insEl.value = Math.round(raw / 1000); // 원 → 천원
+      insEl.value = raw; // calc-avg 원 → iv-ins 원 (단위 동일, 변환 불필요)
       const hint = $("#iv-ins-hint");
       if (hint) hint.textContent = "▲ 계산기에서 입력";
       // tgt 재계산
       if (state.tgtAddAmount !== null) {
         const tgtEl = $("#iv-tgt");
-        if (tgtEl) {
-          tgtEl.value = Math.round(raw / 1000) + state.tgtAddAmount;
-        }
+        if (tgtEl) tgtEl.value = raw + state.tgtAddAmount; // 모두 원 단위
       }
     }
     calc();
@@ -1012,8 +1010,8 @@
     const monthlyFinal = baseTgtMet ? Math.min(monthlySub, INCR_CFG.mcap) : 0;
     const award2M3 = baseTgtMet ? Math.min(monthlyFinal * 3, INCR_CFG.qcap) : 0;
 
-    // ③ 마스터과정 개인시상 (iv-ins 천원 → 원)
-    const insRaw3 = (parseFloat($("#iv-ins")?.value || "0") || 0) * 1000;
+    // ③ 마스터과정 개인시상 (iv-ins 원 단위)
+    const insRaw3 = parseFloat($("#iv-ins")?.value || "0") || 0;
     const incrMaster = Math.max(0, tgtRaw - insRaw3) / 10000;
     const award3 = calcMasterAward(incrMaster);
     const award3Tier = MASTER_AWARD.find((t) => incrMaster >= t.critVal);
@@ -1155,13 +1153,13 @@
 
     if (!insEl.value) {
       if (Number(s.target) > 0) {
-        insEl.value = s.target;
+        insEl.value = Math.round(Number(s.target) * 1000); // 천원 → 원
         if (hintIns) hintIns.textContent = "▲ 마스터목표";
       } else if (lastWithIns) {
-        insEl.value = lastWithIns.ins;
+        insEl.value = Math.round(Number(lastWithIns.ins) * 1000); // 저장값(천원) → 원
         if (hintIns) hintIns.textContent = `▲ ${lastWithIns.seq || ""}차 면담값`;
       } else if (Number(s.base) > 0) {
-        insEl.value = Math.round(Number(s.base) / 1000);
+        insEl.value = Number(s.base); // base는 원 단위로 그대로 사용
         if (hintIns) hintIns.textContent = "▲ 평균실적에서 변환";
       }
     }
@@ -1231,13 +1229,13 @@
     return {
       date: read("iv-date"),
       seq: read("iv-seq"),
-      ins: num("iv-ins"),
-      tgt: num("iv-tgt"),
+      ins: Math.round(num("iv-ins") / 1000),     // 원 → 천원 저장
+      tgt: Math.round(num("iv-tgt") / 1000),
       pct: num("iv-pct"),
-      curAct: num("iv-curAct"),
+      curAct: Math.round(num("iv-curAct") / 1000),
       plan: num("iv-plan"),
       hap: num("iv-hap"),
-      exp: num("iv-exp"),
+      exp: Math.round(num("iv-exp") / 1000),
       close1: num("iv-close1"),
       close2: num("iv-close2"),
       coach: read("iv-coach"),
@@ -1612,13 +1610,13 @@
           </div>
           <div class="hi-bd">
             <div class="hi-fg">
-              <div class="hf"><div class="hfl">평균실적(6개월)</div><div class="hfv">${fn(e.ins)} <small>천원</small></div></div>
-              <div class="hf"><div class="hfl">마스터 목표</div><div class="hfv">${fn(e.tgt)} <small>천원</small></div></div>
-              <div class="hf"><div class="hfl">현재실적</div><div class="hfv">${fn(e.curAct)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">평균실적(6개월)</div><div class="hfv">${fn(Number(e.ins||0)*1000)} <small>원</small></div></div>
+              <div class="hf"><div class="hfl">마스터 목표</div><div class="hfv">${fn(Number(e.tgt||0)*1000)} <small>원</small></div></div>
+              <div class="hf"><div class="hfl">현재실적</div><div class="hfv">${fn(Number(e.curAct||0)*1000)} <small>원</small></div></div>
               <div class="hf"><div class="hfl">진도</div><div class="hfv">${fn(e.pct)} <small>%</small></div></div>
               <div class="hf"><div class="hfl">가입설계</div><div class="hfv">${fn(e.plan)} <small>건</small></div></div>
               <div class="hf"><div class="hfl">행복보장</div><div class="hfv">${fn(e.hap)} <small>건</small></div></div>
-              <div class="hf"><div class="hfl">주간예상</div><div class="hfv">${fn(e.exp)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">주간예상</div><div class="hfv">${fn(Number(e.exp||0)*1000)} <small>원</small></div></div>
               <div class="hf"><div class="hfl">1차 마감</div><div class="hfv">${fn(e.close1)} <small>천원</small></div></div>
               <div class="hf"><div class="hfl">2차 마감</div><div class="hfv">${fn(e.close2)} <small>천원</small></div></div>
             </div>
@@ -1821,13 +1819,13 @@
           <th>사번</th><td>${escapeHtml(s.empNo)}</td>
           <th>기수</th><td>${escapeHtml(s.cohort || "")}</td>
           <th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
-      <tr><th>평균실적(6개월)</th><td>${fmt(c.ins)} 천원</td>
-          <th>마스터 목표</th><td>${fmt(c.tgt)} 천원</td>
-          <th>현재실적</th><td>${fmt(c.curAct)} 천원</td>
+      <tr><th>평균실적(6개월)</th><td>${fmt(Number(c.ins||0)*1000)} 원</td>
+          <th>마스터 목표</th><td>${fmt(Number(c.tgt||0)*1000)} 원</td>
+          <th>현재실적</th><td>${fmt(Number(c.curAct||0)*1000)} 원</td>
           <th>진도</th><td>${fmt(c.pct)} %</td></tr>
       <tr><th>가입설계</th><td>${fmt(c.plan)} 건</td>
           <th>행복보장</th><td>${fmt(c.hap)} 건</td>
-          <th>주간예상</th><td>${fmt(c.exp)} 천원</td>
+          <th>주간예상</th><td>${fmt(Number(c.exp||0)*1000)} 원</td>
           <th>차수</th><td>${escapeHtml(c.seq || "")}차</td></tr>
     </table>
   </section>
@@ -2089,8 +2087,8 @@
     // 한 학생이 끝나면 페이지 분할 기준점 삽입 가능
     const studentBlocks = group.rows.map(({ s, itvs }) => {
       const firstItv = itvs.find((e) => e.seq === "1") || itvs[0];
-      const stuIns = fn(firstItv?.ins);
-      const stuTgt = fn(firstItv?.tgt);
+      const stuIns = fn(Number(firstItv?.ins||0) * 1000); // 천원 → 원 표시
+      const stuTgt = fn(Number(firstItv?.tgt||0) * 1000);
       // 코칭포인트: 모든 면담의 seq·date·coach 를 합쳐 한 줄로
       const coachText = itvs
         .filter((e) => (e.coach || "").trim())
@@ -2264,15 +2262,15 @@
 
       const summaryHtml = isLast ? `<tr class="sr">
         <td class="c">합계</td>
-        <td class="c strong">${fn(sumIns)}</td>
-        <td class="c strong">${fn(sumTgt)}</td>
+        <td class="c strong">${fn(sumIns * 1000)}</td>
+        <td class="c strong">${fn(sumTgt * 1000)}</td>
         <td colspan="9" class="sr-text">
           달성률 D(월평균/목표): <strong>${dRate}</strong> &nbsp;
           L(예상/목표): <strong>${lRate}</strong> &nbsp;&nbsp;
-          잔여목표: <strong>${fn(remain)}천원</strong>
+          잔여목표: <strong>${fn(remain * 1000)}원</strong>
         </td>
         <td></td>
-        <td class="c strong">${fn(sumExp)}</td>
+        <td class="c strong">${fn(sumExp * 1000)}</td>
       </tr>` : "";
 
       const brkClass = (pi === 0 && !isFirstGroup) ? " pg-break-before" : "";
@@ -3834,13 +3832,13 @@
     const setVal = (id, v) => { const el = $("#" + id); if (el) el.value = v ?? ""; };
     setVal("iv-date", c.date || "");
     setVal("iv-seq", c.seq || "");
-    setVal("iv-ins", c.ins || "");
-    setVal("iv-tgt", c.tgt || "");
+    setVal("iv-ins",    c.ins    ? Math.round(Number(c.ins)    * 1000) : ""); // 천원 → 원
+    setVal("iv-tgt",    c.tgt    ? Math.round(Number(c.tgt)    * 1000) : "");
     setVal("iv-pct", c.pct || "");
-    setVal("iv-curAct", c.curAct || "");
+    setVal("iv-curAct", c.curAct ? Math.round(Number(c.curAct) * 1000) : "");
     setVal("iv-plan", c.plan || "");
     setVal("iv-hap", c.hap || "");
-    setVal("iv-exp", c.exp || "");
+    setVal("iv-exp",    c.exp    ? Math.round(Number(c.exp)    * 1000) : "");
     setVal("iv-close1", c.close1 || "");
     setVal("iv-close2", c.close2 || "");
     setVal("iv-coach", c.coach || c.content || "");
