@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.77";
+  const APP_VERSION = "0.78";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -68,7 +68,7 @@
     // Phase 2 clients
     crData: [],              // 현재 폼의 상담고객 배열 (최대 5)
     // Phase 3 시상 계산기
-    calcOpen: false,         // 계산기 접힘/펼침 상태
+    calcOpen: true,          // 계산기 접힘/펼침 상태
     calcTgtUserEditing: false, // 희망목표 직접입력 중 플래그
     // 동기화 상태
     studentsLoaded: false,   // Firestore 첫 응답 여부
@@ -572,16 +572,17 @@
           <textarea id="iv-coach" rows="5" placeholder="핵심 코칭포인트, 후속조치, 다음주 계획을 상세히 기록하세요"></textarea>
         </div>
 
+        <div class="iv-actions iv-actions-top">
+          <button class="btn-outline" id="btn-iv-cancel-edit-top" hidden>✕ 수정 취소</button>
+          <button class="btn-primary" id="btn-iv-save-top">💾 저장</button>
+        </div>
+
         <div class="iv-calc">
           <div class="iv-calc-head" id="btn-calc-toggle">
             <span class="iv-calc-title">📊 시상 계산기 — '26년 2분기 매출아너스</span>
             <span class="iv-calc-icon" id="calc-toggle-icon">▾</span>
           </div>
-          <div class="iv-calc-body" id="calc-section" style="display:none">
-            <div class="iv-field">
-              <label>✍️ 면담자 의견 <span class="iv-hint">저장 시 이력에 함께 보관</span></label>
-              <textarea id="calc-comment" rows="2" placeholder="면담자 의견을 입력하세요 (저장 시 이력에 포함)"></textarea>
-            </div>
+          <div class="iv-calc-body" id="calc-section" style="display:block">
             <div class="iv-grid-3">
               <div class="iv-field">
                 <label>개인 평균실적 <em>*</em> <span class="iv-hint">(원)</span></label>
@@ -607,7 +608,6 @@
 
         <div class="iv-actions">
           <button class="btn-outline" id="btn-iv-cancel-edit" hidden>✕ 수정 취소</button>
-          <button class="btn-outline" id="btn-iv-clear">초기화</button>
           <button class="btn-primary" id="btn-iv-save">💾 저장</button>
         </div>
       </div>
@@ -666,16 +666,10 @@
   function bindInterviewFormEvents() {
     $("#iv-seq").addEventListener("input", updateIvTitle);
     $("#iv-curAct").addEventListener("input", calcIvPct);
-    $("#btn-iv-clear").addEventListener("click", () => {
-      const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
-      state.editingConsultId = null;
-      clearInterviewForm();
-      if (s) autoFillInterviewForm(s);
-      renderConsultations();
-      updateSaveButtonLabel();
-    });
     $("#btn-iv-save").addEventListener("click", saveInterview);
+    $("#btn-iv-save-top").addEventListener("click", saveInterview);
     $("#btn-iv-cancel-edit").addEventListener("click", cancelEditInterview);
+    $("#btn-iv-cancel-edit-top").addEventListener("click", cancelEditInterview);
     $("#btn-cr-add").addEventListener("click", addCR);
     renderCR(); // 초기 빈 상태
 
@@ -689,11 +683,6 @@
     tgtInput.addEventListener("input", () => calc());
     $("#btn-tgt-down").addEventListener("click", () => stepTgt(-1));
     $("#btn-tgt-up").addEventListener("click", () => stepTgt(1));
-    // 계산기 접힘 상태 복원
-    if (state.calcOpen) {
-      $("#calc-section").style.display = "block";
-      $("#calc-toggle-icon").style.transform = "rotate(0deg)";
-    }
   }
 
   // ========== 상담고객 (최대 5) ==========
@@ -1105,9 +1094,8 @@
     const avgEl = $("#calc-avg");
     const baseTgtEl = $("#calc-base-tgt");
     const tgtCalcEl = $("#calc-tgt");
-    const commentEl = $("#calc-comment");
     const lastCalc = state.consultations.find(
-      (c) => c.calcAvg || c.calcBaseTgt || c.calcTgt || c.calcComment
+      (c) => c.calcAvg || c.calcBaseTgt || c.calcTgt
     );
     if (lastCalc) {
       if (avgEl && !avgEl.value && lastCalc.calcAvg) avgEl.value = lastCalc.calcAvg;
@@ -1117,7 +1105,6 @@
         const fixed = (raw > 0 && raw < 1000) ? raw * 1000 : raw;
         tgtCalcEl.value = fixed ? Math.round(fixed).toLocaleString() : lastCalc.calcTgt;
       }
-      if (commentEl && !commentEl.value && lastCalc.calcComment) commentEl.value = lastCalc.calcComment;
     } else {
       if (avgEl && !avgEl.value && Number(s.base) > 0) avgEl.value = Math.round(Number(s.base) * 1000).toLocaleString();
       if (baseTgtEl && !baseTgtEl.value && Number(s.honors) > 0) baseTgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
@@ -1133,7 +1120,7 @@
     const phint = $("#iv-pct-hint"); if (phint) phint.textContent = "";
     initCR([]); // 상담고객 리셋
     // 시상 계산기 필드 리셋
-    ["calc-avg","calc-base-tgt","calc-tgt","calc-comment"].forEach((id) => {
+    ["calc-avg","calc-base-tgt","calc-tgt"].forEach((id) => {
       const el = $("#" + id); if (el) el.value = "";
     });
     const preview = $("#calc-incr-preview"); if (preview) preview.style.display = "none";
@@ -1173,8 +1160,7 @@
       })),
       calcAvg: read("calc-avg"),
       calcBaseTgt: read("calc-base-tgt"),
-      calcTgt: read("calc-tgt"),
-      calcComment: read("calc-comment")
+      calcTgt: read("calc-tgt")
     };
   }
 
@@ -3757,13 +3743,7 @@
     setVal("calc-avg", c.calcAvg || "");
     setVal("calc-base-tgt", c.calcBaseTgt || "");
     setVal("calc-tgt", c.calcTgt || "");
-    setVal("calc-comment", c.calcComment || "");
-    if (c.calcAvg || c.calcTgt) {
-      state.calcOpen = true;
-      const sec = $("#calc-section"); if (sec) sec.style.display = "block";
-      const icon = $("#calc-toggle-icon"); if (icon) icon.style.transform = "rotate(0deg)";
-      calc();
-    }
+    if (c.calcAvg || c.calcTgt) calc();
 
     updateIvTitle();
     renderConsultations(); // editing 표시 갱신
@@ -3787,16 +3767,22 @@
 
   function updateSaveButtonLabel() {
     const btn = $("#btn-iv-save");
+    const btnTop = $("#btn-iv-save-top");
     const cancelBtn = $("#btn-iv-cancel-edit");
+    const cancelBtnTop = $("#btn-iv-cancel-edit-top");
     if (!btn) return;
     if (state.editingConsultId) {
       btn.textContent = "✏️ 수정 저장";
       btn.classList.add("editing");
+      if (btnTop) { btnTop.textContent = "✏️ 수정 저장"; btnTop.classList.add("editing"); }
       if (cancelBtn) cancelBtn.hidden = false;
+      if (cancelBtnTop) cancelBtnTop.hidden = false;
     } else {
       btn.textContent = "💾 저장";
       btn.classList.remove("editing");
+      if (btnTop) { btnTop.textContent = "💾 저장"; btnTop.classList.remove("editing"); }
       if (cancelBtn) cancelBtn.hidden = true;
+      if (cancelBtnTop) cancelBtnTop.hidden = true;
     }
   }
 
@@ -4443,7 +4429,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
