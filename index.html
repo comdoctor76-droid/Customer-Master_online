@@ -280,7 +280,17 @@
               <input type="number" id="form-base" placeholder="0" />
             </label>
             <label>마스터목표
-              <input type="number" id="form-target" placeholder="0" />
+              <div class="form-tgt-wrap">
+                <input type="number" id="form-target" placeholder="0" />
+                <button type="button" class="iv-tgt-btn" id="form-tgt-popup-btn">선택 ▼</button>
+                <div class="iv-tgt-popup" id="form-tgt-popup" hidden>
+                  <button type="button" data-fadd="50">평균 +5만원</button>
+                  <button type="button" data-fadd="100">평균 +10만원</button>
+                  <button type="button" data-fadd="200">평균 +20만원</button>
+                  <button type="button" data-fadd="300">평균 +30만원</button>
+                  <button type="button" data-fadd="input">직접 입력</button>
+                </div>
+              </div>
             </label>
             <label>아너스목표
               <input type="number" id="form-honors" placeholder="0" />

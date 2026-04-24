@@ -2087,7 +2087,20 @@ body {
 }
 .iv-coach label { font-size: 13px; }
 
-/* 마스터 목표 팝업 선택 */
+/* 교육생 등록폼 마스터목표 팝업 */
+.form-tgt-wrap {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+  width: 100%;
+}
+.form-tgt-wrap input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 면담일지 마스터 목표 팝업 (공유) */
 .iv-tgt-wrap {
   position: relative;
   display: flex;
