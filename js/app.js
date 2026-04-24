@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.79";
+  const APP_VERSION = "0.80";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2722,13 +2722,14 @@
 
   // 학생 데이터에서 계산된 지표 얻기
   function getProgressStat(s) {
-    const base = Number(s.base || 0);
-    const current = Number(s.current || 0);
-    const net = current - base;
+    const base    = Number(s.base    || 0) * 1000; // 천원 → 원
+    const current = Number(s.current || 0) * 1000; // 천원 → 원
+    const hiCap   = Number(s.hiCap   || 0) * 1000; // 천원 → 원
+    const net  = current - base;
     const rate = base > 0 ? (current / base) * 100 : 0;
     const ipumCount = Number(s.ipumCount || 0);
-    const ipumAmt = Number(s.ipumAmt || 0);
-    return { s, base, current, net, rate, ipumCount, ipumAmt };
+    const ipumAmt   = Number(s.ipumAmt   || 0);
+    return { s, base, current, hiCap, net, rate, ipumCount, ipumAmt };
   }
 
   function tierAward(net) {
@@ -2832,7 +2833,7 @@
           <span class="pg-pcard-prize pg-b-p">${grade}</span>
         </div>
       </li>`;
-    }).join("") || `<li class="pg-pcard-empty">관리자 탭에서 인품 데이터를 입력하세요</li>`;
+    }).join("") || `<li class="pg-pcard-empty">실적관리 탭에서 인품 데이터를 입력하세요</li>`;
 
     const pcardGroupTop3 = groupRanking.slice(0, 3).map((g, i) => {
       const short = g.members.slice(0, 3).join("·") + (g.members.length > 3 ? "…" : "");
@@ -2860,7 +2861,7 @@
       ipum: {
         title: `✨ 인품왕 전체 순위 (${byIpum.length}명)`,
         subtitle: "신상품 판매액 기준",
-        bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum", Infinity) : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`
+        bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum", Infinity) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`
       },
       group: {
         title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
@@ -2965,7 +2966,7 @@
 
         <div class="pg-card pg-desktop-only">
           <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
-          ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">관리자 탭에서 인품 데이터를 입력하세요.</div>`}
+          ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
         </div>
 
         <div class="pg-card pg-full-tbl-card pg-desktop-only" id="pg-full-tbl-card">
@@ -2973,12 +2974,12 @@
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl">
-            <thead><tr><th>순위</th><th>성명</th><th>지점</th><th>기준실적</th><th>현재실적</th><th>달성률</th><th>순증</th><th>시상</th></tr></thead>
+            <thead><tr><th>순위</th><th>성명</th><th>지점</th><th>기준실적</th><th>장기하이캡</th><th>현재실적</th><th>달성률</th><th>순증</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
               const nc = st.rate >= 120 ? "pg-c-over" : st.rate >= 100 ? "pg-c-good" : st.rate >= 80 ? "pg-c-mid" : "pg-c-low";
               const netC = st.net > 0 ? "pg-net-p" : st.net < 0 ? "pg-net-m" : "";
               const aw = tierLabel(st.net);
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${Nf(st.base)}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${st.rate.toFixed(1)}%</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${Nf(st.base)}</td><td class="r">${st.hiCap ? Nf(st.hiCap) : "—"}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${st.rate.toFixed(1)}%</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -3083,6 +3084,7 @@
         </div>
         <div class="pg-dm-grid">
           <div class="pg-dm-cell"><div class="pg-dm-l">기준실적</div><div class="pg-dm-v">${Nf(st.base)}원</div></div>
+          ${st.hiCap ? `<div class="pg-dm-cell"><div class="pg-dm-l">장기하이캡</div><div class="pg-dm-v">${Nf(st.hiCap)}원</div></div>` : ""}
           <div class="pg-dm-cell"><div class="pg-dm-l">현재실적</div><div class="pg-dm-v">${Nf(st.current)}원</div></div>
           <div class="pg-dm-cell"><div class="pg-dm-l">달성률</div><div class="pg-dm-v" style="color:${rateC};">${st.rate.toFixed(1)}%</div></div>
           <div class="pg-dm-cell"><div class="pg-dm-l">순증</div><div class="pg-dm-v" style="color:${netC};">${st.net >= 0 ? "+" : ""}${Nf(st.net)}원</div></div>
@@ -3250,22 +3252,41 @@
           <p>아래 각 섹션을 클릭해 펼친 뒤, 값을 입력하고 [💾 저장] 을 누르세요. 기준실적은 교육생 등록화면에서 수정할 수 있어요.</p>
         </div>
 
-        <!-- [5] 현재실적 일괄 붙여넣기 (접기/펼치기) -->
+        <!-- [5] 일괄 붙여넣기 (총괄월별실적 / 실적진도현황) -->
         <details class="pg-accordion">
           <summary>
             <span class="pg-ac-title">📋 현재실적 일괄 붙여넣기</span>
-            <span class="pg-ac-sub">— "이름 현재실적" 탭/공백 구분</span>
+            <span class="pg-ac-sub">— 붙여넣기 방식 선택</span>
             <span class="pg-ac-chev">▾</span>
           </summary>
           <div class="pg-ac-body">
-            <div class="pg-admin-paste">
-              <textarea id="pg-paste" rows="5" placeholder="예)
-정경화  2193493
-박희자  1500000"></textarea>
+            <div class="pg-paste-mode-btns">
+              <button class="btn-outline pg-paste-mode-btn active" data-mode="monthly">📊 총괄월별실적 붙여넣기</button>
+              <button class="btn-outline pg-paste-mode-btn" data-mode="progress">📈 실적진도현황 붙여넣기</button>
+            </div>
+
+            <!-- 총괄월별실적 -->
+            <div id="pg-paste-mode-monthly" class="pg-admin-paste">
+              <div class="pg-paste-desc">"사번 장기하이캡 실적" 탭/공백으로 구분 (단위: 천원)</div>
+              <textarea id="pg-paste" rows="6" placeholder="예)
+1B1312	15,613	710
+986037	61,050	2,782
+9A1520	45,624	1,955
+9A1766	37,956	1,699"></textarea>
               <div class="pg-actions">
-                <button class="btn-outline" id="btn-pg-paste-apply">📥 붙여넣기 반영</button>
+                <button class="btn-primary" id="btn-pg-paste-apply">📥 총괄월별실적 저장</button>
                 <button class="btn-outline small" id="btn-pg-paste-clear">🗑 초기화</button>
                 <span id="pg-paste-msg" class="pg-msg"></span>
+              </div>
+            </div>
+
+            <!-- 실적진도현황 (추후 설정) -->
+            <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
+              <div class="pg-paste-desc">실적진도현황 붙여넣기 — 다음 명령 시 활성화 예정</div>
+              <textarea id="pg-progress-paste" rows="4" placeholder="준비중..."></textarea>
+              <div class="pg-actions">
+                <button class="btn-outline" id="btn-pg-progress-paste-apply" disabled>📥 실적진도현황 저장</button>
+                <span id="pg-progress-paste-msg" class="pg-msg">다음 설정 시 활성화됩니다</span>
               </div>
             </div>
           </div>
@@ -3282,20 +3303,23 @@
             <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
               <thead><tr>
                 <th>#</th><th>지점</th><th>성명</th>
-                <th>기준실적(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
+                <th>기준실적(원)</th><th>장기하이캡(천원)</th><th>현재실적(천원)</th><th>달성률</th><th>순증</th>
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base = Number(s.base || 0) * 1000;
-                const cur = Number(s.current || 0);
-                const net = cur - base;
-                const rate = base > 0 ? (cur / base) * 100 : 0;
+                const base    = Number(s.base    || 0) * 1000;
+                const hiCap   = Number(s.hiCap   || 0);
+                const cur     = Number(s.current  || 0);
+                const curWon  = cur * 1000;
+                const net     = curWon - base;
+                const rate    = base > 0 ? (curWon / base) * 100 : 0;
                 return `<tr>
                   <td>${i + 1}</td>
                   <td>${escapeHtml(s.branch || "")}</td>
                   <td><strong>${escapeHtml(s.name || "")}</strong></td>
                   <td class="r">${Nf(base)}</td>
-                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="hiCap" value="${hiCap}" min="0" step="1"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}" min="0" step="1"></td>
                   <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
                   <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
                   <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
@@ -3456,14 +3480,14 @@
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base = Number(s?.base || 0) * 1000;
-        const cur = parseFloat(e.target.value) || 0;
-        const net = cur - base;
-        const rate = base > 0 ? (cur / base) * 100 : 0;
+        const base   = Number(s?.base || 0) * 1000;   // 천원 → 원
+        const curWon = (parseFloat(e.target.value) || 0) * 1000; // 천원 → 원
+        const net  = curWon - base;
+        const rate = base > 0 ? (curWon / base) * 100 : 0;
         const rateEl = document.querySelector(`[data-calc="rate-${emp}"]`);
-        const netEl = document.querySelector(`[data-calc="net-${emp}"]`);
+        const netEl  = document.querySelector(`[data-calc="net-${emp}"]`);
         if (rateEl) rateEl.textContent = rate.toFixed(1) + "%";
-        if (netEl) netEl.textContent = (net >= 0 ? "+" : "") + Nf(net);
+        if (netEl)  netEl.textContent  = (net >= 0 ? "+" : "") + Nf(net);
       });
     });
 
@@ -3500,27 +3524,64 @@
       saveBtn.disabled = false;
     });
 
-    // 붙여넣기 반영
-    const pasteApply = $("#btn-pg-paste-apply");
-    if (pasteApply) pasteApply.addEventListener("click", () => {
-      const txt = $("#pg-paste").value;
-      let cnt = 0;
-      txt.split(/\r?\n/).forEach((line) => {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length < 2) return;
-        const name = parts[0];
-        const val = parseInt(parts[parts.length - 1].replace(/,/g, ""), 10);
-        if (isNaN(val)) return;
-        const s = list.find((x) => x.name === name);
-        if (s) {
-          // DOM input 에도 반영
-          const inp = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-f="current"]`);
-          if (inp) { inp.value = val; inp.dispatchEvent(new Event("input")); }
-          cnt++;
-        }
+    // 붙여넣기 모드 전환 버튼
+    document.querySelectorAll("#progress-body .pg-paste-mode-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#progress-body .pg-paste-mode-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const mode = btn.dataset.mode;
+        const monthlyDiv  = document.getElementById("pg-paste-mode-monthly");
+        const progressDiv = document.getElementById("pg-paste-mode-progress");
+        if (monthlyDiv)  monthlyDiv.style.display  = mode === "monthly"  ? "" : "none";
+        if (progressDiv) progressDiv.style.display = mode === "progress" ? "" : "none";
       });
+    });
+
+    // 총괄월별실적 붙여넣기 반영 (사번 | 장기하이캡(천원) | 실적(천원) → 즉시 Firestore 저장)
+    const pasteApply = $("#btn-pg-paste-apply");
+    if (pasteApply) pasteApply.addEventListener("click", async () => {
+      const txt = $("#pg-paste").value;
       const m = $("#pg-paste-msg");
-      if (m) { m.textContent = `✅ ${cnt}명 반영 (저장 버튼 눌러 확정)`; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 4000); }
+      const records = [];
+      const unmatched = [];
+      txt.split(/\r?\n/).forEach((line) => {
+        const parts = line.trim().split(/[\t]+/).map((p) => p.replace(/,/g, "").trim()).filter(Boolean);
+        if (parts.length < 3) return;
+        const empNo   = parts[0];
+        const hiCapVal = parseInt(parts[1], 10);
+        const curVal   = parseInt(parts[2], 10);
+        if (isNaN(hiCapVal) || isNaN(curVal)) return;
+        const s = list.find((x) => x.empNo === empNo);
+        if (!s) { unmatched.push(empNo); return; }
+        records.push({ ...s, hiCap: hiCapVal, current: curVal });
+        // Admin 테이블 input 즉시 반영
+        const hiCapInp = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="hiCap"]`);
+        const curInp   = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="current"]`);
+        if (hiCapInp) { hiCapInp.value = hiCapVal; }
+        if (curInp)   { curInp.value   = curVal;   curInp.dispatchEvent(new Event("input")); }
+      });
+      if (records.length === 0) {
+        if (m) { m.textContent = "❌ 매칭된 사번 없음. 탭 구분 및 사번을 확인하세요."; m.className = "pg-msg err"; }
+        return;
+      }
+      if (m) m.textContent = "저장중...";
+      pasteApply.disabled = true;
+      try {
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(records);
+        } else {
+          for (const r of records) await window.DataAPI.save(r);
+        }
+        let msg = `✅ ${records.length}명 저장 완료`;
+        if (unmatched.length) msg += ` (미매칭 사번: ${unmatched.join(", ")})`;
+        if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
+        toast(`${records.length}명 총괄월별실적 저장`, "success");
+      } catch (e) {
+        console.error(e);
+        if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      }
+      pasteApply.disabled = false;
     });
     const pasteClear = $("#btn-pg-paste-clear");
     if (pasteClear) pasteClear.addEventListener("click", () => { $("#pg-paste").value = ""; });
@@ -4429,7 +4490,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
