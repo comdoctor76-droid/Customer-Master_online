@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.75";
+  const APP_VERSION = "0.76";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1146,15 +1146,12 @@
     state.tgtAddAmount = null;
 
     if (!insEl.value) {
-      if (Number(s.target) > 0) {
-        insEl.value = Math.round(Number(s.target) * 1000); // 천원 → 원
-        if (hintIns) hintIns.textContent = "▲ 마스터목표";
+      if (Number(s.base) > 0) {
+        insEl.value = Math.round(Number(s.base) * 1000); // 천원 → 원
+        if (hintIns) hintIns.textContent = "▲ 평균실적";
       } else if (lastWithIns) {
         insEl.value = Math.round(Number(lastWithIns.ins) * 1000); // 저장값(천원) → 원
         if (hintIns) hintIns.textContent = `▲ ${lastWithIns.seq || ""}차 면담값`;
-      } else if (Number(s.base) > 0) {
-        insEl.value = Math.round(Number(s.base) * 1000); // 천원 → 원
-        if (hintIns) hintIns.textContent = "▲ 평균실적에서 변환";
       }
     }
 
@@ -4534,7 +4531,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
