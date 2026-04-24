@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.80";
+  const APP_VERSION = "0.81";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2722,9 +2722,9 @@
 
   // 학생 데이터에서 계산된 지표 얻기
   function getProgressStat(s) {
-    const base    = Number(s.base    || 0) * 1000; // 천원 → 원
-    const current = Number(s.current || 0) * 1000; // 천원 → 원
-    const hiCap   = Number(s.hiCap   || 0) * 1000; // 천원 → 원
+    const base    = Number(s.base    || 0);
+    const current = Number(s.current || 0);
+    const hiCap   = Number(s.hiCap   || 0);
     const net  = current - base;
     const rate = base > 0 ? (current / base) * 100 : 0;
     const ipumCount = Number(s.ipumCount || 0);
@@ -3307,12 +3307,11 @@
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base    = Number(s.base    || 0) * 1000;
-                const hiCap   = Number(s.hiCap   || 0);
-                const cur     = Number(s.current  || 0);
-                const curWon  = cur * 1000;
-                const net     = curWon - base;
-                const rate    = base > 0 ? (curWon / base) * 100 : 0;
+                const base  = Number(s.base    || 0) * 1000;
+                const hiCap = Number(s.hiCap   || 0);
+                const cur   = Number(s.current  || 0);
+                const net   = cur - base;
+                const rate  = base > 0 ? (cur / base) * 100 : 0;
                 return `<tr>
                   <td>${i + 1}</td>
                   <td>${escapeHtml(s.branch || "")}</td>
@@ -3480,10 +3479,10 @@
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base   = Number(s?.base || 0) * 1000;   // 천원 → 원
-        const curWon = (parseFloat(e.target.value) || 0) * 1000; // 천원 → 원
-        const net  = curWon - base;
-        const rate = base > 0 ? (curWon / base) * 100 : 0;
+        const base = Number(s?.base || 0) * 1000;
+        const cur  = parseFloat(e.target.value) || 0;
+        const net  = cur - base;
+        const rate = base > 0 ? (cur / base) * 100 : 0;
         const rateEl = document.querySelector(`[data-calc="rate-${emp}"]`);
         const netEl  = document.querySelector(`[data-calc="net-${emp}"]`);
         if (rateEl) rateEl.textContent = rate.toFixed(1) + "%";
@@ -3553,7 +3552,7 @@
         if (isNaN(hiCapVal) || isNaN(curVal)) return;
         const s = list.find((x) => x.empNo === empNo);
         if (!s) { unmatched.push(empNo); return; }
-        records.push({ ...s, hiCap: hiCapVal, current: curVal });
+        records.push({ ...s, hiCap: hiCapVal, current: curVal }); // 천원 단위 그대로 저장
         // Admin 테이블 input 즉시 반영
         const hiCapInp = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="hiCap"]`);
         const curInp   = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="current"]`);
@@ -4490,7 +4489,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424n)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
