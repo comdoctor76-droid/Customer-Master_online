@@ -2466,7 +2466,8 @@ body {
   border-radius: var(--radius);
   background: #fff;
   border: 1px solid var(--line);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .rc-placeholder {
   padding: 24px;
@@ -2483,7 +2484,7 @@ body {
 }
 .rc-title { font-size: 14px; font-weight: 900; color: var(--purple); }
 .rc-total-hdr { font-size: 14px; font-weight: 800; color: var(--purple); }
-.rc-body { padding: 14px; }
+.rc-body { padding: 14px; min-width: 320px; }
 .rc-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
