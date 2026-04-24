@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.73";
+  const APP_VERSION = "0.74";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -664,7 +664,7 @@
           tgtEl.focus();
           state.formTgtAddAmount = null;
         } else {
-          const addVal = parseInt(add, 10) * 1000; // data-fadd는 천원 단위 → 원 단위로 변환
+          const addVal = parseInt(add, 10);
           const baseVal = parseFloat($("#form-base")?.value) || 0;
           tgtEl.value = baseVal > 0 ? baseVal + addVal : addVal;
           tgtEl.setAttribute("readonly", "readonly");
@@ -4092,9 +4092,9 @@
     $("#form-empno").value = s.empNo;
     $("#form-name").value = s.name || "";
     $("#form-phone").value = s.phone || "";
-    $("#form-base").value   = Number(s.base)   > 0 ? Math.round(Number(s.base)   * 1000) : "";
-    $("#form-target").value = Number(s.target) > 0 ? Math.round(Number(s.target) * 1000) : "";
-    $("#form-honors").value = Number(s.honors) > 0 ? Math.round(Number(s.honors) * 1000) : "";
+    $("#form-base").value   = s.base   || "";
+    $("#form-target").value = s.target || "";
+    $("#form-honors").value = s.honors || "";
     $("#form-cohort").value = s.cohort || "";
     editingEmpNo = s.empNo;
     state.formTgtAddAmount = null;
@@ -4120,9 +4120,9 @@
       empNo,
       name: $("#form-name").value.trim(),
       phone: $("#form-phone").value.trim(),
-      base:   Math.round(Number($("#form-base").value   || 0) / 1000),
-      target: Math.round(Number($("#form-target").value || 0) / 1000),
-      honors: Math.round(Number($("#form-honors").value || 0) / 1000)
+      base:   Number($("#form-base").value   || 0),
+      target: Number($("#form-target").value || 0),
+      honors: Number($("#form-honors").value || 0)
     };
   }
 
@@ -4534,7 +4534,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -4899,9 +4899,34 @@
       state.students = list || [];
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
+      migrateStudentBaseValuesIfNeeded();
       renderDebounced();
       prefetchConsultCountsOnce();
     });
+  }
+
+  // 교육생 실적 원 단위 저장값(뒤 000) → 천원 단위로 1회 마이그레이션
+  async function migrateStudentBaseValuesIfNeeded() {
+    const KEY = "cm_base_unit_v1";
+    if (localStorage.getItem(KEY)) return;
+    const toMigrate = state.students.filter((s) =>
+      Number(s.base) >= 1000 || Number(s.target) >= 1000 || Number(s.honors) >= 1000
+    );
+    if (toMigrate.length === 0) { localStorage.setItem(KEY, "1"); return; }
+    const migrated = toMigrate.map((s) => ({
+      ...s,
+      base:   Number(s.base)   >= 1000 ? Math.round(Number(s.base)   / 1000) : Number(s.base   || 0),
+      target: Number(s.target) >= 1000 ? Math.round(Number(s.target) / 1000) : Number(s.target || 0),
+      honors: Number(s.honors) >= 1000 ? Math.round(Number(s.honors) / 1000) : Number(s.honors || 0),
+    }));
+    try {
+      if (typeof window.DataAPI.saveMany === "function") {
+        await window.DataAPI.saveMany(migrated);
+      } else {
+        for (const r of migrated) await window.DataAPI.save(r);
+      }
+      localStorage.setItem(KEY, "1");
+    } catch (e) { /* 네트워크 오류 시 다음 로드에 재시도 */ }
   }
 
   // 최초 1회만 전체 면담 횟수 사전 수집 → state.students 에 consultCount merge → 사이드바 재렌더
