@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.76";
+  const APP_VERSION = "0.77";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -407,7 +407,6 @@
     // 같은 학생 재렌더 요청이면 폼 입력 보존 (학생 정보 한 줄만 갱신)
     if (state.lastDetailEmpNo === s.empNo && document.getElementById("iv-coach")) {
       updateStudentInfoBar(s);
-      syncIvTgtFromStudent(s); // 마스터 목표 실시간 동기화
       renderConsultations();
       return;
     }
@@ -491,14 +490,6 @@
     `;
   }
 
-  // 같은 학생의 기본정보만 부분 갱신 (폼 입력 보존)
-  // iv-tgt를 교육생 s.target 값으로 실시간 동기화
-  function syncIvTgtFromStudent(s) {
-    const el = $("#iv-tgt");
-    if (!el) return;
-    el.value = Number(s.target) > 0 ? Math.round(Number(s.target) * 1000) : "";
-  }
-
   function updateStudentInfoBar(s) {
     const bar = document.getElementById("student-info-bar");
     if (!bar) return;
@@ -522,18 +513,9 @@
 
         <div class="iv-grid-3">
           <div class="iv-field">
-            <label>비젼센터</label>
-            <input type="text" id="iv-vc" value="${escapeHtml(s.center || "")}" readonly>
-          </div>
-          <div class="iv-field">
-            <label>지점</label>
-            <input type="text" id="iv-branch" value="${escapeHtml(s.branch || "")}" readonly>
-          </div>
-          <div class="iv-field">
             <label>면담일시 <em>*</em></label>
             <input type="date" id="iv-date" value="${today}">
           </div>
-
           <div class="iv-field">
             <label>차수</label>
             <input type="text" id="iv-seq" placeholder="예: 1" inputmode="numeric">
@@ -542,15 +524,7 @@
             <label>교육생 성명</label>
             <input type="text" id="iv-name" value="${escapeHtml(s.name || "")}" readonly>
           </div>
-          <div class="iv-field">
-            <label>평균실적(6개월평균) <span class="iv-hint" id="iv-ins-hint"></span></label>
-            <input type="number" id="iv-ins" placeholder="원" step="1000">
-          </div>
 
-          <div class="iv-field">
-            <label>마스터 목표 <span class="iv-hint">교육생 정보에서 연동</span></label>
-            <input type="number" id="iv-tgt" placeholder="원" readonly>
-          </div>
           <div class="iv-field">
             <label>현재실적</label>
             <input type="number" id="iv-curAct" placeholder="원" step="1000">
@@ -559,11 +533,11 @@
             <label>진도 <span class="iv-hint" id="iv-pct-hint"></span></label>
             <input type="number" id="iv-pct" placeholder="%">
           </div>
-
           <div class="iv-field">
             <label>가입설계</label>
             <input type="number" id="iv-plan" placeholder="건">
           </div>
+
           <div class="iv-field">
             <label>행복보장분석</label>
             <input type="number" id="iv-hap" placeholder="건">
@@ -572,15 +546,16 @@
             <label>주간예상실적</label>
             <input type="number" id="iv-exp" placeholder="원" step="1000">
           </div>
-
           <div class="iv-field">
             <label>1차 마감 실적 <span class="iv-hint">중간점검</span></label>
             <input type="number" id="iv-close1" placeholder="천원" step="10">
           </div>
+
           <div class="iv-field">
             <label>2차 마감 실적 <span class="iv-hint">최종</span></label>
             <input type="number" id="iv-close2" placeholder="천원" step="10">
           </div>
+          <div class="iv-field"></div>
           <div class="iv-field"></div>
         </div>
 
@@ -593,7 +568,7 @@
         </div>
 
         <div class="iv-field iv-coach">
-          <label>핵심 코칭포인트 / 후속조치 / 다음주 계획 <em>*</em></label>
+          <label>핵심 코칭포인트 / 후속조치 / 다음주 계획</label>
           <textarea id="iv-coach" rows="5" placeholder="핵심 코칭포인트, 후속조치, 다음주 계획을 상세히 기록하세요"></textarea>
         </div>
 
@@ -690,8 +665,6 @@
 
   function bindInterviewFormEvents() {
     $("#iv-seq").addEventListener("input", updateIvTitle);
-    $("#iv-ins").addEventListener("input", onIvInsInput);
-    $("#iv-tgt").addEventListener("input", onIvTgtInput);
     $("#iv-curAct").addEventListener("input", calcIvPct);
     $("#btn-iv-clear").addEventListener("click", () => {
       const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
@@ -916,8 +889,7 @@
       if (s?.base  && avgEl && !avgEl.value)       avgEl.value = Math.round(Number(s.base) * 1000).toLocaleString();
       if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
       if (tgtEl && !tgtEl.value) {
-        const fTgt = parseFloat($("#iv-tgt")?.value) || 0;
-        if (fTgt) tgtEl.value = Math.round(fTgt).toLocaleString();
+        if (s?.target) tgtEl.value = Math.round(Number(s.target) * 1000).toLocaleString();
         else if (s?.honors) tgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
       }
       calc();
@@ -941,15 +913,6 @@
   }
 
   function onCalcAvgInput() {
-    const avgEl = $("#calc-avg");
-    const insEl = $("#iv-ins");
-    if (!avgEl || !insEl) return;
-    const raw = parseFloat((avgEl.value || "").replace(/,/g, "")) || 0;
-    if (raw > 0) {
-      insEl.value = raw; // calc-avg 원 → iv-ins 원 (단위 동일, 변환 불필요)
-      const hint = $("#iv-ins-hint");
-      if (hint) hint.textContent = "▲ 계산기에서 입력";
-    }
     calc();
   }
 
@@ -1011,8 +974,9 @@
     const monthlyFinal = baseTgtMet ? Math.min(monthlySub, INCR_CFG.mcap) : 0;
     const award2M3 = baseTgtMet ? Math.min(monthlyFinal * 3, INCR_CFG.qcap) : 0;
 
-    // ③ 마스터과정 개인시상 (iv-ins 원 단위)
-    const insRaw3 = parseFloat($("#iv-ins")?.value || "0") || 0;
+    // ③ 마스터과정 개인시상 (교육생 평균실적 기준)
+    const _calcS = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    const insRaw3 = _calcS ? Math.round(Number(_calcS.base) * 1000) : 0;
     const incrMaster = Math.max(0, tgtRaw - insRaw3) / 10000;
     const award3 = calcMasterAward(incrMaster);
     const award3Tier = MASTER_AWARD.find((t) => incrMaster >= t.critVal);
@@ -1106,17 +1070,10 @@
       `MASTER과정 면담일지 (${n ? escapeHtml(n) : "&nbsp;"}차 / 활동점검)`;
   }
 
-  function onIvInsInput() {
-    calcIvPct();
-  }
-
-  function onIvTgtInput() {
-    calcIvPct();
-  }
-
   function calcIvPct() {
     const curAct = parseFloat($("#iv-curAct")?.value) || 0;
-    const tgt = parseFloat($("#iv-tgt")?.value) || 0;
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    const tgt = s ? Math.round(Number(s.target) * 1000) : 0;
     if (!curAct || !tgt) return;
     const pct = Math.round((curAct / tgt) * 100);
     $("#iv-pct").value = pct;
@@ -1135,28 +1092,6 @@
       seqEl.value = String(maxSeq + 1);
       updateIvTitle();
     }
-
-    // 평균실적(6개월평균) 우선순위: s.target(마스터목표) → 최근 면담의 ins → s.base/1000
-    const insEl = $("#iv-ins");
-    const tgtEl = $("#iv-tgt");
-    const hintIns = $("#iv-ins-hint");
-    if (!insEl || !tgtEl) return;
-
-    const lastWithIns = state.consultations.find((c) => c.ins);
-    state.tgtAddAmount = null;
-
-    if (!insEl.value) {
-      if (Number(s.base) > 0) {
-        insEl.value = Math.round(Number(s.base) * 1000); // 천원 → 원
-        if (hintIns) hintIns.textContent = "▲ 평균실적";
-      } else if (lastWithIns) {
-        insEl.value = Math.round(Number(lastWithIns.ins) * 1000); // 저장값(천원) → 원
-        if (hintIns) hintIns.textContent = `▲ ${lastWithIns.seq || ""}차 면담값`;
-      }
-    }
-
-    // 마스터 목표(iv-tgt)는 교육생 s.target 값과 동일 — 항상 동기화
-    syncIvTgtFromStudent(s);
 
     // 현재실적 복원
     const curActEl = $("#iv-curAct");
@@ -1191,11 +1126,10 @@
   }
 
   function clearInterviewForm() {
-    ["iv-seq","iv-ins","iv-tgt","iv-curAct","iv-pct","iv-plan","iv-hap","iv-exp","iv-close1","iv-close2","iv-coach"]
+    ["iv-seq","iv-curAct","iv-pct","iv-plan","iv-hap","iv-exp","iv-close1","iv-close2","iv-coach"]
       .forEach((id) => { const el = $("#" + id); if (el) el.value = ""; });
     const today = new Date().toISOString().slice(0, 10);
     const d = $("#iv-date"); if (d) d.value = today;
-    const ihint = $("#iv-ins-hint"); if (ihint) ihint.textContent = "";
     const phint = $("#iv-pct-hint"); if (phint) phint.textContent = "";
     initCR([]); // 상담고객 리셋
     // 시상 계산기 필드 리셋
@@ -1219,8 +1153,6 @@
     return {
       date: read("iv-date"),
       seq: read("iv-seq"),
-      ins: Math.round(num("iv-ins") / 1000),     // 원 → 천원 저장
-      tgt: Math.round(num("iv-tgt") / 1000),
       pct: num("iv-pct"),
       curAct: Math.round(num("iv-curAct") / 1000),
       plan: num("iv-plan"),
@@ -1251,19 +1183,6 @@
     if (!empNo) return;
     const rec = buildInterviewRecord();
     if (!rec.date) { toast("면담일시를 입력하세요.", "error"); return; }
-    const coachEl = $("#iv-coach");
-    if (!rec.coach) {
-      toast("핵심 코칭포인트는 필수입니다.", "error");
-      if (coachEl) {
-        coachEl.closest(".iv-field")?.classList.add("error");
-        coachEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => coachEl.focus(), 300);
-        coachEl.addEventListener("input", () => {
-          coachEl.closest(".iv-field")?.classList.remove("error");
-        }, { once: true });
-      }
-      return;
-    }
     // 상담고객 없이 저장 시 확인
     const hasClients = rec.clients.some((c) => c.name || c.memo || (c.amount && c.amount.length));
     if (!hasClients && !state.editingConsultId) {
@@ -3822,10 +3741,6 @@
     const setVal = (id, v) => { const el = $("#" + id); if (el) el.value = v ?? ""; };
     setVal("iv-date", c.date || "");
     setVal("iv-seq", c.seq || "");
-    setVal("iv-ins",    c.ins    ? Math.round(Number(c.ins)    * 1000) : ""); // 천원 → 원
-    // iv-tgt는 항상 교육생 s.target 기준 (consultation 저장값 무시)
-    const _s = state.students.find((x) => x.empNo === state.selectedEmpNo);
-    if (_s) syncIvTgtFromStudent(_s);
     setVal("iv-pct", c.pct || "");
     setVal("iv-curAct", c.curAct ? Math.round(Number(c.curAct) * 1000) : "");
     setVal("iv-plan", c.plan || "");
@@ -3834,9 +3749,6 @@
     setVal("iv-close1", c.close1 || "");
     setVal("iv-close2", c.close2 || "");
     setVal("iv-coach", c.coach || c.content || "");
-
-    const ih = $("#iv-ins-hint");
-    if (ih) ih.textContent = c.seq ? `▲ ${c.seq}차 면담값` : "";
 
     // 상담고객 복원
     initCR(Array.isArray(c.clients) ? c.clients : []);
@@ -4531,7 +4443,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
