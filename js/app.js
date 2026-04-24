@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.73";
+  const APP_VERSION = "0.74";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -228,9 +228,9 @@
   function renderKPIs(list) {
     const sum = (k) => list.reduce((a, s) => a + (Number(s[k]) || 0), 0);
     $("#kpi-total").textContent = list.length.toLocaleString();
-    $("#kpi-base").textContent = (sum("base") * 1000).toLocaleString();
-    $("#kpi-target").textContent = (sum("target") * 1000).toLocaleString();
-    $("#kpi-honors").textContent = (sum("honors") * 1000).toLocaleString();
+    $("#kpi-base").textContent = sum("base").toLocaleString();
+    $("#kpi-target").textContent = sum("target").toLocaleString();
+    $("#kpi-honors").textContent = sum("honors").toLocaleString();
     $("#mini-total").textContent = state.students.length;
   }
 
@@ -479,9 +479,9 @@
           <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}</div>
         </div>
         <div class="sib-stats">
-          <div><span>평균실적</span><strong>${fmt(Number(s.base)*1000)}</strong></div>
-          <div><span>마스터목표</span><strong>${fmt(Number(s.target)*1000)}</strong></div>
-          <div><span>아너스목표</span><strong>${fmt(Number(s.honors)*1000)}</strong></div>
+          <div><span>평균실적</span><strong>${fmt(s.base)}</strong></div>
+          <div><span>마스터목표</span><strong>${fmt(s.target)}</strong></div>
+          <div><span>아너스목표</span><strong>${fmt(s.honors)}</strong></div>
         </div>
         <div class="sib-actions">
           <button class="btn-outline small" id="btn-detail-edit">정보 수정</button>
@@ -664,7 +664,7 @@
           tgtEl.focus();
           state.formTgtAddAmount = null;
         } else {
-          const addVal = parseInt(add, 10) * 1000; // data-fadd는 천원 단위 → 원 단위로 변환
+          const addVal = parseInt(add, 10);
           const baseVal = parseFloat($("#form-base")?.value) || 0;
           tgtEl.value = baseVal > 0 ? baseVal + addVal : addVal;
           tgtEl.setAttribute("readonly", "readonly");
@@ -913,12 +913,12 @@
       const avgEl = $("#calc-avg");
       const baseTgtEl = $("#calc-base-tgt");
       const tgtEl = $("#calc-tgt");
-      if (s?.base  && avgEl && !avgEl.value)       avgEl.value = Math.round(Number(s.base) * 1000).toLocaleString();
-      if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
+      if (s?.base  && avgEl && !avgEl.value)       avgEl.value = Math.round(Number(s.base)).toLocaleString();
+      if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Math.round(Number(s.honors)).toLocaleString();
       if (tgtEl && !tgtEl.value) {
         const fTgt = parseFloat($("#iv-tgt")?.value) || 0;
         if (fTgt) tgtEl.value = Math.round(fTgt).toLocaleString();
-        else if (s?.honors) tgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
+        else if (s?.honors) tgtEl.value = Math.round(Number(s.honors)).toLocaleString();
       }
       calc();
     }
@@ -1187,8 +1187,8 @@
       }
       if (commentEl && !commentEl.value && lastCalc.calcComment) commentEl.value = lastCalc.calcComment;
     } else {
-      if (avgEl && !avgEl.value && Number(s.base) > 0) avgEl.value = Math.round(Number(s.base) * 1000).toLocaleString();
-      if (baseTgtEl && !baseTgtEl.value && Number(s.honors) > 0) baseTgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
+      if (avgEl && !avgEl.value && Number(s.base) > 0) avgEl.value = Math.round(Number(s.base)).toLocaleString();
+      if (baseTgtEl && !baseTgtEl.value && Number(s.honors) > 0) baseTgtEl.value = Math.round(Number(s.honors)).toLocaleString();
     }
     if (state.calcOpen) calc();
   }
@@ -1365,13 +1365,13 @@
     container.innerHTML = state.consultations.map((c) => {
       const seqLabel = c.seq ? `${escapeHtml(c.seq)}차` : "";
       const badges = [];
-      if (c.ins)    badges.push(`<span class="cs-badge">인보험 ${fmt(Number(c.ins)*1000)}</span>`);
-      if (c.tgt)    badges.push(`<span class="cs-badge">당월 ${fmt(Number(c.tgt)*1000)}</span>`);
-      if (c.curAct) badges.push(`<span class="cs-badge">현재 ${fmt(Number(c.curAct)*1000)}</span>`);
+      if (c.ins)    badges.push(`<span class="cs-badge">인보험 ${fmt(c.ins)}</span>`);
+      if (c.tgt)    badges.push(`<span class="cs-badge">당월 ${fmt(c.tgt)}</span>`);
+      if (c.curAct) badges.push(`<span class="cs-badge">현재 ${fmt(c.curAct)}</span>`);
       if (c.pct)    badges.push(`<span class="cs-badge blue">진도 ${fmt(c.pct)}%</span>`);
       if (c.plan)   badges.push(`<span class="cs-badge">가입 ${fmt(c.plan)}</span>`);
       if (c.hap)    badges.push(`<span class="cs-badge">행복 ${fmt(c.hap)}</span>`);
-      if (c.exp)    badges.push(`<span class="cs-badge">예상 ${fmt(Number(c.exp)*1000)}</span>`);
+      if (c.exp)    badges.push(`<span class="cs-badge">예상 ${fmt(c.exp)}</span>`);
       const body = c.coach || c.content || "";
       const clients = Array.isArray(c.clients) ? c.clients.filter((cl) => cl.name || cl.memo || (cl.amount && cl.amount.length)) : [];
       const clientHtml = clients.length ? `
@@ -3384,7 +3384,7 @@
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base = Number(s.base || 0) * 1000;
+                const base = Number(s.base || 0);
                 const cur = Number(s.current || 0);
                 const net = cur - base;
                 const rate = base > 0 ? (cur / base) * 100 : 0;
@@ -3472,7 +3472,7 @@
                 <th>기준실적</th><th>현재실적</th><th>팀</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base = Number(s.base || 0) * 1000;
+                const base = Number(s.base || 0);
                 const cur = Number(s.current || 0);
                 return `<tr>
                   <td>${i + 1}</td>
@@ -3502,7 +3502,7 @@
       const team = (inp ? inp.value : s.team || "").toString().trim();
       if (!team) return;
       if (!byTeam[team]) byTeam[team] = { base: 0, current: 0, members: [] };
-      byTeam[team].base += Number(s.base || 0) * 1000;
+      byTeam[team].base += Number(s.base || 0);
       byTeam[team].current += Number(s.current || 0);
       byTeam[team].members.push(s.name || "");
     });
@@ -3554,7 +3554,7 @@
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base = Number(s?.base || 0) * 1000;
+        const base = Number(s?.base || 0);
         const cur = parseFloat(e.target.value) || 0;
         const net = cur - base;
         const rate = base > 0 ? (cur / base) * 100 : 0;
@@ -3976,8 +3976,8 @@
     const maxCenter = Math.max(...Object.values(byCenter).map((v) => v.count), 1);
     const maxBranch = Math.max(...Object.values(byBranch), 1);
     const maxCohort = Math.max(...Object.values(byCohort), 1);
-    const totalBase = list.reduce((a, s) => a + Number(s.base || 0), 0) * 1000;
-    const totalHonors = list.reduce((a, s) => a + Number(s.honors || 0), 0) * 1000;
+    const totalBase = list.reduce((a, s) => a + Number(s.base || 0), 0);
+    const totalHonors = list.reduce((a, s) => a + Number(s.honors || 0), 0);
     const avgBase = Math.round(totalBase / list.length);
     const avgHonors = Math.round(totalHonors / list.length);
 
@@ -4063,8 +4063,8 @@
                 <td><strong>${escapeHtml(s.name || "")}</strong></td>
                 <td>${escapeHtml(s.branch || "")}</td>
                 <td>${escapeHtml(s.cohort || "")}</td>
-                <td class="r">${(Number(s.base || 0) * 1000).toLocaleString()}</td>
-                <td class="r">${(Number(s.honors || 0) * 1000).toLocaleString()}</td>
+                <td class="r">${Number(s.base || 0).toLocaleString()}</td>
+                <td class="r">${Number(s.honors || 0).toLocaleString()}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -4092,9 +4092,9 @@
     $("#form-empno").value = s.empNo;
     $("#form-name").value = s.name || "";
     $("#form-phone").value = s.phone || "";
-    $("#form-base").value   = Number(s.base)   > 0 ? Math.round(Number(s.base)   * 1000) : "";
-    $("#form-target").value = Number(s.target) > 0 ? Math.round(Number(s.target) * 1000) : "";
-    $("#form-honors").value = Number(s.honors) > 0 ? Math.round(Number(s.honors) * 1000) : "";
+    $("#form-base").value   = s.base   || "";
+    $("#form-target").value = s.target || "";
+    $("#form-honors").value = s.honors || "";
     $("#form-cohort").value = s.cohort || "";
     editingEmpNo = s.empNo;
     state.formTgtAddAmount = null;
@@ -4120,9 +4120,9 @@
       empNo,
       name: $("#form-name").value.trim(),
       phone: $("#form-phone").value.trim(),
-      base:   Math.round(Number($("#form-base").value   || 0) / 1000),
-      target: Math.round(Number($("#form-target").value || 0) / 1000),
-      honors: Math.round(Number($("#form-honors").value || 0) / 1000)
+      base:   Number($("#form-base").value   || 0),
+      target: Number($("#form-target").value || 0),
+      honors: Number($("#form-honors").value || 0)
     };
   }
 
@@ -4350,8 +4350,7 @@
     if (list.length === 0) { toast("내보낼 데이터가 없습니다.", "error"); return; }
     const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","평균실적","마스터목표","아너스목표"];
     const rows = list.map((s) => [
-      s.region, s.center, s.branch, s.cohort, s.empNo, s.name, s.phone,
-      Math.round(Number(s.base||0)*1000), Math.round(Number(s.target||0)*1000), Math.round(Number(s.honors||0)*1000)
+      s.region, s.center, s.branch, s.cohort, s.empNo, s.name, s.phone, s.base, s.target, s.honors
     ].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
     const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -4534,7 +4533,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -4899,9 +4898,34 @@
       state.students = list || [];
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
+      migrateStudentBaseValuesIfNeeded();
       renderDebounced();
       prefetchConsultCountsOnce();
     });
+  }
+
+  // 교육생 실적 원 단위 저장값(뒤 000) → 천원 단위로 1회 마이그레이션
+  async function migrateStudentBaseValuesIfNeeded() {
+    const KEY = "cm_base_unit_v1";
+    if (localStorage.getItem(KEY)) return;
+    const toMigrate = state.students.filter((s) =>
+      Number(s.base) >= 1000 || Number(s.target) >= 1000 || Number(s.honors) >= 1000
+    );
+    if (toMigrate.length === 0) { localStorage.setItem(KEY, "1"); return; }
+    const migrated = toMigrate.map((s) => ({
+      ...s,
+      base:   Number(s.base)   >= 1000 ? Math.round(Number(s.base)   / 1000) : Number(s.base   || 0),
+      target: Number(s.target) >= 1000 ? Math.round(Number(s.target) / 1000) : Number(s.target || 0),
+      honors: Number(s.honors) >= 1000 ? Math.round(Number(s.honors) / 1000) : Number(s.honors || 0),
+    }));
+    try {
+      if (typeof window.DataAPI.saveMany === "function") {
+        await window.DataAPI.saveMany(migrated);
+      } else {
+        for (const r of migrated) await window.DataAPI.save(r);
+      }
+      localStorage.setItem(KEY, "1");
+    } catch (e) { /* 네트워크 오류 시 다음 로드에 재시도 */ }
   }
 
   // 최초 1회만 전체 면담 횟수 사전 수집 → state.students 에 consultCount merge → 사이드바 재렌더
