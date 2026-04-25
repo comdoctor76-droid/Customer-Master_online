@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.89";
+  const APP_VERSION = "0.90";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3353,6 +3353,7 @@
             <div class="pg-paste-mode-btns">
               <button class="btn-outline pg-paste-mode-btn active" data-mode="monthly">📊 총괄월별실적 붙여넣기</button>
               <button class="btn-outline pg-paste-mode-btn" data-mode="progress">📈 실적진도현황 붙여넣기</button>
+              <button class="btn-outline pg-paste-mode-btn" data-mode="honors">🏆 아너스목표 붙여넣기</button>
             </div>
 
             <!-- 총괄월별실적 -->
@@ -3377,6 +3378,18 @@
               <div class="pg-actions">
                 <button class="btn-primary" id="btn-pg-progress-paste-apply">📥 실적진도현황 저장</button>
                 <span id="pg-progress-paste-msg" class="pg-msg"></span>
+              </div>
+            </div>
+
+            <!-- 아너스목표 붙여넣기 -->
+            <div id="pg-paste-mode-honors" class="pg-admin-paste" style="display:none">
+              <div class="pg-paste-desc">사번·아너스목표 (탭 구분, 금액단위: 원) — 사번 미매칭 데이터는 자동으로 제외됩니다</div>
+              <textarea id="pg-honors-paste" rows="6" placeholder="예)
+959167	1500000
+1B1312	2000000"></textarea>
+              <div class="pg-actions">
+                <button class="btn-primary" id="btn-pg-honors-paste-apply">📥 아너스목표 저장</button>
+                <span id="pg-honors-paste-msg" class="pg-msg"></span>
               </div>
             </div>
           </div>
@@ -3619,10 +3632,12 @@
         document.querySelectorAll("#progress-body .pg-paste-mode-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         const mode = btn.dataset.mode;
-        const monthlyDiv  = document.getElementById("pg-paste-mode-monthly");
+        const monthlyDiv = document.getElementById("pg-paste-mode-monthly");
         const progressDiv = document.getElementById("pg-paste-mode-progress");
+        const honorsDiv  = document.getElementById("pg-paste-mode-honors");
         if (monthlyDiv)  monthlyDiv.style.display  = mode === "monthly"  ? "" : "none";
         if (progressDiv) progressDiv.style.display = mode === "progress" ? "" : "none";
+        if (honorsDiv)   honorsDiv.style.display   = mode === "honors"   ? "" : "none";
       });
     });
 
@@ -3674,6 +3689,50 @@
     });
     const pasteClear = $("#btn-pg-paste-clear");
     if (pasteClear) pasteClear.addEventListener("click", () => { $("#pg-paste").value = ""; });
+
+    // ── 아너스목표 붙여넣기 핸들러 ──────────────────────────────
+    const honorsPasteApply = $("#btn-pg-honors-paste-apply");
+    if (honorsPasteApply) honorsPasteApply.addEventListener("click", async () => {
+      const txt = $("#pg-honors-paste").value.trim();
+      const m = $("#pg-honors-paste-msg");
+      if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
+
+      const records = [];
+      const unmatched = [];
+      txt.split(/\r?\n/).forEach((line) => {
+        const parts = line.split(/\t/).map((c) => c.replace(/,/g, "").replace(/[ ​﻿]/g, "").trim()).filter(Boolean);
+        if (parts.length < 2) return;
+        const empNo = parts[0];
+        const honorsAmt = parseInt(parts[1], 10);
+        if (!empNo || isNaN(honorsAmt)) return;
+        const s = state.students.find((x) => x.empNo === empNo);
+        if (!s) { unmatched.push(empNo); return; }
+        records.push({ ...s, honors: Math.round(honorsAmt / 1000) });
+      });
+
+      if (records.length === 0) {
+        if (m) { m.textContent = "❌ 매칭된 사번 없음. 탭 구분 및 사번을 확인하세요."; m.className = "pg-msg err"; }
+        return;
+      }
+      honorsPasteApply.disabled = true;
+      if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
+      try {
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(records);
+        } else {
+          for (const r of records) await window.DataAPI.save(r);
+        }
+        let msg = `✅ ${records.length}명 아너스목표 저장 완료`;
+        if (unmatched.length) msg += ` (미매칭 사번 ${unmatched.length}건 제외)`;
+        if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
+        toast(`${records.length}명 아너스목표 저장`, "success");
+      } catch (e) {
+        console.error(e);
+        if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      }
+      honorsPasteApply.disabled = false;
+    });
 
     // ── 실적진도현황 붙여넣기 핸들러 ──────────────────────────────
     const progressPasteApply = $("#btn-pg-progress-paste-apply");
@@ -4740,7 +4799,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
