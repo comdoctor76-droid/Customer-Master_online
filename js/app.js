@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.94";
+  const APP_VERSION = "0.95";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -34,6 +34,11 @@
     { criteria: "순증 20만원↑", critVal: 20, type: "fixed", val: 20,  label: "20만원 고정" },
     { criteria: "순증 10만원↑", critVal: 10, type: "fixed", val: 10,  label: "10만원 고정" },
     { criteria: "순증 5만원↑",  critVal: 5,  type: "fixed", val: 5,   label: "5만원 고정"  }
+  ];
+  const AWARD_POSITIVE_WORDS = [
+    "희망","열정","도전","성공","빛남","에너지","가능성","미래","성장","기적",
+    "행운","자신감","결실","최고","의지","기회","열매","승리","확신","번영",
+    "영광","동력","추진력","원동력","변화","핵심","자랑","기대","보람","축복"
   ];
 
   function loadFilter() {
@@ -72,6 +77,7 @@
     // Phase 3 시상 계산기
     calcOpen: true,          // 계산기 접힘/펼침 상태
     calcTgtUserEditing: false, // 희망목표 직접입력 중 플래그
+    lastCalcResult: null,    // 마지막 계산 결과 (시상인쇄용)
     // 동기화 상태
     studentsLoaded: false,   // Firestore 첫 응답 여부
     syncMeta: { fromCache: false },
@@ -916,6 +922,225 @@
     return 0;
   }
 
+  function buildAwardCertificateHtml(s, r, positiveWord) {
+    const fw = (mw) => Math.round(mw * 10000).toLocaleString() + "원";
+    const region = (s.region || "").replace(/지역단$|사업부$/, "");
+    const branch = (s.branch || "").replace(/지점$/, "");
+    const name = s.name || "";
+    const empNo = s.empNo || "";
+    const dateStr = new Date().toLocaleDateString("ko-KR");
+    const award1Str = r.award1 ? fw(r.award1) : "해당없음";
+    const award1GradeKo = (r.award1Grade || "해당없음").replace(/\s*\([^)]*\)\s*/g, "").trim();
+    const award1CritStr = r.award1Idx >= 0 ? HONORS[r.award1Idx].criteria : "—";
+    const totalStr = fw(r.total);
+    return `
+<div class="cert-a4">
+  <div class="cert-hdr">
+    <div class="cert-hdr-stars">★ ★ ★ ★ ★</div>
+    <div class="cert-hdr-title">고객컨설팅마스터</div>
+    <div class="cert-hdr-sub">시상 예상 답안지</div>
+    <div class="cert-hdr-quarter">2026년 2분기 · ${escapeHtml(dateStr)} 기준</div>
+  </div>
+
+  <div class="cert-info-row">
+    <div class="cert-info-card dark"><div class="cert-ic-lbl">지역단</div><div class="cert-ic-val">${escapeHtml(region)}</div></div>
+    <div class="cert-info-card dark"><div class="cert-ic-lbl">지점</div><div class="cert-ic-val">${escapeHtml(branch)}</div></div>
+    <div class="cert-info-card dark nm"><div class="cert-ic-lbl">성명</div><div class="cert-ic-val">${escapeHtml(name)}</div></div>
+    <div class="cert-info-card"><div class="cert-ic-lbl">사번</div><div class="cert-ic-val">${escapeHtml(empNo)}</div></div>
+  </div>
+
+  <div class="cert-target-bar">
+    <span class="cert-tgt-lbl">🎯 희망목표금액</span>
+    <span class="cert-tgt-val">${Math.round(r.tgtRaw).toLocaleString()}원</span>
+  </div>
+
+  <div class="cert-awards-row">
+    <div class="cert-aw-card purple">
+      <div class="cert-aw-num">①</div>
+      <div class="cert-aw-name">아너스클럽</div>
+      <div class="cert-aw-grade">${escapeHtml(award1GradeKo)}</div>
+      <div class="cert-aw-crit">${escapeHtml(award1CritStr)}</div>
+      <div class="cert-aw-amt">${award1Str}</div>
+    </div>
+    <div class="cert-aw-card green">
+      <div class="cert-aw-num">②</div>
+      <div class="cert-aw-name">하이포인트</div>
+      <div class="cert-aw-grade">3개월 합계</div>
+      <div class="cert-aw-crit">기본 ${fw(5)} + 순증×50%</div>
+      <div class="cert-aw-amt">${fw(r.award2M3)}</div>
+    </div>
+    <div class="cert-aw-card blue">
+      <div class="cert-aw-num">③</div>
+      <div class="cert-aw-name">마스터과정</div>
+      <div class="cert-aw-grade">2개월 합계</div>
+      <div class="cert-aw-crit">${r.award3Tier ? escapeHtml(r.award3Tier.criteria) : "순증 5만원 미만"}</div>
+      <div class="cert-aw-amt">${r.award3 > 0 ? fw(r.award3 * 2) : "해당없음"}</div>
+    </div>
+  </div>
+
+  <div class="cert-total-box">
+    <div class="cert-total-lbl">🏆 최종 예상 시상금 합계 (①+②+③)</div>
+    <div class="cert-total-formula">${award1Str} + ${fw(r.award2M3)} + ${r.award3 > 0 ? fw(r.award3 * 2) : "0원"}</div>
+    <div class="cert-total-amt">${totalStr}</div>
+  </div>
+
+  <div class="cert-footer">
+    <div class="cert-footer-msg">
+      <span class="cert-footer-name">${escapeHtml(name)}</span>님은
+      <span class="cert-footer-branch">${escapeHtml(branch)}</span>지점의
+      <span class="cert-footer-word">'${escapeHtml(positiveWord)}'</span>
+    </div>
+    <div class="cert-footer-note">※ 아너스클럽: 3개월 연속달성 · 하이포인트: 월최대 20만·분기최대 50만 · 마스터: 2개월 지급</div>
+  </div>
+</div>`;
+  }
+
+  function getAwardCertificateCss() {
+    return `
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.cert-a4{width:210mm;min-height:297mm;margin:0 auto;padding:14mm 16mm;background:#fff;display:flex;flex-direction:column;gap:10px;}
+.cert-hdr{background:linear-gradient(135deg,#0D1B4B,#1A3A8F);border-radius:12px;padding:18px 20px;text-align:center;color:#fff;}
+.cert-hdr-stars{font-size:18px;color:#FFD700;letter-spacing:8px;margin-bottom:6px;}
+.cert-hdr-title{font-size:28px;font-weight:900;letter-spacing:2px;margin-bottom:4px;}
+.cert-hdr-sub{font-size:18px;font-weight:700;color:#B0C4FF;margin-bottom:6px;}
+.cert-hdr-quarter{font-size:13px;color:rgba(255,255,255,.7);}
+.cert-info-row{display:grid;grid-template-columns:1fr 1fr 1.2fr 1fr;gap:6px;}
+.cert-info-card{background:#F0F4FF;border-radius:8px;padding:8px 10px;text-align:center;border:1px solid #C5D0F0;}
+.cert-info-card.dark{background:#1A3A8F;border-color:#1A3A8F;}
+.cert-ic-lbl{font-size:10px;font-weight:700;color:#5C6BC0;margin-bottom:3px;}
+.cert-info-card.dark .cert-ic-lbl{color:rgba(255,255,255,.65);}
+.cert-ic-val{font-size:15px;font-weight:900;color:#0D1B4B;}
+.cert-info-card.dark .cert-ic-val{color:#fff;font-size:16px;}
+.cert-info-card.nm .cert-ic-val{font-size:18px;}
+.cert-target-bar{background:linear-gradient(90deg,#FF6F00,#FFA000);border-radius:8px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;color:#fff;}
+.cert-tgt-lbl{font-size:14px;font-weight:700;}
+.cert-tgt-val{font-size:22px;font-weight:900;letter-spacing:-1px;}
+.cert-awards-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.cert-aw-card{border-radius:10px;padding:14px 10px;text-align:center;border:2px solid transparent;}
+.cert-aw-card.purple{background:#F3E5F5;border-color:#7B1FA2;}
+.cert-aw-card.green{background:#E8F5E9;border-color:#2E7D32;}
+.cert-aw-card.blue{background:#E3F2FD;border-color:#1565C0;}
+.cert-aw-num{font-size:22px;font-weight:900;margin-bottom:4px;}
+.cert-aw-card.purple .cert-aw-num{color:#7B1FA2;}
+.cert-aw-card.green .cert-aw-num{color:#2E7D32;}
+.cert-aw-card.blue .cert-aw-num{color:#1565C0;}
+.cert-aw-name{font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:3px;}
+.cert-aw-grade{font-size:12px;font-weight:700;margin-bottom:2px;}
+.cert-aw-card.purple .cert-aw-grade{color:#6A1B9A;}
+.cert-aw-card.green .cert-aw-grade{color:#1B5E20;}
+.cert-aw-card.blue .cert-aw-grade{color:#0D47A1;}
+.cert-aw-crit{font-size:10px;color:#666;margin-bottom:6px;}
+.cert-aw-amt{font-size:17px;font-weight:900;padding:6px 0;border-radius:6px;}
+.cert-aw-card.purple .cert-aw-amt{color:#6A1B9A;background:rgba(123,31,162,.1);}
+.cert-aw-card.green .cert-aw-amt{color:#1B5E20;background:rgba(46,125,50,.1);}
+.cert-aw-card.blue .cert-aw-amt{color:#0D47A1;background:rgba(21,101,192,.1);}
+.cert-total-box{background:linear-gradient(135deg,#0D1B4B,#1A3A8F);border-radius:12px;padding:16px 20px;text-align:center;color:#fff;}
+.cert-total-lbl{font-size:13px;font-weight:700;color:rgba(255,255,255,.8);margin-bottom:4px;}
+.cert-total-formula{font-size:11px;color:rgba(255,255,255,.55);margin-bottom:8px;}
+.cert-total-amt{font-size:36px;font-weight:900;color:#FFD700;letter-spacing:-1px;}
+.cert-footer{background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:12px;padding:16px 20px;text-align:center;color:#fff;margin-top:auto;}
+.cert-footer-msg{font-size:18px;font-weight:800;margin-bottom:8px;line-height:1.5;}
+.cert-footer-name{color:#FFD700;font-size:20px;}
+.cert-footer-branch{color:#A5D6A7;}
+.cert-footer-word{color:#FFD700;font-size:22px;font-style:italic;}
+.cert-footer-note{font-size:9px;color:rgba(255,255,255,.6);line-height:1.5;}
+@media print{@page{size:A4 portrait;margin:0;}body{margin:0;}.cert-a4{padding:10mm 12mm;}}
+`;
+  }
+
+  function openAwardPrintPreview() {
+    const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
+    const r = state.lastCalcResult;
+    if (!r || !s) { toast("시상 계산기를 먼저 실행하세요.", "warn"); return; }
+
+    const wordKey = "awardPrintWordIdx";
+    const wordIdx = ((parseInt(localStorage.getItem(wordKey) || "-1", 10) + 1) % AWARD_POSITIVE_WORDS.length);
+    localStorage.setItem(wordKey, String(wordIdx));
+    const positiveWord = AWARD_POSITIVE_WORDS[wordIdx];
+    const certHtml = buildAwardCertificateHtml(s, r, positiveWord);
+    const certCss = getAwardCertificateCss();
+
+    let modal = document.getElementById("modal-award-print");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-award-print";
+      modal.className = "modal";
+      modal.hidden = true;
+      modal.innerHTML = `
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-panel aprint-panel">
+          <div class="modal-head">
+            <h3>🖨️ 시상인쇄 미리보기</h3>
+            <button class="modal-close" data-close aria-label="닫기">&times;</button>
+          </div>
+          <div class="modal-body aprint-body">
+            <div class="aprint-toolbar">
+              <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 프린터</button>
+              <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF</button>
+              <button id="btn-aprint-img" class="aprint-btn aprint-green">🖼️ 사진</button>
+            </div>
+            <div class="aprint-scroll">
+              <div id="aprint-cert-preview" class="aprint-preview"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
+    }
+
+    const preview = modal.querySelector("#aprint-cert-preview");
+    preview.innerHTML = certHtml;
+
+    const doPrint = () => {
+      const w = window.open("", "_blank", "width=900,height=1200");
+      if (!w) { toast("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.", "warn"); return; }
+      w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>시상 예상 답안지</title><style>${certCss}</style></head><body>${certHtml}</body></html>`);
+      w.document.close();
+      w.addEventListener("load", () => setTimeout(() => { w.focus(); w.print(); }, 300));
+    };
+
+    const doPdf = () => { doPrint(); };
+
+    const doImg = async () => {
+      const target = preview.querySelector(".cert-a4");
+      if (!target) return;
+      if (typeof html2canvas === "undefined") {
+        try {
+          await new Promise((resolve, reject) => {
+            const sc = document.createElement("script");
+            sc.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+            sc.onload = resolve; sc.onerror = reject;
+            document.head.appendChild(sc);
+          });
+        } catch (e) { toast("이미지 변환 라이브러리 로드 실패. 인터넷 연결을 확인하세요.", "error"); return; }
+      }
+      toast("이미지 생성 중...", "info");
+      try {
+        const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+        const link = document.createElement("a");
+        const sName = (s.name || "교육생").replace(/\s/g, "");
+        link.download = `시상_${sName}_${new Date().toLocaleDateString("ko-KR").replace(/\.\s*/g, "-").replace(/-$/, "")}.jpg`;
+        link.href = canvas.toDataURL("image/jpeg", 0.95);
+        link.click();
+      } catch (e) { toast("이미지 생성 실패: " + e.message, "error"); }
+    };
+
+    // Replace buttons to remove old listeners
+    ["btn-aprint-printer","btn-aprint-pdf","btn-aprint-img"].forEach((id) => {
+      const el = modal.querySelector("#" + id);
+      if (!el) return;
+      const clone = el.cloneNode(true);
+      el.parentNode.replaceChild(clone, el);
+    });
+    modal.querySelector("#btn-aprint-printer").addEventListener("click", doPrint);
+    modal.querySelector("#btn-aprint-pdf").addEventListener("click", doPdf);
+    modal.querySelector("#btn-aprint-img").addEventListener("click", doImg);
+
+    modal.hidden = false;
+  }
+
   function calc() {
     const avgRaw = getRawVal("calc-avg");
     let tgtRaw = getRawVal("calc-tgt");
@@ -978,16 +1203,27 @@
 
     const total = award1 + award2M3 + award3 * 2;
 
-    const honorRows = HONORS.map((h, i) => {
-      const achieved = tgt >= h.critVal;
+    // ±2 tiers around current position only
+    const honorVisibleIdxs = (() => {
+      if (award1Idx >= 0) {
+        const lo = Math.max(0, award1Idx - 2);
+        const hi = Math.min(HONORS.length - 1, award1Idx + 2);
+        const arr = [];
+        for (let i = lo; i <= hi; i++) arr.push(i);
+        return arr;
+      }
+      // No achievement: show 3 easiest tiers
+      const arr = [];
+      for (let i = Math.max(0, HONORS.length - 3); i < HONORS.length; i++) arr.push(i);
+      return arr;
+    })();
+    const honorRows = honorVisibleIdxs.map((i) => {
+      const h = HONORS[i];
       const isActive = i === award1Idx;
-      const cls = isActive ? "rs-on" : achieved ? "rs-done" : "rs-miss";
-      const icon = isActive ? "🏆" : achieved ? "✅" : "⬜";
-      // 모바일에선 현재 등급 ± 1 만 노출 (data-dist 로 CSS 필터)
-      const dist = award1Idx >= 0 ? Math.abs(i - award1Idx) : 99;
-      // 한글만 표시 (영문 괄호 제거) + 줄바꿈 방지
+      const cls = isActive ? "rs-on" : "rs-miss";
+      const icon = isActive ? "🏆" : "⬜";
+      const dist = Math.abs(i - (award1Idx >= 0 ? award1Idx : HONORS.length));
       const gradeKo = h.grade.replace(/\s*\([^)]*\)\s*/g, "").trim();
-      // 시상금 짧게: 500만 → "5백만원", 100만 → "1백만원", 나머지 "NN만원"
       const prizeStr = (h.prize >= 100 && h.prize % 100 === 0) ? `${h.prize / 100}백만원` : `${h.prize}만원`;
       return `<tr class="${cls}" data-dist="${dist}">
         <td class="c">${icon}</td>
@@ -1051,8 +1287,14 @@
               </div>
             </div>`
           : `<div class="nt-max">🏆 최상위 단계 달성!</div>`}
+        <div class="award-print-row">
+          <button id="btn-award-print" class="btn-award-print" type="button">🖨️ 시상인쇄</button>
+        </div>
       </div>
     `;
+    state.lastCalcResult = { tgtRaw, baseTgtRaw, avgRaw, award1, award1Grade, award1Idx, award2M3, monthlyFinal, award3, award3Tier, total, incrMaster, insRaw3, incr };
+    const _printBtn = res.querySelector("#btn-award-print");
+    if (_printBtn) _printBtn.addEventListener("click", openAwardPrintPreview);
   }
 
   function updateIvTitle() {
@@ -4845,7 +5087,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425n)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
