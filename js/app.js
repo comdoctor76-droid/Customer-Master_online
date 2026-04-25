@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.81";
+  const APP_VERSION = "0.82";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2722,13 +2722,14 @@
 
   // 학생 데이터에서 계산된 지표 얻기
   function getProgressStat(s) {
-    const base    = Number(s.base    || 0);
-    const current = Number(s.current || 0);
-    const hiCap   = Number(s.hiCap   || 0);
+    // pg* 필드(원 단위, 실적진도현황 붙여넣기)가 있으면 우선 사용; 없으면 천원→원 변환
+    const base    = s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0) * 1000;
+    const current = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0) * 1000;
+    const hiCap   = Number(s.hiCap || 0);
+    const ipumCount = s.pgIpumCount !== undefined ? Number(s.pgIpumCount) : Number(s.ipumCount || 0);
+    const ipumAmt   = s.pgIpumAmt   !== undefined ? Number(s.pgIpumAmt)   : Number(s.ipumAmt   || 0);
     const net  = current - base;
     const rate = base > 0 ? (current / base) * 100 : 0;
-    const ipumCount = Number(s.ipumCount || 0);
-    const ipumAmt   = Number(s.ipumAmt   || 0);
     return { s, base, current, hiCap, net, rate, ipumCount, ipumAmt };
   }
 
@@ -3189,6 +3190,86 @@
     modal.hidden = true;
   }
 
+  function openPgNewStudentModal(newRecords) {
+    let modal = document.getElementById("modal-pg-new");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-pg-new";
+      modal.className = "modal";
+      modal.hidden = true;
+      modal.innerHTML = `
+        <div class="modal-backdrop" data-pgn-close></div>
+        <div class="modal-panel wide">
+          <div class="modal-head">
+            <h3>📥 교육생이 존재하지 않아 입력합니다</h3>
+            <button class="modal-close" data-pgn-close>&times;</button>
+          </div>
+          <div class="modal-body" id="pg-new-modal-body"></div>
+          <div class="modal-foot">
+            <button class="btn-outline" data-pgn-close>취소</button>
+            <button class="btn-primary" id="btn-pgn-save">💾 저장</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-pgn-close]").forEach((el) => {
+        el.addEventListener("click", () => { modal.hidden = true; });
+      });
+    }
+
+    const body = modal.querySelector("#pg-new-modal-body");
+    body.innerHTML = `
+      <p class="form-hint">아래 교육생은 시스템에 등록되어 있지 않습니다. 저장하면 신규 교육생으로 추가됩니다.</p>
+      <div class="pg-tbl-wrap"><table class="pg-tbl">
+        <thead><tr>
+          <th>사원번호</th><th>성명</th><th>지점</th>
+          <th>기준실적(원)</th><th>현재실적(원)</th>
+          <th>기수</th><th>연락처</th>
+        </tr></thead>
+        <tbody>${newRecords.map((r, i) => `<tr>
+          <td>${escapeHtml(r.empNo)}</td>
+          <td><input class="pg-input pgn-name" data-idx="${i}" value="${escapeHtml(r.name)}" placeholder="성명"></td>
+          <td>${escapeHtml(r.branch)}</td>
+          <td class="r">${Nf(r.pgBase)}</td>
+          <td class="r">${Nf(r.pgCurrent)}</td>
+          <td><input class="pg-input pgn-cohort" data-idx="${i}" value="" placeholder="기수"></td>
+          <td><input class="pg-input pgn-phone" data-idx="${i}" value="" placeholder="연락처"></td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    `;
+    modal.hidden = false;
+
+    // 저장 버튼 — 이전 리스너 제거 후 재등록
+    const oldBtn = modal.querySelector("#btn-pgn-save");
+    const saveBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(saveBtn, oldBtn);
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "저장중...";
+      try {
+        const records = newRecords.map((r, i) => ({
+          ...r,
+          name:   (modal.querySelector(`.pgn-name[data-idx="${i}"]`)?.value.trim()  || r.name),
+          cohort: (modal.querySelector(`.pgn-cohort[data-idx="${i}"]`)?.value.trim() || ""),
+          phone:  (modal.querySelector(`.pgn-phone[data-idx="${i}"]`)?.value.trim()  || ""),
+          target: 0, honors: 0
+        }));
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(records);
+        } else {
+          for (const rec of records) await window.DataAPI.save(rec);
+        }
+        toast(`${records.length}명 신규 교육생 등록 완료`, "success");
+        modal.hidden = true;
+      } catch (e) {
+        console.error(e);
+        toast("저장 실패: " + e.message, "error");
+        saveBtn.disabled = false;
+        saveBtn.textContent = "💾 저장";
+      }
+    });
+  }
+
   function renderProgressAdmin(list) {
     const rows = list.slice().sort((a, b) => (a.branch || "").localeCompare(b.branch || "") || (a.name || "").localeCompare(b.name || ""));
     const stats = rows.map(getProgressStat);
@@ -3280,13 +3361,13 @@
               </div>
             </div>
 
-            <!-- 실적진도현황 (추후 설정) -->
+            <!-- 실적진도현황 -->
             <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
-              <div class="pg-paste-desc">실적진도현황 붙여넣기 — 다음 명령 시 활성화 예정</div>
-              <textarea id="pg-progress-paste" rows="4" placeholder="준비중..."></textarea>
+              <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)</div>
+              <textarea id="pg-progress-paste" rows="6" placeholder="엑셀에서 복사 후 붙여넣기"></textarea>
               <div class="pg-actions">
-                <button class="btn-outline" id="btn-pg-progress-paste-apply" disabled>📥 실적진도현황 저장</button>
-                <span id="pg-progress-paste-msg" class="pg-msg">다음 설정 시 활성화됩니다</span>
+                <button class="btn-primary" id="btn-pg-progress-paste-apply">📥 실적진도현황 저장</button>
+                <span id="pg-progress-paste-msg" class="pg-msg"></span>
               </div>
             </div>
           </div>
@@ -3307,11 +3388,11 @@
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base  = Number(s.base    || 0) * 1000;
+                const base  = Number(s.base    || 0) * 1000;  // 원
                 const hiCap = Number(s.hiCap   || 0);
-                const cur   = Number(s.current  || 0);
-                const net   = cur - base;
-                const rate  = base > 0 ? (cur / base) * 100 : 0;
+                const cur   = Number(s.current  || 0);         // 천원 (입력단위)
+                const net   = cur * 1000 - base;               // 원
+                const rate  = base > 0 ? (cur * 1000 / base) * 100 : 0;
                 return `<tr>
                   <td>${i + 1}</td>
                   <td>${escapeHtml(s.branch || "")}</td>
@@ -3479,10 +3560,10 @@
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base = Number(s?.base || 0) * 1000;
-        const cur  = parseFloat(e.target.value) || 0;
-        const net  = cur - base;
-        const rate = base > 0 ? (cur / base) * 100 : 0;
+        const base = Number(s?.base || 0) * 1000;   // 원
+        const cur  = parseFloat(e.target.value) || 0; // 천원
+        const net  = cur * 1000 - base;               // 원
+        const rate = base > 0 ? (cur * 1000 / base) * 100 : 0;
         const rateEl = document.querySelector(`[data-calc="rate-${emp}"]`);
         const netEl  = document.querySelector(`[data-calc="net-${emp}"]`);
         if (rateEl) rateEl.textContent = rate.toFixed(1) + "%";
@@ -3584,6 +3665,84 @@
     });
     const pasteClear = $("#btn-pg-paste-clear");
     if (pasteClear) pasteClear.addEventListener("click", () => { $("#pg-paste").value = ""; });
+
+    // ── 실적진도현황 붙여넣기 핸들러 ──────────────────────────────
+    const progressPasteApply = $("#btn-pg-progress-paste-apply");
+    if (progressPasteApply) progressPasteApply.addEventListener("click", async () => {
+      const txt = $("#pg-progress-paste").value.trim();
+      const m = $("#pg-progress-paste-msg");
+      if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
+
+      // 컬럼: 지역단(0)|비전센터(1)|지점(2)|사원번호(3)|성명(4)|차월(5)|육성리더(6)
+      //        직전6개월인보험(7)|직전6개월환산(8)|직전6개월육성소득(9)
+      //        기준실적(10)|현재실적(11)|달성률(12)|순증실적(13)|인품건수(14)|인품실적(15)
+      const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
+      const updateRecords = [];
+      const newRecords    = [];  // 미매칭: 신규 등록 대상
+
+      txt.split(/\r?\n/).forEach((line) => {
+        const p = line.split(/\t/).map((c) => c.replace(/,/g, "").trim());
+        if (p.length < 12) return;
+        const region  = p[0] || "";
+        const center  = p[1] || "";
+        const branch  = p[2] || "";
+        const empNo   = p[3] || "";
+        const name    = p[4] || "";
+        const pgMonth = p[5] || "";
+        const pgLeader= p[6] || "";
+        const pgPreIns    = parseAmt(p[7]);
+        const pgPreConv   = parseAmt(p[8]);
+        const pgPreIncome = parseAmt(p[9]);
+        const pgBase      = parseAmt(p[10]);
+        const pgCurrent   = parseAmt(p[11]);
+        const pgIpumCount = p.length > 14 ? parseAmt(p[14]) : 0;
+        const pgIpumAmt   = p.length > 15 ? parseAmt(p[15]) : 0;
+
+        if (!empNo) return;
+        const existing = list.find((x) => x.empNo === empNo);
+        const pgFields = { pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader };
+
+        if (existing) {
+          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields });
+        } else {
+          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: Math.round(pgBase / 1000), current: Math.round(pgCurrent / 1000) });
+        }
+      });
+
+      if (updateRecords.length === 0 && newRecords.length === 0) {
+        if (m) { m.textContent = "❌ 파싱된 행이 없습니다. 탭 구분 및 열 수(12+)를 확인하세요."; m.className = "pg-msg err"; }
+        return;
+      }
+
+      // 기존 학생 업데이트
+      if (updateRecords.length > 0) {
+        progressPasteApply.disabled = true;
+        if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
+        try {
+          if (typeof window.DataAPI.saveMany === "function") {
+            await window.DataAPI.saveMany(updateRecords);
+          } else {
+            for (const r of updateRecords) await window.DataAPI.save(r);
+          }
+          let msg = `✅ ${updateRecords.length}명 저장 완료`;
+          if (newRecords.length) msg += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
+          if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 8000); }
+          toast(`${updateRecords.length}명 실적진도현황 저장`, "success");
+        } catch (e) {
+          console.error(e);
+          if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
+          toast("저장 실패: " + e.message, "error");
+          progressPasteApply.disabled = false;
+          return;
+        }
+        progressPasteApply.disabled = false;
+      }
+
+      // 신규 등록 대상 팝업
+      if (newRecords.length > 0) {
+        openPgNewStudentModal(newRecords);
+      }
+    });
 
     // 인품 테이블 ↔ 메인 테이블 동기화 (같은 empNo 의 두 입력을 동시 반영)
     document.querySelectorAll("#progress-body .pg-input[data-f2]").forEach((inp) => {
@@ -4489,7 +4648,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260424n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
