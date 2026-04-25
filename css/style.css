@@ -2689,8 +2689,8 @@ body {
 .aprint-blue  { background: #1A3A8F; }
 .aprint-red   { background: #C62828; }
 .aprint-green { background: #2E7D32; }
-.aprint-scroll { flex: 1; overflow-y: auto; padding: 16px; background: #e8e8e8; }
-.aprint-preview { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); border-radius: 4px; overflow: hidden; }
+.aprint-scroll { flex: 1; overflow: hidden; background: #e8e8e8; padding: 0; }
+.aprint-iframe { width: 100%; height: 100%; min-height: 600px; border: none; background: #fff; display: block; }
 
 /* ============ 통계 패널 ============ */
 #stats-panel { margin-bottom: 20px; }
