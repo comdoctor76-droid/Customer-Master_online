@@ -18,7 +18,7 @@
         <div class="brand-text">
           <span class="brand-main">Hyundai Marine &amp; Fire Insurance</span>
           <span class="brand-sub">고객컨설팅 마스터과정 운영관리</span>
-          <span class="brand-ver">v<span id="app-header-ver">0.43</span></span>
+          <span class="brand-contact">문의 : 호남지역단 이승학 전임강사</span>
         </div>
       </div>
       <nav class="top-nav">
@@ -29,6 +29,7 @@
         <a href="#settings">관리자</a>
       </nav>
       <div class="header-actions">
+        <button id="btn-error-report" class="btn-error-report" title="오류신고">🚨 오류신고</button>
         <button id="btn-hard-refresh" class="btn-hard-refresh" title="캐시 초기화 후 새로고침" aria-label="새로고침">🔄</button>
         <span id="connection-status" class="conn-badge">연결중...</span>
       </div>
@@ -133,6 +134,13 @@
           <h2>🔐 관리자</h2>
         </div>
         <div class="settings-body">
+          <div class="settings-section" id="error-reports-section">
+            <h3>📋 오류신고모음</h3>
+            <div id="error-reports-board" class="er-board">
+              <p class="settings-desc" style="color:#999;">오류신고 내역을 불러오는 중...</p>
+            </div>
+          </div>
+
           <div class="settings-section">
             <h3>데이터 백업</h3>
             <p class="settings-desc">현재 필터 기준 교육생 데이터를 JSON 파일로 내보냅니다.</p>
@@ -435,6 +443,44 @@
 
   <!-- 모바일 사이드바 백드롭 (열림 시 어둡게) -->
   <div class="mobile-sidebar-backdrop" id="mobile-sidebar-backdrop" hidden></div>
+
+  <!-- 오류신고 모달 -->
+  <div id="modal-error-report" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel modal-panel-narrow">
+      <div class="modal-head">
+        <h3>🚨 오류신고</h3>
+        <button class="modal-close" data-close aria-label="닫기">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="er-form">
+          <label class="er-field">오류 제목
+            <input type="text" id="er-title" class="er-input" placeholder="오류 제목 (선택)">
+          </label>
+          <label class="er-field">오류 내용 <span class="er-req">*</span>
+            <textarea id="er-content" class="er-textarea" rows="4" placeholder="발생한 오류나 문제를 설명해주세요" required></textarea>
+          </label>
+          <label class="er-field">사진 첨부
+            <input type="file" id="er-image" accept="image/*" class="er-file-input">
+          </label>
+          <div id="er-image-preview" class="er-image-preview" hidden>
+            <img id="er-preview-img" src="" alt="첨부 이미지">
+            <button type="button" id="er-remove-img" class="er-remove-img">✕ 이미지 삭제</button>
+          </div>
+          <label class="er-field">신고자 이름 <span class="er-req">*</span>
+            <input type="text" id="er-reporter-name" class="er-input" placeholder="이름을 입력하세요" required>
+          </label>
+          <label class="er-field">신고자 연락처 <span class="er-req">*</span>
+            <input type="tel" id="er-reporter-contact" class="er-input" placeholder="연락처를 입력하세요" required>
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-primary" id="btn-er-submit">💾 저장</button>
+        <button class="btn-outline" data-close>취소</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
   <script type="module" src="js/firebase-config.js?v=20260422a"></script>

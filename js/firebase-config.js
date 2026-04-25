@@ -436,7 +436,39 @@ window.DataAPI = {
       { insAvg: val, updatedAt: serverTimestamp() },
       { merge: true }
     );
-  }
+  },
+
+  // 오류신고 저장
+  async addErrorReport({ title, content, reporterName, reporterContact, imageBase64 }) {
+    const ref = collection(db, "errorReports");
+    const docRef = await addDoc(ref, {
+      title: title || "",
+      content: content || "",
+      reporterName: reporterName || "",
+      reporterContact: reporterContact || "",
+      imageBase64: imageBase64 || null,
+      resolved: false,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
+  },
+
+  // 오류신고 목록 실시간 구독 (최신순)
+  subscribeErrorReports(callback) {
+    const ref = query(collection(db, "errorReports"), orderBy("createdAt", "desc"));
+    return onSnapshot(ref, (snap) => {
+      const list = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      callback(list);
+    }, (err) => {
+      console.error("[Firebase] 오류신고 구독 오류:", err);
+    });
+  },
+
+  // 오류신고 업데이트 (해결 여부 등)
+  async updateErrorReport(id, data) {
+    await setDoc(doc(db, "errorReports", id), data, { merge: true });
+  },
 };
 
 // 온라인/오프라인 상태 배지 제어

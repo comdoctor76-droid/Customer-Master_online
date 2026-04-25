@@ -78,6 +78,8 @@
     calcOpen: true,          // 계산기 접힘/펼침 상태
     calcTgtUserEditing: false, // 희망목표 직접입력 중 플래그
     lastCalcResult: null,    // 마지막 계산 결과 (시상인쇄용)
+    errorReports: [],
+    errorReportUnsub: null,
     // 동기화 상태
     studentsLoaded: false,   // Firestore 첫 응답 여부
     syncMeta: { fromCache: false },
@@ -5080,6 +5082,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       window.location.replace(url.toString());
     });
 
+    const errBtn = document.getElementById("btn-error-report");
+    if (errBtn) errBtn.addEventListener("click", openErrorReportModal);
+
     // 사이드바 인라인 셀렉트
     populateFilterRegionSelect();
     $("#filter-region-select").addEventListener("change", (e) => {
@@ -5523,6 +5528,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (target === "dashboard") renderStats(filteredStudents(), "dashboard-body");
     if (target === "progress") renderProgressPanel();
     if (target === "settings") renderMasterTargetSettings();
+      if (target === "settings") subscribeErrorReportsIfNeeded();
     if (target === "students" && state.selectedEmpNo) renderStudentDetail();
     if (target === "students" && !state.selectedEmpNo) {
       toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
@@ -5569,6 +5575,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function init() {
     bindEvents();
+    initErrorReportModal();
     // 기본 view = 교육생 관리
     switchView("#students");
     // localStorage에서 복원된 필터값을 UI에 반영
@@ -5624,6 +5631,234 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       console.warn("[app] 면담 횟수 사전 수집 실패:", e);
       state._consultCountsFetched = false; // 재시도 가능
     }
+  }
+
+  // ========== 오류신고 ==========
+
+  function compressImageToBase64(file, maxW, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = img.width > maxW ? maxW / img.width : 1;
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function openErrorReportModal() {
+    const modal = document.getElementById("modal-error-report");
+    if (!modal) return;
+    // Reset form
+    ["er-title","er-content","er-reporter-name","er-reporter-contact"].forEach((id) => {
+      const el = document.getElementById(id); if (el) el.value = "";
+    });
+    const fileEl = document.getElementById("er-image");
+    if (fileEl) fileEl.value = "";
+    const preview = document.getElementById("er-image-preview");
+    if (preview) preview.hidden = true;
+    const previewImg = document.getElementById("er-preview-img");
+    if (previewImg) previewImg.src = "";
+    modal._imageBase64 = null;
+    modal.hidden = false;
+  }
+
+  function initErrorReportModal() {
+    const modal = document.getElementById("modal-error-report");
+    if (!modal) return;
+    modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
+
+    const fileEl = document.getElementById("er-image");
+    if (fileEl) {
+      fileEl.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          const base64 = await compressImageToBase64(file, 1200, 0.75);
+          modal._imageBase64 = base64;
+          const previewImg = document.getElementById("er-preview-img");
+          const preview = document.getElementById("er-image-preview");
+          if (previewImg) previewImg.src = base64;
+          if (preview) preview.hidden = false;
+        } catch (e) { toast("이미지 처리 실패: " + e.message, "error"); }
+      });
+    }
+
+    const removeBtn = document.getElementById("er-remove-img");
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        modal._imageBase64 = null;
+        const fileEl2 = document.getElementById("er-image"); if (fileEl2) fileEl2.value = "";
+        const previewImg = document.getElementById("er-preview-img"); if (previewImg) previewImg.src = "";
+        const preview = document.getElementById("er-image-preview"); if (preview) preview.hidden = true;
+      });
+    }
+
+    const submitBtn = document.getElementById("btn-er-submit");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", async () => {
+        const title = (document.getElementById("er-title")?.value || "").trim();
+        const content = (document.getElementById("er-content")?.value || "").trim();
+        const reporterName = (document.getElementById("er-reporter-name")?.value || "").trim();
+        const reporterContact = (document.getElementById("er-reporter-contact")?.value || "").trim();
+        if (!content) { toast("오류 내용을 입력하세요.", "error"); return; }
+        if (!reporterName) { toast("신고자 이름을 입력하세요.", "error"); return; }
+        if (!reporterContact) { toast("신고자 연락처를 입력하세요.", "error"); return; }
+        submitBtn.disabled = true;
+        try {
+          await window.DataAPI.addErrorReport({ title, content, reporterName, reporterContact, imageBase64: modal._imageBase64 || null });
+          toast("오류신고가 저장되었습니다. 감사합니다!", "success");
+          modal.hidden = true;
+        } catch (e) { toast("저장 실패: " + e.message, "error"); }
+        finally { submitBtn.disabled = false; }
+      });
+    }
+  }
+
+  function subscribeErrorReportsIfNeeded() {
+    if (state.errorReportUnsub) return; // 이미 구독 중
+    if (!window.DataAPI?.subscribeErrorReports) return;
+    state.errorReportUnsub = window.DataAPI.subscribeErrorReports((list) => {
+      state.errorReports = list;
+      renderErrorReportsBoard();
+    });
+  }
+
+  function renderErrorReportsBoard() {
+    const board = document.getElementById("error-reports-board");
+    if (!board) return;
+    const list = state.errorReports || [];
+    if (!list.length) {
+      board.innerHTML = `<p class="settings-desc" style="color:#999;">접수된 오류신고가 없습니다.</p>`;
+      return;
+    }
+    board.innerHTML = list.map((r) => {
+      const dateStr = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ko-KR") : "—";
+      const resolved = r.resolved ? "er-item-resolved" : "";
+      const checkIcon = r.resolved ? "✅" : "⬜";
+      return `
+        <div class="er-item ${resolved}" data-erid="${escapeHtml(r.id)}">
+          <div class="er-item-head">
+            <span class="er-item-status" title="해결 여부 토글">${checkIcon}</span>
+            <span class="er-item-date">${dateStr}</span>
+            <span class="er-item-reporter">${escapeHtml(r.reporterName || "—")}</span>
+            <span class="er-item-title">${escapeHtml(r.title || "(제목 없음)")}</span>
+            <button class="er-item-print btn-outline small" data-erid="${escapeHtml(r.id)}">🖨 인쇄</button>
+          </div>
+          <div class="er-item-body" hidden>
+            ${r.imageBase64 ? `<img src="${r.imageBase64}" class="er-item-img" alt="첨부 이미지">` : ""}
+            <div class="er-item-content">${escapeHtml(r.content || "")}</div>
+            <div class="er-item-meta">신고자: ${escapeHtml(r.reporterName || "—")} / 연락처: ${escapeHtml(r.reporterContact || "—")}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    // Toggle expand
+    board.querySelectorAll(".er-item-title, .er-item-date").forEach((el) => {
+      el.style.cursor = "pointer";
+      el.addEventListener("click", () => {
+        const body = el.closest(".er-item").querySelector(".er-item-body");
+        if (body) body.hidden = !body.hidden;
+      });
+    });
+
+    // Toggle resolved
+    board.querySelectorAll(".er-item-status").forEach((el) => {
+      el.style.cursor = "pointer";
+      el.addEventListener("click", async () => {
+        const id = el.closest(".er-item").dataset.erid;
+        const rep = state.errorReports.find((r) => r.id === id);
+        if (!rep) return;
+        try {
+          await window.DataAPI.updateErrorReport(id, { resolved: !rep.resolved });
+        } catch (e) { toast("업데이트 실패: " + e.message, "error"); }
+      });
+    });
+
+    // Print
+    board.querySelectorAll(".er-item-print").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.erid;
+        const rep = state.errorReports.find((r) => r.id === id);
+        if (rep) printErrorReport(rep);
+      });
+    });
+  }
+
+  function printErrorReport(rep) {
+    const dateStr = rep.createdAt?.toDate ? rep.createdAt.toDate().toLocaleString("ko-KR") : "—";
+    const resolvedStr = rep.resolved ? "✅ 해결됨" : "⬜ 미해결";
+    const imgHtml = rep.imageBase64
+      ? `<div class="er-print-img-wrap"><img src="${rep.imageBase64}" class="er-print-img" alt="첨부 이미지"></div>`
+      : `<div class="er-print-img-wrap er-print-no-img">첨부 이미지 없음</div>`;
+    const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>오류신고</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:12px;color:#1a1a1a;}
+      .er-print-wrap{padding:10mm 12mm;width:210mm;min-height:297mm;}
+      .er-print-hdr{background:#1A2744;color:#fff;padding:8px 14px;border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+      .er-print-hdr-title{font-size:16px;font-weight:900;}
+      .er-print-hdr-meta{font-size:11px;color:rgba(255,255,255,.75);}
+      .er-print-img-wrap{height:50%;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;overflow:hidden;}
+      .er-print-img{max-width:100%;max-height:100%;object-fit:contain;}
+      .er-print-no-img{height:120px;color:#999;font-size:14px;}
+      .er-print-section{margin-bottom:8px;padding:8px 12px;background:#F8F9FF;border-radius:6px;border:1px solid #E0E0E0;}
+      .er-print-label{font-size:10px;font-weight:700;color:#5C6BC0;margin-bottom:3px;}
+      .er-print-value{font-size:13px;white-space:pre-wrap;}
+      .er-print-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+      .er-print-status{display:inline-block;padding:3px 10px;border-radius:20px;font-weight:700;font-size:12px;}
+      .er-print-status.resolved{background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;}
+      .er-print-status.unresolved{background:#FFF3E0;color:#E65100;border:1px solid #FFCC80;}
+      @media print{@page{size:A4 portrait;margin:0;}body{margin:0;}.er-print-wrap{padding:8mm 10mm;}}
+    </style></head><body>
+    <div class="er-print-wrap">
+      <div class="er-print-hdr">
+        <span class="er-print-hdr-title">🚨 오류신고</span>
+        <span class="er-print-hdr-meta">${escapeHtml(dateStr)}</span>
+      </div>
+      ${imgHtml}
+      <div class="er-print-row">
+        <div class="er-print-section">
+          <div class="er-print-label">신고자</div>
+          <div class="er-print-value">${escapeHtml(rep.reporterName || "—")}</div>
+        </div>
+        <div class="er-print-section">
+          <div class="er-print-label">연락처</div>
+          <div class="er-print-value">${escapeHtml(rep.reporterContact || "—")}</div>
+        </div>
+      </div>
+      <div class="er-print-section">
+        <div class="er-print-label">제목</div>
+        <div class="er-print-value">${escapeHtml(rep.title || "(제목 없음)")}</div>
+      </div>
+      <div class="er-print-section">
+        <div class="er-print-label">오류 내용</div>
+        <div class="er-print-value">${escapeHtml(rep.content || "")}</div>
+      </div>
+      <div class="er-print-section">
+        <div class="er-print-label">처리 상태</div>
+        <span class="er-print-status ${rep.resolved ? "resolved" : "unresolved"}">${resolvedStr}</span>
+      </div>
+    </div>
+    </body></html>`;
+    const w = window.open("", "_blank", "width=900,height=1200");
+    if (!w) { toast("팝업이 차단되었습니다.", "warn"); return; }
+    w.document.write(html);
+    w.document.close();
+    w.addEventListener("load", () => setTimeout(() => { w.focus(); w.print(); }, 300));
   }
 
   document.addEventListener("DOMContentLoaded", init);
