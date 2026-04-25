@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.86";
+  const APP_VERSION = "0.87";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3390,7 +3390,7 @@
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base  = Number(s.base    || 0) * 1000;  // 원
+                const base  = s.pgBase !== undefined ? Number(s.pgBase) : Number(s.base || 0) * 1000;  // 원
                 const hiCap = Number(s.hiCap   || 0);
                 const cur   = Number(s.current  || 0);         // 천원 (입력단위)
                 const net   = cur * 1000 - base;               // 원
@@ -3562,7 +3562,7 @@
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base = Number(s?.base || 0) * 1000;   // 원
+        const base = (s?.pgBase !== undefined) ? Number(s.pgBase) : Number(s?.base || 0) * 1000;   // 원
         const cur  = parseFloat(e.target.value) || 0; // 천원
         const net  = cur * 1000 - base;               // 원
         const rate = base > 0 ? (cur * 1000 / base) * 100 : 0;
@@ -3683,7 +3683,7 @@
       const newRecords    = [];  // 미매칭: 신규 등록 대상
 
       txt.split(/\r?\n/).forEach((line) => {
-        const p = line.split(/\t/).map((c) => c.replace(/,/g, "").trim());
+        const p = line.split(/\t/).map((c) => c.replace(/,/g, "").replace(/[ ​﻿]/g, "").trim());
         if (p.length < 12) return;
         const region  = p[0] || "";
         const center  = p[1] || "";
@@ -4732,7 +4732,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
