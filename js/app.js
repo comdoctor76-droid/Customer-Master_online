@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.98";
+  const APP_VERSION = "0.99";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1115,19 +1115,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const iframe = modal.querySelector("#aprint-iframe");
     iframe.srcdoc = fullHtml;
 
-    // 스크립트 동적 로드
-    const loadScript = (src) => new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    // 스크립트 동적 로드 (이미 로드된 경우 globalOk()로 확인)
+    const loadScript = (src, globalOk) => new Promise((resolve, reject) => {
+      if (globalOk && globalOk()) { resolve(); return; }
+      const prev = document.querySelector(`script[src="${src}"]`);
+      if (prev) prev.remove(); // 이전 로드 실패 시 재시도
       const sc = document.createElement("script");
-      sc.src = src; sc.onload = resolve; sc.onerror = reject;
+      sc.src = src;
+      sc.onload = () => { resolve(); };
+      sc.onerror = () => reject(new Error("라이브러리 로드 실패 (네트워크 확인 필요)"));
       document.head.appendChild(sc);
     });
 
-    // AWARD_PRINT_CSS 를 #award-cap-tmp 스코프로 래핑해 메인 페이지 CSS와 충돌 방지
+    // html2canvas 로 시상 내용 캡처 — 모달 뒤에 z-index:1 로 렌더링
     const captureCanvas = async () => {
-      if (typeof html2canvas === "undefined") {
-        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
-      }
+      await loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+        () => typeof html2canvas !== "undefined"
+      );
+
+      // AWARD_PRINT_CSS 를 #award-cap-tmp 스코프로 래핑 (메인 페이지 CSS 충돌 방지)
       const rawCss = AWARD_PRINT_CSS.split("@media print")[0].replace(/body\{[^}]*\}/, "");
       const scopedCss = rawCss.split("}").map((part) => {
         const bi = part.indexOf("{");
@@ -1142,19 +1149,53 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       styleEl.textContent = scopedCss;
       document.head.appendChild(styleEl);
 
+      // position:fixed + z-index:1 → 모달(z-index 높음) 뒤에 가려져 화면에 안 보이지만 정상 렌더링
       const wrap = document.createElement("div");
       wrap.id = "award-cap-tmp";
-      wrap.style.cssText = "position:fixed;top:-30000px;left:-30000px;width:794px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#1A1A1A;font-size:12px;line-height:1.4;";
+      wrap.style.cssText = "position:fixed;top:0;left:0;width:794px;z-index:1;pointer-events:none;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#1A1A1A;font-size:12px;line-height:1.4;";
       wrap.innerHTML = sheetHtml;
       document.body.appendChild(wrap);
-      await new Promise((res) => setTimeout(res, 250));
 
-      const pgEl = wrap.querySelector(".pg");
-      const canvas = await html2canvas(pgEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+      // 폰트·렌더링 대기
+      await new Promise((res) => setTimeout(res, 400));
 
-      document.body.removeChild(wrap);
-      document.head.removeChild(styleEl);
+      let canvas;
+      try {
+        const pgEl = wrap.querySelector(".pg");
+        if (!pgEl) throw new Error("인쇄 요소를 찾을 수 없습니다");
+        canvas = await html2canvas(pgEl, {
+          scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+          scrollX: 0, scrollY: 0
+        });
+      } finally {
+        document.body.removeChild(wrap);
+        document.head.removeChild(styleEl);
+      }
       return canvas;
+    };
+
+    const shareOrDownload = async (blob, mimeType, ext) => {
+      const file = new File([blob], `${filename}.${ext}`, { type: mimeType });
+      let shared = false;
+      if (typeof navigator.canShare === "function") {
+        try {
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+            shared = true;
+          }
+        } catch (e) {
+          if (e.name !== "AbortError") throw e; // 사용자 취소는 무시
+          shared = true; // 취소도 정상 종료
+        }
+      }
+      if (!shared) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${filename}.${ext}`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+      }
     };
 
     const doPrint = () => {
@@ -1165,41 +1206,36 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       toast("PDF 생성 중...", "info");
       try {
         const canvas = await captureCanvas();
-        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        await loadScript(
+          "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+          () => !!(window.jspdf?.jsPDF || window.jsPDF)
+        );
+        const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!JsPDF) throw new Error("jsPDF 라이브러리 로드 실패");
+        const pdf = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
         const pdfW = pdf.internal.pageSize.getWidth();
         const pdfH = pdf.internal.pageSize.getHeight();
         const imgH = (canvas.height * pdfW) / canvas.width;
-        pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pdfW, Math.min(imgH, pdfH));
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pdfW, Math.min(imgH, pdfH));
         const pdfBlob = pdf.output("blob");
-        const file = new File([pdfBlob], `${filename}.pdf`, { type: "application/pdf" });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: filename });
-        } else {
-          pdf.save(`${filename}.pdf`);
-        }
-      } catch (e) { toast("PDF 생성 실패: " + e.message, "error"); }
+        await shareOrDownload(pdfBlob, "application/pdf", "pdf");
+        toast("PDF 저장 완료!", "success");
+      } catch (e) { toast("PDF 실패: " + (e.message || String(e)), "error"); }
     };
 
     const doPng = async () => {
       toast("PNG 생성 중...", "info");
       try {
         const canvas = await captureCanvas();
-        canvas.toBlob(async (blob) => {
-          if (!blob) { toast("PNG 생성 실패", "error"); return; }
-          const file = new File([blob], `${filename}.png`, { type: "image/png" });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ files: [file], title: filename }); } catch (_) { /* 취소 */ }
-          } else {
-            const link = document.createElement("a");
-            link.download = `${filename}.png`;
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-          }
-        }, "image/png");
-      } catch (e) { toast("PNG 생성 실패: " + e.message, "error"); }
+        await new Promise((resolve, reject) => {
+          canvas.toBlob(async (blob) => {
+            if (!blob) { reject(new Error("canvas.toBlob 실패")); return; }
+            try { await shareOrDownload(blob, "image/png", "png"); resolve(); }
+            catch (e) { reject(e); }
+          }, "image/png");
+        });
+        toast("PNG 저장 완료!", "success");
+      } catch (e) { toast("PNG 실패: " + (e.message || String(e)), "error"); }
     };
 
     ["btn-aprint-printer", "btn-aprint-pdf", "btn-aprint-png"].forEach((id) => {
@@ -5187,7 +5223,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425q)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425r)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
