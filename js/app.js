@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.84";
+  const APP_VERSION = "0.85";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4206,6 +4206,7 @@
     }
     let stored = {};
     try { stored = JSON.parse(localStorage.getItem(LS_DEFAULTS_KEY) || "{}"); } catch (e) {}
+    const zeroTargetCount = state.students.filter((s) => !s.target || Number(s.target) === 0).length;
     container.innerHTML = `
       <table class="settings-info" style="width:auto;margin-bottom:8px;">
         <thead><tr><th style="min-width:120px;">지역단</th><th>마스터목표 기본값</th></tr></thead>
@@ -4217,8 +4218,9 @@
           </tr>`;
         }).join("")}</tbody>
       </table>
-      <div>
-        <button class="btn-primary small" id="btn-save-default-targets">💾 저장</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-primary small" id="btn-save-default-targets">💾 지역단별 기본값 저장</button>
+        <button class="btn-outline small" id="btn-bulk-set-target">🔄 마스터목표 일괄 적용 (평균실적+200천원, ${zeroTargetCount}명 대상)</button>
         <span id="settings-default-targets-msg" class="pg-msg"></span>
       </div>
     `;
@@ -4233,6 +4235,34 @@
       const msg = document.getElementById("settings-default-targets-msg");
       if (msg) { msg.textContent = "✅ 저장됨"; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 3000); }
       toast("기본값 저장 완료", "success");
+    });
+
+    document.getElementById("btn-bulk-set-target")?.addEventListener("click", async () => {
+      const targets = state.students.filter((s) => !s.target || Number(s.target) === 0);
+      if (!targets.length) { toast("마스터목표가 0인 교육생이 없습니다.", ""); return; }
+      if (!confirm(`마스터목표가 0인 교육생 ${targets.length}명에게\n평균실적 + 200(천원)을 일괄 적용합니다.\n계속하시겠습니까?`)) return;
+
+      const btn = document.getElementById("btn-bulk-set-target");
+      const msg = document.getElementById("settings-default-targets-msg");
+      if (btn) btn.disabled = true;
+      if (msg) { msg.textContent = "저장중..."; msg.className = "pg-msg"; }
+
+      const updated = targets.map((s) => ({ ...s, target: Number(s.base || 0) + DEFAULT_MASTER_TARGET }));
+      try {
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(updated);
+        } else {
+          for (const r of updated) await window.DataAPI.save(r);
+        }
+        if (msg) { msg.textContent = `✅ ${updated.length}명 업데이트 완료`; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 5000); }
+        toast(`마스터목표 ${updated.length}명 일괄 적용 완료`, "success");
+        renderMasterTargetSettings(); // 카운트 새로고침
+      } catch (e) {
+        console.error(e);
+        if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+        if (btn) btn.disabled = false;
+      }
     });
   }
 
@@ -4701,7 +4731,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
