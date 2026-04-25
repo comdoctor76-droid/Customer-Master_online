@@ -3604,6 +3604,56 @@ body {
   .app-footer { display: none !important; }
 }
 
+/* ============ 헤더 문의 정보 ============ */
+.brand-contact {
+  font-size: 11px;
+  color: rgba(255,255,255,.75);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+/* 오류신고 버튼 */
+.btn-error-report {
+  background: #C62828;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: opacity .15s;
+}
+.btn-error-report:hover { opacity: .85; }
+
+/* 오류신고 폼 */
+.er-form { display: flex; flex-direction: column; gap: 12px; }
+.er-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.er-req { color: var(--danger); }
+.er-input { border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+.er-textarea { border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px 10px; font-size: 14px; resize: vertical; }
+.er-file-input { font-size: 13px; }
+.er-image-preview { position: relative; margin-top: 4px; }
+.er-image-preview img { max-width: 100%; max-height: 200px; border-radius: 6px; border: 1px solid var(--line-soft); object-fit: contain; }
+.er-remove-img { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55); color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+
+/* 오류신고모음 보드 */
+.er-board { display: flex; flex-direction: column; gap: 6px; }
+.er-item { border: 1px solid var(--line-soft); border-radius: 8px; overflow: hidden; transition: border-color .15s; }
+.er-item:hover { border-color: var(--navy-2); }
+.er-item-resolved { background: #F5F5F5; opacity: .75; }
+.er-item-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: default; background: #fff; }
+.er-item-resolved .er-item-head { background: #F5F5F5; }
+.er-item-status { font-size: 18px; flex-shrink: 0; }
+.er-item-date { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.er-item-reporter { font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+.er-item-title { flex: 1; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.er-item-body { padding: 12px; background: #FAFAFA; border-top: 1px solid var(--line-soft); }
+.er-item-img { max-width: 100%; max-height: 240px; border-radius: 6px; margin-bottom: 8px; object-fit: contain; }
+.er-item-content { font-size: 13px; white-space: pre-wrap; margin-bottom: 8px; }
+.er-item-meta { font-size: 11px; color: var(--ink-3); }
+
 /* 반응형 */
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 1fr; }
