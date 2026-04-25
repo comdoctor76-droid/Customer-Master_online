@@ -2655,6 +2655,43 @@ body {
 .nt-amt { font-size: 22px; font-weight: 900; color: var(--amber); }
 .nt-max { margin-top: 10px; padding: 10px; background: var(--success-bg); color: var(--success); border-radius: var(--radius-s); font-weight: 700; text-align: center; }
 
+/* 시상인쇄 버튼 */
+.award-print-row { margin-top: 14px; text-align: center; }
+.btn-award-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #0D1B4B, #1A3A8F);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 10px rgba(13,27,75,.3);
+  transition: opacity .15s;
+}
+.btn-award-print:hover { opacity: .88; }
+
+/* 시상인쇄 모달 */
+.aprint-panel { max-width: 860px; width: 95vw; max-height: 95vh; display: flex; flex-direction: column; }
+.aprint-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 0; padding: 0; }
+.aprint-toolbar { display: flex; gap: 10px; padding: 12px 16px; background: var(--bg-soft); border-bottom: 1px solid var(--line-soft); }
+.aprint-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; border-radius: 7px; padding: 9px 18px;
+  font-size: 14px; font-weight: 800; cursor: pointer; transition: opacity .15s;
+  color: #fff;
+}
+.aprint-btn:hover { opacity: .85; }
+.aprint-blue  { background: #1A3A8F; }
+.aprint-red   { background: #C62828; }
+.aprint-green { background: #2E7D32; }
+.aprint-scroll { flex: 1; overflow-y: auto; padding: 16px; background: #e8e8e8; }
+.aprint-preview { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); border-radius: 4px; overflow: hidden; }
+
 /* ============ 통계 패널 ============ */
 #stats-panel { margin-bottom: 20px; }
 .stats-hint { color: rgba(255, 255, 255, 0.7); font-size: 12px; }
