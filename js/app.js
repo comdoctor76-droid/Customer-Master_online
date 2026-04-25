@@ -2,9 +2,11 @@
 
 (function () {
   const LS_KEY = "cmf.filter.v1";
+  const LS_DEFAULTS_KEY = "cmf.masterTargetDefaults.v1";
+  const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.83";
+  const APP_VERSION = "0.84";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4187,15 +4189,66 @@
     `;
   }
 
+  function getMasterTargetDefault(region) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(LS_DEFAULTS_KEY) || "{}");
+      return stored[region] !== undefined ? stored[region] : DEFAULT_MASTER_TARGET;
+    } catch (e) { return DEFAULT_MASTER_TARGET; }
+  }
+
+  function renderMasterTargetSettings() {
+    const container = document.getElementById("settings-default-targets");
+    if (!container) return;
+    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    if (!regions.length) {
+      container.innerHTML = `<p class="settings-desc" style="color:#999;">등록된 교육생이 없어 지역단 목록을 불러올 수 없습니다.</p>`;
+      return;
+    }
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(LS_DEFAULTS_KEY) || "{}"); } catch (e) {}
+    container.innerHTML = `
+      <table class="settings-info" style="width:auto;margin-bottom:8px;">
+        <thead><tr><th style="min-width:120px;">지역단</th><th>마스터목표 기본값</th></tr></thead>
+        <tbody>${regions.map((r) => {
+          const val = stored[r] !== undefined ? stored[r] : DEFAULT_MASTER_TARGET;
+          return `<tr>
+            <td>${escapeHtml(r)}</td>
+            <td><input type="number" class="settings-target-input" data-region="${escapeHtml(r)}" value="${val}" min="0" step="1" style="width:80px;"> 천원</td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>
+      <div>
+        <button class="btn-primary small" id="btn-save-default-targets">💾 저장</button>
+        <span id="settings-default-targets-msg" class="pg-msg"></span>
+      </div>
+    `;
+    document.getElementById("btn-save-default-targets")?.addEventListener("click", () => {
+      const newDefaults = {};
+      container.querySelectorAll(".settings-target-input").forEach((inp) => {
+        const r = inp.dataset.region;
+        const v = parseInt(inp.value, 10);
+        if (r && !isNaN(v)) newDefaults[r] = v;
+      });
+      localStorage.setItem(LS_DEFAULTS_KEY, JSON.stringify(newDefaults));
+      const msg = document.getElementById("settings-default-targets-msg");
+      if (msg) { msg.textContent = "✅ 저장됨"; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 3000); }
+      toast("기본값 저장 완료", "success");
+    });
+  }
+
   // ========== 폼 ==========
   function resetForm() {
     state.form = { region: "", center: "", branch: "" };
-    ["form-empno","form-name","form-phone","form-base","form-target","form-honors"].forEach((id) => $("#" + id).value = "");
+    ["form-empno","form-name","form-phone","form-base","form-honors"].forEach((id) => $("#" + id).value = "");
+    const ft = $("#form-target");
+    if (ft) {
+      ft.value = getMasterTargetDefault(state.filter.region || DEFAULT_REGION);
+      ft.removeAttribute("readonly");
+    }
     $("#form-cohort").value = "";
     $("#form-bulk").value = "";
     editingEmpNo = null;
     state.formTgtAddAmount = null;
-    const ft = $("#form-target"); if (ft) ft.removeAttribute("readonly");
     syncOrgLabels();
   }
 
@@ -4648,7 +4701,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -4947,6 +5000,7 @@
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     if (target === "dashboard") renderStats(filteredStudents(), "dashboard-body");
     if (target === "progress") renderProgressPanel();
+    if (target === "settings") renderMasterTargetSettings();
     if (target === "students" && state.selectedEmpNo) renderStudentDetail();
     if (target === "students" && !state.selectedEmpNo) {
       toast("좌측 [지점별 교육생] 목록에서 교육생을 선택하세요.", "");
