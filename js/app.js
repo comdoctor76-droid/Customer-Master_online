@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.95";
+  const APP_VERSION = "0.96";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1054,12 +1054,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const r = state.lastCalcResult;
     if (!r || !s) { toast("시상 계산기를 먼저 실행하세요.", "warn"); return; }
 
-    const wordKey = "awardPrintWordIdx";
-    const wordIdx = ((parseInt(localStorage.getItem(wordKey) || "-1", 10) + 1) % AWARD_POSITIVE_WORDS.length);
-    localStorage.setItem(wordKey, String(wordIdx));
-    const positiveWord = AWARD_POSITIVE_WORDS[wordIdx];
-    const certHtml = buildAwardCertificateHtml(s, r, positiveWord);
-    const certCss = getAwardCertificateCss();
+    const fakeCalcItv = { calcAvg: String(r.avgRaw || ""), calcBaseTgt: String(r.baseTgtRaw || ""), calcTgt: String(r.tgtRaw || "") };
+    const lastInsItv = state.consultations.slice().reverse().find((c) => c.ins);
+    const sheetHtml = buildAwardSheetPageHtml(s, fakeCalcItv, lastInsItv);
+    if (!sheetHtml) { toast("시상 정보가 없습니다.", "warn"); return; }
+
+    const fullHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>시상 예상 답안지</title><style>${AWARD_PRINT_CSS}</style></head><body>${sheetHtml}</body></html>`;
 
     let modal = document.getElementById("modal-award-print");
     if (!modal) {
@@ -1076,12 +1076,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </div>
           <div class="modal-body aprint-body">
             <div class="aprint-toolbar">
-              <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 프린터</button>
-              <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF</button>
-              <button id="btn-aprint-img" class="aprint-btn aprint-green">🖼️ 사진</button>
+              <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
             </div>
             <div class="aprint-scroll">
-              <div id="aprint-cert-preview" class="aprint-preview"></div>
+              <iframe id="aprint-iframe" class="aprint-iframe"></iframe>
             </div>
           </div>
         </div>
@@ -1090,53 +1088,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
     }
 
-    const preview = modal.querySelector("#aprint-cert-preview");
-    preview.innerHTML = certHtml;
+    const iframe = modal.querySelector("#aprint-iframe");
+    iframe.srcdoc = fullHtml;
 
     const doPrint = () => {
-      const w = window.open("", "_blank", "width=900,height=1200");
-      if (!w) { toast("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.", "warn"); return; }
-      w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>시상 예상 답안지</title><style>${certCss}</style></head><body>${certHtml}</body></html>`);
-      w.document.close();
-      w.addEventListener("load", () => setTimeout(() => { w.focus(); w.print(); }, 300));
-    };
-
-    const doPdf = () => { doPrint(); };
-
-    const doImg = async () => {
-      const target = preview.querySelector(".cert-a4");
-      if (!target) return;
-      if (typeof html2canvas === "undefined") {
-        try {
-          await new Promise((resolve, reject) => {
-            const sc = document.createElement("script");
-            sc.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-            sc.onload = resolve; sc.onerror = reject;
-            document.head.appendChild(sc);
-          });
-        } catch (e) { toast("이미지 변환 라이브러리 로드 실패. 인터넷 연결을 확인하세요.", "error"); return; }
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
       }
-      toast("이미지 생성 중...", "info");
-      try {
-        const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
-        const link = document.createElement("a");
-        const sName = (s.name || "교육생").replace(/\s/g, "");
-        link.download = `시상_${sName}_${new Date().toLocaleDateString("ko-KR").replace(/\.\s*/g, "-").replace(/-$/, "")}.jpg`;
-        link.href = canvas.toDataURL("image/jpeg", 0.95);
-        link.click();
-      } catch (e) { toast("이미지 생성 실패: " + e.message, "error"); }
     };
 
-    // Replace buttons to remove old listeners
-    ["btn-aprint-printer","btn-aprint-pdf","btn-aprint-img"].forEach((id) => {
-      const el = modal.querySelector("#" + id);
-      if (!el) return;
-      const clone = el.cloneNode(true);
-      el.parentNode.replaceChild(clone, el);
-    });
-    modal.querySelector("#btn-aprint-printer").addEventListener("click", doPrint);
-    modal.querySelector("#btn-aprint-pdf").addEventListener("click", doPdf);
-    modal.querySelector("#btn-aprint-img").addEventListener("click", doImg);
+    const btnEl = modal.querySelector("#btn-aprint-printer");
+    if (btnEl) {
+      const clone = btnEl.cloneNode(true);
+      btnEl.parentNode.replaceChild(clone, btnEl);
+      clone.addEventListener("click", doPrint);
+    }
 
     modal.hidden = false;
   }
@@ -5087,7 +5054,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
