@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.88";
+  const APP_VERSION = "0.89";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1064,11 +1064,11 @@
   function calcIvPct() {
     const curAct = parseFloat($("#iv-curAct")?.value) || 0;
     const s = state.students.find((x) => x.empNo === state.selectedEmpNo);
-    const tgt = s ? Math.round(Number(s.target) * 1000) : 0;
-    if (!curAct || !tgt) return;
-    const pct = Math.round((curAct / tgt) * 100);
+    const { base } = getProgressStat(s || {});
+    if (!curAct || !base) return;
+    const pct = ((curAct / base) * 100).toFixed(1);
     $("#iv-pct").value = pct;
-    $("#iv-pct-hint").textContent = `▲ 자동 (${curAct}/${tgt})`;
+    $("#iv-pct-hint").textContent = `▲ 자동 (현재${Nf(curAct)}/기준${Nf(base)})`;
   }
 
   function autoFillInterviewForm(s) {
@@ -1084,10 +1084,15 @@
       updateIvTitle();
     }
 
-    // 현재실적 복원
+    // 현재실적: 실적진도현황 pgCurrent 우선, 없으면 s.curAct 복원
     const curActEl = $("#iv-curAct");
-    if (curActEl && !curActEl.value && Number(s.curAct) > 0) {
-      curActEl.value = Math.round(Number(s.curAct) * 1000);
+    if (curActEl && !curActEl.value) {
+      const { current } = getProgressStat(s);
+      if (current > 0) {
+        curActEl.value = current;
+      } else if (Number(s.curAct) > 0) {
+        curActEl.value = Math.round(Number(s.curAct) * 1000);
+      }
     }
 
     calcIvPct();
@@ -4735,7 +4740,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
