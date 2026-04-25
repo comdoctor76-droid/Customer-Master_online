@@ -4,7 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.82";
+  const APP_VERSION = "0.83";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3363,7 +3363,7 @@
 
             <!-- 실적진도현황 -->
             <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
-              <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)</div>
+              <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)</div>
               <textarea id="pg-progress-paste" rows="6" placeholder="엑셀에서 복사 후 붙여넣기"></textarea>
               <div class="pg-actions">
                 <button class="btn-primary" id="btn-pg-progress-paste-apply">📥 실적진도현황 저장</button>
@@ -4648,7 +4648,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
