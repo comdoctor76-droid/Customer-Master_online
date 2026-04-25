@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.97";
+  const APP_VERSION = "0.98";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1067,6 +1067,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const fullHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>시상 예상 답안지</title><style>${AWARD_PRINT_CSS}</style></head><body>${sheetHtml}</body></html>`;
 
+    const vc = s.center || s.region || "";
+    const branchShort = (s.branch || "").replace(/지점$/, "");
+    const sName = s.name || "교육생";
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const filename = `${vc}_${branchShort}지점_${sName}_시상예상답안지_${dateStr}`;
+
     let modal = document.getElementById("modal-award-print");
     if (!modal) {
       modal = document.createElement("div");
@@ -1083,6 +1089,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="modal-body aprint-body">
             <div class="aprint-toolbar">
               <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
+              <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF저장</button>
+              <button id="btn-aprint-png" class="aprint-btn aprint-green">🖼️ PNG저장</button>
             </div>
             <div class="aprint-scroll">
               <iframe id="aprint-iframe" class="aprint-iframe"></iframe>
@@ -1092,24 +1100,117 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       `;
       document.body.appendChild(modal);
       modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", () => { modal.hidden = true; }));
+    } else {
+      // 버튼 3개 구조로 갱신 (이전 버전 modal 재사용 시)
+      const tb = modal.querySelector(".aprint-toolbar");
+      if (tb && !tb.querySelector("#btn-aprint-pdf")) {
+        tb.innerHTML = `
+          <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
+          <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF저장</button>
+          <button id="btn-aprint-png" class="aprint-btn aprint-green">🖼️ PNG저장</button>
+        `;
+      }
     }
 
     const iframe = modal.querySelector("#aprint-iframe");
     iframe.srcdoc = fullHtml;
 
-    const doPrint = () => {
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
+    // 스크립트 동적 로드
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const sc = document.createElement("script");
+      sc.src = src; sc.onload = resolve; sc.onerror = reject;
+      document.head.appendChild(sc);
+    });
+
+    // AWARD_PRINT_CSS 를 #award-cap-tmp 스코프로 래핑해 메인 페이지 CSS와 충돌 방지
+    const captureCanvas = async () => {
+      if (typeof html2canvas === "undefined") {
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
       }
+      const rawCss = AWARD_PRINT_CSS.split("@media print")[0].replace(/body\{[^}]*\}/, "");
+      const scopedCss = rawCss.split("}").map((part) => {
+        const bi = part.indexOf("{");
+        if (bi === -1) return part;
+        const sel = part.slice(0, bi).trim();
+        if (!sel) return part;
+        const scoped = sel.split(",").map((s) => `#award-cap-tmp ${s.trim()}`).join(",");
+        return `${scoped}${part.slice(bi)}`;
+      }).join("}");
+
+      const styleEl = document.createElement("style");
+      styleEl.textContent = scopedCss;
+      document.head.appendChild(styleEl);
+
+      const wrap = document.createElement("div");
+      wrap.id = "award-cap-tmp";
+      wrap.style.cssText = "position:fixed;top:-30000px;left:-30000px;width:794px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#1A1A1A;font-size:12px;line-height:1.4;";
+      wrap.innerHTML = sheetHtml;
+      document.body.appendChild(wrap);
+      await new Promise((res) => setTimeout(res, 250));
+
+      const pgEl = wrap.querySelector(".pg");
+      const canvas = await html2canvas(pgEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+
+      document.body.removeChild(wrap);
+      document.head.removeChild(styleEl);
+      return canvas;
     };
 
-    const btnEl = modal.querySelector("#btn-aprint-printer");
-    if (btnEl) {
-      const clone = btnEl.cloneNode(true);
-      btnEl.parentNode.replaceChild(clone, btnEl);
-      clone.addEventListener("click", doPrint);
-    }
+    const doPrint = () => {
+      if (iframe && iframe.contentWindow) { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+    };
+
+    const doPdf = async () => {
+      toast("PDF 생성 중...", "info");
+      try {
+        const canvas = await captureCanvas();
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const pdfW = pdf.internal.pageSize.getWidth();
+        const pdfH = pdf.internal.pageSize.getHeight();
+        const imgH = (canvas.height * pdfW) / canvas.width;
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pdfW, Math.min(imgH, pdfH));
+        const pdfBlob = pdf.output("blob");
+        const file = new File([pdfBlob], `${filename}.pdf`, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+        } else {
+          pdf.save(`${filename}.pdf`);
+        }
+      } catch (e) { toast("PDF 생성 실패: " + e.message, "error"); }
+    };
+
+    const doPng = async () => {
+      toast("PNG 생성 중...", "info");
+      try {
+        const canvas = await captureCanvas();
+        canvas.toBlob(async (blob) => {
+          if (!blob) { toast("PNG 생성 실패", "error"); return; }
+          const file = new File([blob], `${filename}.png`, { type: "image/png" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title: filename }); } catch (_) { /* 취소 */ }
+          } else {
+            const link = document.createElement("a");
+            link.download = `${filename}.png`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+          }
+        }, "image/png");
+      } catch (e) { toast("PNG 생성 실패: " + e.message, "error"); }
+    };
+
+    ["btn-aprint-printer", "btn-aprint-pdf", "btn-aprint-png"].forEach((id) => {
+      const el = modal.querySelector("#" + id);
+      if (!el) return;
+      const clone = el.cloneNode(true);
+      el.parentNode.replaceChild(clone, el);
+    });
+    modal.querySelector("#btn-aprint-printer").addEventListener("click", doPrint);
+    modal.querySelector("#btn-aprint-pdf") .addEventListener("click", doPdf);
+    modal.querySelector("#btn-aprint-png") .addEventListener("click", doPng);
 
     modal.hidden = false;
   }
@@ -2670,7 +2771,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     .print-footer-name{color:#7B1FA2;font-weight:900;}
     .print-footer-branch{color:#1565C0;font-weight:900;}
     .print-footer-word{color:#E65100;font-size:15px;font-weight:900;font-style:italic;}
-    @media print{@page{size:A4 portrait;margin:6mm 8mm;}}
+    @media print{
+      @page{size:A4 portrait;margin:4mm 6mm;}
+      body{font-size:10.5px;}
+      .pg{padding:4mm 6mm;}
+      .hdr{padding:5px 10px;margin-bottom:5px;}
+      .info-row1,.info-row2{margin-bottom:3px;}
+      .hl-row{padding:4px 8px;margin-bottom:3px;}
+      .up-table th,.up-table td{padding:2px 3px;}
+      .sec-title{margin:4px 0 2px;}
+      .total-bar{padding:6px 12px;margin:4px 0;}
+      .note{margin-top:3px;}
+      .print-footer-msg{margin-top:5px;padding:6px 10px;}
+    }
   `;
 
   // (출력 서브탭 personal 모드용) 직전 calcItv 기반 시상 결과 박스
@@ -5074,7 +5187,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425p)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425q)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
