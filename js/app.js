@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.00";
+  const APP_VERSION = "1.01";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1093,6 +1093,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
               <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF저장</button>
               <button id="btn-aprint-png" class="aprint-btn aprint-green">🖼️ PNG저장</button>
+              <button id="btn-aprint-close" class="aprint-btn aprint-gray">✕ 닫기</button>
             </div>
             <div class="aprint-scroll">
               <iframe id="aprint-iframe" class="aprint-iframe"></iframe>
@@ -1105,11 +1106,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     } else {
       // 버튼 3개 구조로 갱신 (이전 버전 modal 재사용 시)
       const tb = modal.querySelector(".aprint-toolbar");
-      if (tb && !tb.querySelector("#btn-aprint-pdf")) {
+      if (tb && !tb.querySelector("#btn-aprint-close")) {
         tb.innerHTML = `
           <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
           <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF저장</button>
           <button id="btn-aprint-png" class="aprint-btn aprint-green">🖼️ PNG저장</button>
+          <button id="btn-aprint-close" class="aprint-btn aprint-gray">✕ 닫기</button>
         `;
       }
     }
@@ -1240,7 +1242,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       } catch (e) { toast("PNG 실패: " + (e.message || String(e)), "error"); }
     };
 
-    ["btn-aprint-printer", "btn-aprint-pdf", "btn-aprint-png"].forEach((id) => {
+    ["btn-aprint-printer", "btn-aprint-pdf", "btn-aprint-png", "btn-aprint-close"].forEach((id) => {
       const el = modal.querySelector("#" + id);
       if (!el) return;
       const clone = el.cloneNode(true);
@@ -1249,6 +1251,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     modal.querySelector("#btn-aprint-printer").addEventListener("click", doPrint);
     modal.querySelector("#btn-aprint-pdf") .addEventListener("click", doPdf);
     modal.querySelector("#btn-aprint-png") .addEventListener("click", doPng);
+    modal.querySelector("#btn-aprint-close").addEventListener("click", () => { modal.hidden = true; });
 
     modal.hidden = false;
   }
@@ -2719,7 +2722,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="info-card stat">
             <div class="stat-lbl">📊 평균실적</div>
             <div class="stat-row"><span class="stat-key">매출 아너스:</span><span class="stat-val">${fmtWon(b.avgRaw)}</span></div>
-            <div class="stat-row"><span class="stat-key bl">고객마스터:</span><span class="stat-val bl">${fmtWon(b.insRaw)}</span></div>
+            <div class="stat-row"><span class="stat-key bl">마스터목표:</span><span class="stat-val bl">${fmtWon(b.tgtRaw)}</span></div>
           </div>
           <div class="info-card stat">
             <div class="stat-lbl">🎯 기본순증목표</div>
@@ -2727,10 +2730,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="stat-row"><span class="stat-key bl">고객마스터 희망:</span><span class="stat-val bl">${fmtWon(b.tgtRaw)}</span></div>
           </div>
         </div>
-        <div class="sec-title">📌 아너스 희망목표금액 기준 시상 (${fmtWon(b.tgtRaw)})</div>
-        ${award1Html}${award2Html}
         <div class="sec-title bl">🎯 고객컨설팅마스터 과정 개인시상</div>
         ${award3Html}
+        <div class="sec-title">📌 아너스 희망목표금액 기준 시상 (${fmtWon(b.tgtRaw)})</div>
+        ${award1Html}${award2Html}
         <div class="total-bar">
           <div>
             <div class="total-lbl">🏆 최종 예상 시상금 합계 (①+②+③)</div>
@@ -2751,71 +2754,77 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   // 시상안 출력용 CSS (스탠드얼론 인쇄창에 삽입)
   const AWARD_PRINT_CSS = `
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#1A1A1A;font-size:12px;line-height:1.4;}
+    body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:#fff;color:#1A1A1A;font-size:13px;line-height:1.45;}
     .pg{padding:8mm 10mm;page-break-after:always;}
     .pg:last-child{page-break-after:auto;}
-    .hdr{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-    .hdr-title{color:#fff;font-size:14px;font-weight:900;}
-    .hdr-date{color:rgba(255,255,255,.65);font-size:11px;}
+    .hdr{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:8px;padding:10px 14px;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between;}
+    .hdr-title{color:#fff;font-size:20px;font-weight:900;}
+    .hdr-date{color:rgba(255,255,255,.7);font-size:13px;white-space:nowrap;}
     .info-row1{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:5px;}
-    .info-row2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;}
-    .info-card{background:#F5F7FF;border-radius:6px;padding:6px 8px;text-align:center;border:1px solid #D5DCF5;}
-    .info-lbl{font-size:10px;color:#5C6BC0;font-weight:700;margin-bottom:2px;}
-    .info-val{font-size:13px;font-weight:900;color:#1A2744;}
+    .info-row2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px;}
+    .info-card{background:#F5F7FF;border-radius:6px;padding:7px 9px;text-align:center;border:1px solid #D5DCF5;}
+    .info-lbl{font-size:12px;color:#5C6BC0;font-weight:700;margin-bottom:3px;}
+    .info-val{font-size:14px;font-weight:900;color:#1A2744;}
     .info-card.key{background:#1A2744;border-color:#1A2744;}
     .info-card.key .info-lbl{color:rgba(255,255,255,.65);}
-    .info-card.key .info-val{color:#fff;font-size:15px;}
-    .info-card.stat{text-align:left;padding:7px 10px;background:#F8F9FF;}
-    .stat-lbl{font-size:11px;color:#5C6BC0;font-weight:800;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #D5DCF5;}
-    .stat-row{display:flex;justify-content:space-between;margin-bottom:2px;}
-    .stat-key{font-size:11px;font-weight:700;color:#4A148C;}
+    .info-card.key .info-val{color:#fff;font-size:20px;white-space:nowrap;}
+    .info-card.stat{text-align:left;padding:8px 11px;background:#F8F9FF;}
+    .stat-lbl{font-size:13px;color:#5C6BC0;font-weight:800;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid #D5DCF5;}
+    .stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+    .stat-key{font-size:12px;font-weight:700;color:#4A148C;white-space:nowrap;}
     .stat-key.bl{color:#1565C0;}
-    .stat-val{font-size:14px;font-weight:900;color:#1A2744;}
+    .stat-val{font-size:17px;font-weight:900;color:#1A2744;white-space:nowrap;}
     .stat-val.bl{color:#1565C0;}
-    .sec-title{font-size:12px;font-weight:800;color:#4A148C;margin:6px 0 3px;}
+    .sec-title{font-size:13px;font-weight:800;color:#4A148C;margin:7px 0 4px;}
     .sec-title.bl{color:#1565C0;}
-    .hl-row{display:flex;align-items:center;gap:8px;background:#E8F5E9;border-radius:7px;padding:6px 10px;margin-bottom:4px;border-left:3px solid #2E7D32;}
+    .hl-row{display:flex;align-items:center;gap:8px;background:#E8F5E9;border-radius:7px;padding:7px 11px;margin-bottom:4px;border-left:4px solid #2E7D32;}
     .hl-row.warn{background:#FFEBEE;border-left-color:#C62828;}
     .hl-row.blue{background:#E3F2FD;border-left-color:#1565C0;}
-    .hl-icon{font-size:16px;flex-shrink:0;}
+    .hl-icon{font-size:18px;flex-shrink:0;}
     .hl-info{flex:1;min-width:0;}
-    .hl-grade{font-size:12px;font-weight:700;color:#1B5E20;}
+    .hl-grade{font-size:14px;font-weight:700;color:#1B5E20;}
     .hl-row.warn .hl-grade{color:#C62828;}
     .hl-row.blue .hl-grade{color:#1565C0;}
-    .hl-crit{font-size:11px;color:#388E3C;margin-top:1px;line-height:1.5;}
+    .hl-crit{font-size:12px;color:#388E3C;margin-top:2px;line-height:1.5;}
     .hl-row.warn .hl-crit{color:#E57373;}
     .hl-row.blue .hl-crit{color:#1976D2;}
-    .hl-crit .lbl{background:#1565C0;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;}
-    .hl-sub{font-size:12px;font-weight:800;color:#0D47A1;margin-top:2px;}
-    .hl-amt{font-size:16px;font-weight:900;color:#2E7D32;white-space:nowrap;}
+    .hl-crit .lbl{background:#1565C0;color:#fff;font-size:11px;padding:1px 6px;border-radius:8px;font-weight:700;}
+    .hl-sub{font-size:13px;font-weight:800;color:#0D47A1;margin-top:2px;}
+    .hl-amt{font-size:20px;font-weight:900;color:#2E7D32;white-space:nowrap;}
     .hl-amt.rd{color:#C62828;}
-    .hl-amt.bl{color:#1565C0;font-size:18px;}
-    .hl-none{padding:5px 10px;color:#999;font-size:11px;background:#F5F5F5;border-radius:6px;margin-bottom:4px;}
-    .total-bar{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:7px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;margin:6px 0 6px;}
-    .total-lbl{color:rgba(255,255,255,.8);font-size:11px;font-weight:700;}
-    .total-sub{color:rgba(255,255,255,.55);font-size:10px;margin-top:2px;}
-    .total-val{color:#FFE082;font-size:22px;font-weight:900;}
-    .up-title{font-size:11px;font-weight:800;color:#1565C0;margin:5px 0 3px;}
-    .up-table{width:100%;border-collapse:collapse;font-size:10px;}
-    .up-table th{background:#E3F2FD;padding:3px 4px;border:1px solid #BBDEFB;color:#1565C0;font-weight:700;font-size:10px;}
-    .up-table td{padding:3px 4px;border:1px solid #E3E3E3;text-align:center;font-size:10px;}
+    .hl-amt.bl{color:#1565C0;font-size:22px;}
+    .hl-none{padding:6px 10px;color:#999;font-size:12px;background:#F5F5F5;border-radius:6px;margin-bottom:4px;}
+    .total-bar{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:7px;padding:9px 15px;display:flex;align-items:center;justify-content:space-between;margin:7px 0 7px;}
+    .total-lbl{color:rgba(255,255,255,.85);font-size:13px;font-weight:700;}
+    .total-sub{color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;}
+    .total-val{color:#FFE082;font-size:26px;font-weight:900;}
+    .up-title{font-size:12px;font-weight:800;color:#1565C0;margin:5px 0 3px;}
+    .up-table{width:100%;border-collapse:collapse;font-size:11px;}
+    .up-table th{background:#E3F2FD;padding:3px 4px;border:1px solid #BBDEFB;color:#1565C0;font-weight:700;font-size:11px;}
+    .up-table td{padding:3px 4px;border:1px solid #E3E3E3;text-align:center;font-size:11px;}
     .up-table td.rd{color:#C62828;font-weight:700;}
     .up-table td.bl{color:#1565C0;}
-    .up-table td.grn{color:#1B5E20;font-size:11px;}
+    .up-table td.grn{color:#1B5E20;font-size:12px;}
     .up-table tr.up-next td{background:#FFF9C4;font-weight:700;}
-    .warn{color:#C62828;font-size:9px;font-weight:800;}
-    .note{font-size:9.5px;color:#888;margin-top:4px;line-height:1.4;}
-    .print-footer-msg{margin-top:8px;text-align:center;font-size:13px;font-weight:700;color:#1A2744;padding:9px 12px;background:linear-gradient(135deg,#F0F4FF,#E8F0FE);border-radius:7px;border:1.5px solid #C5D0F0;}
+    .warn{color:#C62828;font-size:10px;font-weight:800;}
+    .note{font-size:10px;color:#888;margin-top:5px;line-height:1.4;}
+    .print-footer-msg{margin-top:8px;text-align:center;font-size:14px;font-weight:700;color:#1A2744;padding:10px 14px;background:linear-gradient(135deg,#F0F4FF,#E8F0FE);border-radius:7px;border:1.5px solid #C5D0F0;}
     .print-footer-name{color:#7B1FA2;font-weight:900;}
     .print-footer-branch{color:#1565C0;font-weight:900;}
-    .print-footer-word{color:#E65100;font-size:15px;font-weight:900;font-style:italic;}
+    .print-footer-word{color:#E65100;font-size:17px;font-weight:900;font-style:italic;}
     @media print{
-      @page{size:A4 portrait;margin:4mm 6mm;}
-      body{font-size:10.5px;}
+      @page{size:A4 portrait;margin:5mm 7mm;}
+      body{font-size:11px;}
       .pg{padding:4mm 6mm;}
-      .hdr{padding:5px 10px;margin-bottom:5px;}
+      .hdr{padding:6px 11px;margin-bottom:6px;}
+      .hdr-title{font-size:16px;}
+      .info-card.key .info-val{font-size:16px;}
+      .stat-val{font-size:14px;}
+      .hl-amt{font-size:16px;}
+      .hl-amt.bl{font-size:18px;}
+      .total-val{font-size:22px;}
       .info-row1,.info-row2{margin-bottom:3px;}
-      .hl-row{padding:4px 8px;margin-bottom:3px;}
+      .hl-row{padding:5px 9px;margin-bottom:3px;}
       .up-table th,.up-table td{padding:2px 3px;}
       .sec-title{margin:4px 0 2px;}
       .total-bar{padding:6px 12px;margin:4px 0;}
