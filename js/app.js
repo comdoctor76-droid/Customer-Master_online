@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.96";
+  const APP_VERSION = "0.97";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1056,7 +1056,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const fakeCalcItv = { calcAvg: String(r.avgRaw || ""), calcBaseTgt: String(r.baseTgtRaw || ""), calcTgt: String(r.tgtRaw || "") };
     const lastInsItv = state.consultations.slice().reverse().find((c) => c.ins);
-    const sheetHtml = buildAwardSheetPageHtml(s, fakeCalcItv, lastInsItv);
+
+    const wordKey = "awardPrintWordIdx";
+    const wordIdx = ((parseInt(localStorage.getItem(wordKey) || "-1", 10) + 1) % AWARD_POSITIVE_WORDS.length);
+    localStorage.setItem(wordKey, String(wordIdx));
+    const positiveWord = AWARD_POSITIVE_WORDS[wordIdx];
+
+    const sheetHtml = buildAwardSheetPageHtml(s, fakeCalcItv, lastInsItv, { positiveWord });
     if (!sheetHtml) { toast("시상 정보가 없습니다.", "warn"); return; }
 
     const fullHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>시상 예상 답안지</title><style>${AWARD_PRINT_CSS}</style></head><body>${sheetHtml}</body></html>`;
@@ -2484,7 +2490,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function fmtWon(w) { return Math.round(w).toLocaleString() + "원"; }
 
   // 한 교육생의 시상안 A4 포트레이트 페이지 HTML
-  function buildAwardSheetPageHtml(student, calcItv, lastInsItv) {
+  // opts.positiveWord 가 있으면: 제목 → "이름사장님의 희망답안지", 하단 메시지 추가
+  function buildAwardSheetPageHtml(student, calcItv, lastInsItv, opts = {}) {
     const b = computeAwardBreakdown(student, calcItv, lastInsItv);
     if (!b.avgRaw && !b.tgtRaw) return "";
 
@@ -2548,11 +2555,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const region = student.region || "";
     const vc = student.center || "";
     const branch = student.branch || "";
+    const sName = student.name || "";
+    const branchShort = branch.replace(/지점$/, "");
+    const hdrTitle = opts.positiveWord
+      ? `🏆 ${escapeHtml(sName)}사장님의 희망답안지`
+      : `🏆 ${escapeHtml(vc || region)} 시상 예상답안지`;
+    const footerMsgHtml = opts.positiveWord
+      ? `<div class="print-footer-msg"><span class="print-footer-name">${escapeHtml(sName)}</span>님은 <span class="print-footer-branch">${escapeHtml(branchShort)}</span>지점의 <span class="print-footer-word">'${escapeHtml(opts.positiveWord)}'</span></div>`
+      : "";
 
     return `
       <div class="pg">
         <div class="hdr">
-          <div class="hdr-title">🏆 ${escapeHtml(vc || region)} 시상 예상답안지</div>
+          <div class="hdr-title">${hdrTitle}</div>
           <div class="hdr-date">${new Date().toLocaleDateString("ko-KR")} 기준</div>
         </div>
         <div class="info-row1">
@@ -2589,6 +2604,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           ※ 아너스클럽: 3개월 연속달성 기준 · 하이포인트: 월 기본 5만원 + 순증×50% (월 최대 20만, 분기 최대 50만)<br>
           ※ 마스터과정: 순증 5/10/20만원 고정지급, 30/50만원↑ 순증 120%/150%
         </div>
+        ${footerMsgHtml}
       </div>
     `;
   }
@@ -2650,6 +2666,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     .up-table tr.up-next td{background:#FFF9C4;font-weight:700;}
     .warn{color:#C62828;font-size:9px;font-weight:800;}
     .note{font-size:9.5px;color:#888;margin-top:4px;line-height:1.4;}
+    .print-footer-msg{margin-top:8px;text-align:center;font-size:13px;font-weight:700;color:#1A2744;padding:9px 12px;background:linear-gradient(135deg,#F0F4FF,#E8F0FE);border-radius:7px;border:1.5px solid #C5D0F0;}
+    .print-footer-name{color:#7B1FA2;font-weight:900;}
+    .print-footer-branch{color:#1565C0;font-weight:900;}
+    .print-footer-word{color:#E65100;font-size:15px;font-weight:900;font-style:italic;}
     @media print{@page{size:A4 portrait;margin:6mm 8mm;}}
   `;
 
@@ -5054,7 +5074,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425o)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425p)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
