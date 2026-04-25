@@ -3,10 +3,10 @@
 (function () {
   const LS_KEY = "cmf.filter.v1";
   const LS_DEFAULTS_KEY = "cmf.masterTargetDefaults.v1";
-  const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
+  const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.91";
+  const APP_VERSION = "0.92";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -230,9 +230,9 @@
   function renderKPIs(list) {
     const sum = (k) => list.reduce((a, s) => a + (Number(s[k]) || 0), 0);
     $("#kpi-total").textContent = list.length.toLocaleString();
-    $("#kpi-base").textContent = (sum("base") * 1000).toLocaleString();
-    $("#kpi-target").textContent = (sum("target") * 1000).toLocaleString();
-    $("#kpi-honors").textContent = (sum("honors") * 1000).toLocaleString();
+    $("#kpi-base").textContent = sum("base").toLocaleString();
+    $("#kpi-target").textContent = sum("target").toLocaleString();
+    $("#kpi-honors").textContent = sum("honors").toLocaleString();
     $("#mini-total").textContent = state.students.length;
   }
 
@@ -480,9 +480,9 @@
           <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}</div>
         </div>
         <div class="sib-stats">
-          <div><span>평균실적</span><strong>${fmt(Number(s.base)*1000)}</strong></div>
-          <div><span>마스터목표</span><strong>${fmt(Number(s.target)*1000)}</strong></div>
-          <div><span>아너스목표</span><strong>${fmt(Number(s.honors)*1000)}</strong></div>
+          <div><span>평균실적</span><strong>${fmt(Number(s.base))}</strong></div>
+          <div><span>마스터목표</span><strong>${fmt(Number(s.target))}</strong></div>
+          <div><span>아너스목표</span><strong>${fmt(Number(s.honors))}</strong></div>
         </div>
         <div class="sib-actions">
           <button class="btn-outline small" id="btn-detail-edit">정보 수정</button>
@@ -550,12 +550,12 @@
           </div>
           <div class="iv-field">
             <label>1차 마감 실적 <span class="iv-hint">중간점검</span></label>
-            <input type="number" id="iv-close1" placeholder="천원" step="10">
+            <input type="number" id="iv-close1" placeholder="원" step="1000">
           </div>
 
           <div class="iv-field">
             <label>2차 마감 실적 <span class="iv-hint">최종</span></label>
-            <input type="number" id="iv-close2" placeholder="천원" step="10">
+            <input type="number" id="iv-close2" placeholder="원" step="1000">
           </div>
           <div class="iv-field"></div>
           <div class="iv-field"></div>
@@ -877,11 +877,11 @@
       const avgEl = $("#calc-avg");
       const baseTgtEl = $("#calc-base-tgt");
       const tgtEl = $("#calc-tgt");
-      if (s?.base  && avgEl && !avgEl.value)       avgEl.value = Math.round(Number(s.base) * 1000).toLocaleString();
-      if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
+      if (s?.base  && avgEl && !avgEl.value)       avgEl.value = Number(s.base).toLocaleString();
+      if (s?.honors && baseTgtEl && !baseTgtEl.value) baseTgtEl.value = Number(s.honors).toLocaleString();
       if (tgtEl && !tgtEl.value) {
-        if (s?.target) tgtEl.value = Math.round(Number(s.target) * 1000).toLocaleString();
-        else if (s?.honors) tgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
+        if (s?.target) tgtEl.value = Number(s.target).toLocaleString();
+        else if (s?.honors) tgtEl.value = Number(s.honors).toLocaleString();
       }
       calc();
     }
@@ -967,7 +967,7 @@
 
     // ③ 마스터과정 개인시상 (교육생 평균실적 기준)
     const _calcS = state.students.find((x) => x.empNo === state.selectedEmpNo);
-    const insRaw3 = _calcS ? Math.round(Number(_calcS.base) * 1000) : 0;
+    const insRaw3 = _calcS ? Math.round(Number(_calcS.base)) : 0;
     const incrMaster = Math.max(0, tgtRaw - insRaw3) / 10000;
     const award3 = calcMasterAward(incrMaster);
     const award3Tier = MASTER_AWARD.find((t) => incrMaster >= t.critVal);
@@ -1091,7 +1091,7 @@
       if (current > 0) {
         curActEl.value = current;
       } else if (Number(s.curAct) > 0) {
-        curActEl.value = Math.round(Number(s.curAct) * 1000);
+        curActEl.value = Math.round(Number(s.curAct));
       }
     }
 
@@ -1113,12 +1113,12 @@
         tgtCalcEl.value = fixed ? Math.round(fixed).toLocaleString() : lastCalc.calcTgt;
       }
     } else {
-      if (avgEl && !avgEl.value && Number(s.base) > 0) avgEl.value = Math.round(Number(s.base) * 1000).toLocaleString();
-      if (baseTgtEl && !baseTgtEl.value && Number(s.honors) > 0) baseTgtEl.value = Math.round(Number(s.honors) * 1000).toLocaleString();
+      if (avgEl && !avgEl.value && Number(s.base) > 0) avgEl.value = Number(s.base).toLocaleString();
+      if (baseTgtEl && !baseTgtEl.value && Number(s.honors) > 0) baseTgtEl.value = Number(s.honors).toLocaleString();
     }
     // 희망목표금액 미입력 시 마스터목표로 자동 세팅
     if (tgtCalcEl && !tgtCalcEl.value && Number(s.target) > 0) {
-      tgtCalcEl.value = Math.round(Number(s.target) * 1000).toLocaleString();
+      tgtCalcEl.value = Number(s.target).toLocaleString();
     }
     if (state.calcOpen) calc();
   }
@@ -1152,10 +1152,10 @@
       date: read("iv-date"),
       seq: read("iv-seq"),
       pct: num("iv-pct"),
-      curAct: Math.round(num("iv-curAct") / 1000),
+      curAct: Math.round(num("iv-curAct")),
       plan: num("iv-plan"),
       hap: num("iv-hap"),
-      exp: Math.round(num("iv-exp") / 1000),
+      exp: Math.round(num("iv-exp")),
       close1: num("iv-close1"),
       close2: num("iv-close2"),
       coach: read("iv-coach"),
@@ -1280,11 +1280,11 @@
       const badges = [];
       if (c.ins)    badges.push(`<span class="cs-badge">인보험 ${fmt(Number(c.ins)*1000)}</span>`);
       if (c.tgt)    badges.push(`<span class="cs-badge">당월 ${fmt(Number(c.tgt)*1000)}</span>`);
-      if (c.curAct) badges.push(`<span class="cs-badge">현재 ${fmt(Number(c.curAct)*1000)}</span>`);
+      if (c.curAct) badges.push(`<span class="cs-badge">현재 ${fmt(Number(c.curAct))}</span>`);
       if (c.pct)    badges.push(`<span class="cs-badge blue">진도 ${fmt(c.pct)}%</span>`);
       if (c.plan)   badges.push(`<span class="cs-badge">가입 ${fmt(c.plan)}</span>`);
       if (c.hap)    badges.push(`<span class="cs-badge">행복 ${fmt(c.hap)}</span>`);
-      if (c.exp)    badges.push(`<span class="cs-badge">예상 ${fmt(Number(c.exp)*1000)}</span>`);
+      if (c.exp)    badges.push(`<span class="cs-badge">예상 ${fmt(Number(c.exp))}</span>`);
       const body = c.coach || c.content || "";
       const clients = Array.isArray(c.clients) ? c.clients.filter((cl) => cl.name || cl.memo || (cl.amount && cl.amount.length)) : [];
       const clientHtml = clients.length ? `
@@ -1518,13 +1518,13 @@
             <div class="hi-fg">
               <div class="hf"><div class="hfl">평균실적(6개월)</div><div class="hfv">${fn(Number(e.ins||0)*1000)} <small>원</small></div></div>
               <div class="hf"><div class="hfl">마스터 목표</div><div class="hfv">${fn(Number(e.tgt||0)*1000)} <small>원</small></div></div>
-              <div class="hf"><div class="hfl">현재실적</div><div class="hfv">${fn(Number(e.curAct||0)*1000)} <small>원</small></div></div>
+              <div class="hf"><div class="hfl">현재실적</div><div class="hfv">${fn(Number(e.curAct||0))} <small>원</small></div></div>
               <div class="hf"><div class="hfl">진도</div><div class="hfv">${fn(e.pct)} <small>%</small></div></div>
               <div class="hf"><div class="hfl">가입설계</div><div class="hfv">${fn(e.plan)} <small>건</small></div></div>
               <div class="hf"><div class="hfl">행복보장</div><div class="hfv">${fn(e.hap)} <small>건</small></div></div>
-              <div class="hf"><div class="hfl">주간예상</div><div class="hfv">${fn(Number(e.exp||0)*1000)} <small>원</small></div></div>
-              <div class="hf"><div class="hfl">1차 마감</div><div class="hfv">${fn(e.close1)} <small>천원</small></div></div>
-              <div class="hf"><div class="hfl">2차 마감</div><div class="hfv">${fn(e.close2)} <small>천원</small></div></div>
+              <div class="hf"><div class="hfl">주간예상</div><div class="hfv">${fn(Number(e.exp||0))} <small>원</small></div></div>
+              <div class="hf"><div class="hfl">1차 마감</div><div class="hfv">${fn(e.close1)} <small>원</small></div></div>
+              <div class="hf"><div class="hfl">2차 마감</div><div class="hfv">${fn(e.close2)} <small>원</small></div></div>
             </div>
             ${clientsHtml}
             ${e.coach ? `<div class="note nv"><strong>📌 코칭포인트</strong><p>${nl(e.coach)}</p></div>` : ""}
@@ -1727,11 +1727,11 @@
           <th>연락처</th><td>${escapeHtml(s.phone || "")}</td></tr>
       <tr><th>평균실적(6개월)</th><td>${fmt(Number(c.ins||0)*1000)} 원</td>
           <th>마스터 목표</th><td>${fmt(Number(c.tgt||0)*1000)} 원</td>
-          <th>현재실적</th><td>${fmt(Number(c.curAct||0)*1000)} 원</td>
+          <th>현재실적</th><td>${fmt(Number(c.curAct||0))} 원</td>
           <th>진도</th><td>${fmt(c.pct)} %</td></tr>
       <tr><th>가입설계</th><td>${fmt(c.plan)} 건</td>
           <th>행복보장</th><td>${fmt(c.hap)} 건</td>
-          <th>주간예상</th><td>${fmt(Number(c.exp||0)*1000)} 원</td>
+          <th>주간예상</th><td>${fmt(Number(c.exp||0))} 원</td>
           <th>차수</th><td>${escapeHtml(c.seq || "")}차</td></tr>
     </table>
   </section>
@@ -2734,8 +2734,8 @@
   // 학생 데이터에서 계산된 지표 얻기
   function getProgressStat(s) {
     // pg* 필드(원 단위, 실적진도현황 붙여넣기)가 있으면 우선 사용; 없으면 천원→원 변환
-    const base    = s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0) * 1000;
-    const current = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0) * 1000;
+    const base    = s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0);
+    const current = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
     const hiCap   = Number(s.hiCap || 0);
     const ipumCount = s.pgIpumCount !== undefined ? Number(s.pgIpumCount) : Number(s.ipumCount || 0);
     const ipumAmt   = s.pgIpumAmt   !== undefined ? Number(s.pgIpumAmt)   : Number(s.ipumAmt   || 0);
@@ -3410,15 +3410,15 @@
             <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
               <thead><tr>
                 <th>#</th><th>지점</th><th>성명</th>
-                <th>기준실적(원)</th><th>장기하이캡(천원)</th><th>현재실적(천원)</th><th>달성률</th><th>순증</th>
+                <th>기준실적(원)</th><th>장기하이캡(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base  = s.pgBase !== undefined ? Number(s.pgBase) : Number(s.base || 0) * 1000;  // 원
+                const base  = s.pgBase !== undefined ? Number(s.pgBase) : Number(s.base || 0);  // 원
                 const hiCap = Number(s.hiCap   || 0);
-                const cur   = Number(s.current  || 0);         // 천원 (입력단위)
-                const net   = cur * 1000 - base;               // 원
-                const rate  = base > 0 ? (cur * 1000 / base) * 100 : 0;
+                const cur   = Number(s.current  || 0);         // 원
+                const net   = cur - base;                       // 원
+                const rate  = base > 0 ? (cur / base) * 100 : 0;
                 return `<tr>
                   <td>${i + 1}</td>
                   <td>${escapeHtml(s.branch || "")}</td>
@@ -3504,7 +3504,7 @@
                 <th>기준실적</th><th>현재실적</th><th>팀</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base = Number(s.base || 0) * 1000;
+                const base = Number(s.base || 0);
                 const cur = Number(s.current || 0);
                 return `<tr>
                   <td>${i + 1}</td>
@@ -3534,7 +3534,7 @@
       const team = (inp ? inp.value : s.team || "").toString().trim();
       if (!team) return;
       if (!byTeam[team]) byTeam[team] = { base: 0, current: 0, members: [] };
-      byTeam[team].base += Number(s.base || 0) * 1000;
+      byTeam[team].base += Number(s.base || 0);
       byTeam[team].current += Number(s.current || 0);
       byTeam[team].members.push(s.name || "");
     });
@@ -3586,10 +3586,10 @@
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base = (s?.pgBase !== undefined) ? Number(s.pgBase) : Number(s?.base || 0) * 1000;   // 원
-        const cur  = parseFloat(e.target.value) || 0; // 천원
-        const net  = cur * 1000 - base;               // 원
-        const rate = base > 0 ? (cur * 1000 / base) * 100 : 0;
+        const base = (s?.pgBase !== undefined) ? Number(s.pgBase) : Number(s?.base || 0);   // 원
+        const cur  = parseFloat(e.target.value) || 0; // 원
+        const net  = cur - base;                       // 원
+        const rate = base > 0 ? (cur / base) * 100 : 0;
         const rateEl = document.querySelector(`[data-calc="rate-${emp}"]`);
         const netEl  = document.querySelector(`[data-calc="net-${emp}"]`);
         if (rateEl) rateEl.textContent = rate.toFixed(1) + "%";
@@ -3661,12 +3661,12 @@
         if (isNaN(hiCapVal) || isNaN(curVal)) return;
         const s = list.find((x) => x.empNo === empNo);
         if (!s) { unmatched.push(empNo); return; }
-        records.push({ ...s, hiCap: hiCapVal, current: curVal }); // 천원 단위 그대로 저장
+        records.push({ ...s, hiCap: hiCapVal * 1000, current: curVal * 1000 }); // 천원 입력 → 원으로 변환 저장
         // Admin 테이블 input 즉시 반영
         const hiCapInp = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="hiCap"]`);
         const curInp   = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="current"]`);
-        if (hiCapInp) { hiCapInp.value = hiCapVal; }
-        if (curInp)   { curInp.value   = curVal;   curInp.dispatchEvent(new Event("input")); }
+        if (hiCapInp) { hiCapInp.value = hiCapVal * 1000; }
+        if (curInp)   { curInp.value   = curVal * 1000;   curInp.dispatchEvent(new Event("input")); }
       });
       if (records.length === 0) {
         if (m) { m.textContent = "❌ 매칭된 사번 없음. 탭 구분 및 사번을 확인하세요."; m.className = "pg-msg err"; }
@@ -3711,7 +3711,7 @@
         if (!empNo || isNaN(honorsAmt)) return;
         const s = state.students.find((x) => x.empNo === empNo);
         if (!s) { unmatched.push(empNo); return; }
-        records.push({ ...s, honors: Math.round(honorsAmt / 1000) });
+        records.push({ ...s, honors: honorsAmt });
       });
 
       if (records.length === 0) {
@@ -3776,10 +3776,10 @@
         const pgFields = { pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader };
 
         if (existing) {
-          const baseUpdate = pgBase > 0 ? { base: Math.round(pgBase / 1000), current: Math.round(pgCurrent / 1000) } : {};
+          const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
           updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate });
         } else {
-          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: Math.round(pgBase / 1000), current: Math.round(pgCurrent / 1000) });
+          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent });
         }
       });
 
@@ -4021,10 +4021,10 @@
     setVal("iv-date", c.date || "");
     setVal("iv-seq", c.seq || "");
     setVal("iv-pct", c.pct || "");
-    setVal("iv-curAct", c.curAct ? Math.round(Number(c.curAct) * 1000) : "");
+    setVal("iv-curAct", c.curAct || "");
     setVal("iv-plan", c.plan || "");
     setVal("iv-hap", c.hap || "");
-    setVal("iv-exp",    c.exp    ? Math.round(Number(c.exp)    * 1000) : "");
+    setVal("iv-exp",    c.exp    || "");
     setVal("iv-close1", c.close1 || "");
     setVal("iv-close2", c.close2 || "");
     setVal("iv-coach", c.coach || c.content || "");
@@ -4164,8 +4164,8 @@
     const maxCenter = Math.max(...Object.values(byCenter).map((v) => v.count), 1);
     const maxBranch = Math.max(...Object.values(byBranch), 1);
     const maxCohort = Math.max(...Object.values(byCohort), 1);
-    const totalBase = list.reduce((a, s) => a + Number(s.base || 0), 0) * 1000;
-    const totalHonors = list.reduce((a, s) => a + Number(s.honors || 0), 0) * 1000;
+    const totalBase = list.reduce((a, s) => a + Number(s.base || 0), 0);
+    const totalHonors = list.reduce((a, s) => a + Number(s.honors || 0), 0);
     const avgBase = Math.round(totalBase / list.length);
     const avgHonors = Math.round(totalHonors / list.length);
 
@@ -4251,8 +4251,8 @@
                 <td><strong>${escapeHtml(s.name || "")}</strong></td>
                 <td>${escapeHtml(s.branch || "")}</td>
                 <td>${escapeHtml(s.cohort || "")}</td>
-                <td class="r">${(Number(s.base || 0) * 1000).toLocaleString()}</td>
-                <td class="r">${(Number(s.honors || 0) * 1000).toLocaleString()}</td>
+                <td class="r">${Number(s.base || 0).toLocaleString()}</td>
+                <td class="r">${Number(s.honors || 0).toLocaleString()}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -4286,13 +4286,13 @@
           const val = stored[r] !== undefined ? stored[r] : DEFAULT_MASTER_TARGET;
           return `<tr>
             <td>${escapeHtml(r)}</td>
-            <td><input type="number" class="settings-target-input" data-region="${escapeHtml(r)}" value="${val}" min="0" step="1" style="width:80px;"> 천원</td>
+            <td><input type="number" class="settings-target-input" data-region="${escapeHtml(r)}" value="${val}" min="0" step="1000" style="width:120px;"> 원</td>
           </tr>`;
         }).join("")}</tbody>
       </table>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn-primary small" id="btn-save-default-targets">💾 지역단별 기본값 저장</button>
-        <button class="btn-outline small" id="btn-bulk-set-target">🔄 마스터목표 일괄 적용 (평균실적+200천원, ${zeroTargetCount}명 대상)</button>
+        <button class="btn-outline small" id="btn-bulk-set-target">🔄 마스터목표 일괄 적용 (평균실적+20만원, ${zeroTargetCount}명 대상)</button>
         <span id="settings-default-targets-msg" class="pg-msg"></span>
       </div>
     `;
@@ -4312,7 +4312,7 @@
     document.getElementById("btn-bulk-set-target")?.addEventListener("click", async () => {
       const targets = state.students.filter((s) => !s.target || Number(s.target) === 0);
       if (!targets.length) { toast("마스터목표가 0인 교육생이 없습니다.", ""); return; }
-      if (!confirm(`마스터목표가 0인 교육생 ${targets.length}명에게\n평균실적 + 200(천원)을 일괄 적용합니다.\n계속하시겠습니까?`)) return;
+      if (!confirm(`마스터목표가 0인 교육생 ${targets.length}명에게\n평균실적 + 200,000원을 일괄 적용합니다.\n계속하시겠습니까?`)) return;
 
       const btn = document.getElementById("btn-bulk-set-target");
       const msg = document.getElementById("settings-default-targets-msg");
@@ -4620,7 +4620,7 @@
     const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","평균실적","마스터목표","아너스목표"];
     const rows = list.map((s) => [
       s.region, s.center, s.branch, s.cohort, s.empNo, s.name, s.phone,
-      Math.round(Number(s.base||0)*1000), Math.round(Number(s.target||0)*1000), Math.round(Number(s.honors||0)*1000)
+      Math.round(Number(s.base||0)), Math.round(Number(s.target||0)), Math.round(Number(s.honors||0))
     ].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
     const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -4803,7 +4803,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -5175,29 +5175,8 @@
     });
   }
 
-  // 교육생 실적 원 단위 저장값(뒤 000) → 천원 단위로 1회 마이그레이션
-  async function migrateStudentBaseValuesIfNeeded() {
-    const KEY = "cm_base_unit_v1";
-    if (localStorage.getItem(KEY)) return;
-    const toMigrate = state.students.filter((s) =>
-      Number(s.base) >= 1000 || Number(s.target) >= 1000 || Number(s.honors) >= 1000
-    );
-    if (toMigrate.length === 0) { localStorage.setItem(KEY, "1"); return; }
-    const migrated = toMigrate.map((s) => ({
-      ...s,
-      base:   Number(s.base)   >= 1000 ? Math.round(Number(s.base)   / 1000) : Number(s.base   || 0),
-      target: Number(s.target) >= 1000 ? Math.round(Number(s.target) / 1000) : Number(s.target || 0),
-      honors: Number(s.honors) >= 1000 ? Math.round(Number(s.honors) / 1000) : Number(s.honors || 0),
-    }));
-    try {
-      if (typeof window.DataAPI.saveMany === "function") {
-        await window.DataAPI.saveMany(migrated);
-      } else {
-        for (const r of migrated) await window.DataAPI.save(r);
-      }
-      localStorage.setItem(KEY, "1");
-    } catch (e) { /* 네트워크 오류 시 다음 로드에 재시도 */ }
-  }
+  // 구 단위 마이그레이션 — 원 단위 저장으로 전환됨에 따라 비활성화
+  async function migrateStudentBaseValuesIfNeeded() { /* no-op: v0.92+ stores all values in 원 */ }
 
   // 최초 1회만 전체 면담 횟수 사전 수집 → state.students 에 consultCount merge → 사이드바 재렌더
   async function prefetchConsultCountsOnce() {
