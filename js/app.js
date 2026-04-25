@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.93";
+  const APP_VERSION = "0.94";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -481,7 +481,7 @@
         </div>
         <div class="sib-stats">
           <div><span>평균실적</span><strong>${fmt(Number(s.base))}</strong></div>
-          <div><span>마스터목표</span><strong>${fmt(Number(s.target))}</strong></div>
+          <div><span>마스터목표</span><strong>${fmt(s.region !== "호남지역단" && !Number(s.target) ? getProgressStat(s).base + 50000 : Number(s.target))}</strong></div>
           <div><span>아너스목표</span><strong>${fmt(Number(s.honors))}</strong></div>
         </div>
         <div class="sib-actions">
@@ -3777,9 +3777,11 @@
 
         if (existing) {
           const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
-          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate });
+          const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
+          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate, ...targetUpdate });
         } else {
-          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent });
+          const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
+          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent, target: newTarget });
         }
       });
 
@@ -4395,7 +4397,10 @@
     $("#form-name").value = s.name || "";
     $("#form-phone").value = s.phone || "";
     $("#form-base").value   = s.base   || "";
-    $("#form-target").value = s.target || "";
+    const computedTarget = (s.region !== "호남지역단" && !Number(s.target))
+      ? getProgressStat(s).base + 50000
+      : Number(s.target) || "";
+    $("#form-target").value = computedTarget;
     $("#form-honors").value = s.honors || "";
     $("#form-cohort").value = s.cohort || "";
     editingEmpNo = s.empNo;
@@ -4414,16 +4419,20 @@
   function buildSingleRecord() {
     const empNo = $("#form-empno").value.trim();
     if (!empNo) return null;
+    const region = state.form.region;
+    const base   = Number($("#form-base").value   || 0);
+    let   target = Number($("#form-target").value || 0);
+    if (!target && region !== "호남지역단" && base > 0) target = base + 50000;
     return {
-      region: state.form.region,
+      region,
       center: state.form.center,
       branch: state.form.branch,
       cohort: $("#form-cohort").value,
       empNo,
       name: $("#form-name").value.trim(),
       phone: $("#form-phone").value.trim(),
-      base:   Number($("#form-base").value   || 0),
-      target: Number($("#form-target").value || 0),
+      base,
+      target,
       honors: Number($("#form-honors").value || 0)
     };
   }
@@ -4836,7 +4845,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
