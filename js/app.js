@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200; // 천원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "0.87";
+  const APP_VERSION = "0.88";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -2982,7 +2982,9 @@
               const nc = st.rate >= 120 ? "pg-c-over" : st.rate >= 100 ? "pg-c-good" : st.rate >= 80 ? "pg-c-mid" : "pg-c-low";
               const netC = st.net > 0 ? "pg-net-p" : st.net < 0 ? "pg-net-m" : "";
               const aw = tierLabel(st.net);
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${Nf(st.base)}</td><td class="r">${st.hiCap ? Nf(st.hiCap) : "—"}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${st.rate.toFixed(1)}%</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td>${aw}</td></tr>`;
+              const baseDisp = st.base > 0 ? Nf(st.base) : "—";
+              const rateDisp = st.base > 0 ? st.rate.toFixed(1) + "%" : "—";
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${st.hiCap ? Nf(st.hiCap) : "—"}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -3706,7 +3708,8 @@
         const pgFields = { pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader };
 
         if (existing) {
-          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields });
+          const baseUpdate = pgBase > 0 ? { base: Math.round(pgBase / 1000), current: Math.round(pgCurrent / 1000) } : {};
+          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate });
         } else {
           newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: Math.round(pgBase / 1000), current: Math.round(pgCurrent / 1000) });
         }
@@ -4732,7 +4735,7 @@
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
