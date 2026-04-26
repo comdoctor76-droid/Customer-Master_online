@@ -730,6 +730,7 @@ body {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
 }
 .modal-panel {
   position: relative;
@@ -3668,4 +3669,36 @@ body {
 @media (max-width: 560px) {
   .kpi-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
+}
+
+/* ============ 모바일 헤더 2행 레이아웃 ============ */
+@media (max-width: 768px) {
+  .header-inner {
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    gap: 4px 6px;
+  }
+  .brand {
+    flex: 1 1 100%;
+  }
+  .header-actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .conn-badge {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  .btn-error-report {
+    font-size: 11px;
+    padding: 5px 8px;
+    margin-right: 0;
+  }
+  .btn-hard-refresh {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
 }
