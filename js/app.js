@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.02";
+  const APP_VERSION = "1.03";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3747,6 +3747,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <button class="btn-outline pg-paste-mode-btn active" data-mode="monthly">📊 총괄월별실적 붙여넣기</button>
               <button class="btn-outline pg-paste-mode-btn" data-mode="progress">📈 실적진도현황 붙여넣기</button>
               <button class="btn-outline pg-paste-mode-btn" data-mode="honors">🏆 아너스목표 붙여넣기</button>
+              <button class="btn-outline pg-paste-mode-btn" data-mode="ipum">✨ 인품실적 붙여넣기</button>
             </div>
 
             <!-- 총괄월별실적 -->
@@ -3783,6 +3784,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <div class="pg-actions">
                 <button class="btn-primary" id="btn-pg-honors-paste-apply">📥 아너스목표 저장</button>
                 <span id="pg-honors-paste-msg" class="pg-msg"></span>
+              </div>
+            </div>
+            <!-- 인품실적 붙여넣기 (전체 사번 기준) -->
+            <div id="pg-paste-mode-ipum" class="pg-admin-paste" style="display:none">
+              <div class="pg-paste-desc">사번·인품건수·인품실적 (탭/공백 구분, 금액단위: 원) — <strong>전체 지역단</strong> 대상, 사번 미매칭 건 자동 제외</div>
+              <textarea id="pg-ipum-global-paste" rows="6" placeholder="예)
+1001234	3	450000
+1005678	2	300000"></textarea>
+              <div class="pg-actions">
+                <button class="btn-primary" id="btn-pg-ipum-global-apply">📥 인품실적 저장 (전체)</button>
+                <button class="btn-outline small" id="btn-pg-ipum-global-clear">🗑 초기화</button>
+                <span id="pg-ipum-global-msg" class="pg-msg"></span>
               </div>
             </div>
           </div>
@@ -4028,9 +4041,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const monthlyDiv = document.getElementById("pg-paste-mode-monthly");
         const progressDiv = document.getElementById("pg-paste-mode-progress");
         const honorsDiv  = document.getElementById("pg-paste-mode-honors");
+        const ipumGlDiv  = document.getElementById("pg-paste-mode-ipum");
         if (monthlyDiv)  monthlyDiv.style.display  = mode === "monthly"  ? "" : "none";
         if (progressDiv) progressDiv.style.display = mode === "progress" ? "" : "none";
         if (honorsDiv)   honorsDiv.style.display   = mode === "honors"   ? "" : "none";
+        if (ipumGlDiv)   ipumGlDiv.style.display   = mode === "ipum"     ? "" : "none";
       });
     });
 
@@ -4127,6 +4142,61 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       honorsPasteApply.disabled = false;
     });
 
+    // ── 인품실적 전체 붙여넣기 핸들러 (전체 사번 기준) ────────────
+    const ipumGlobalClear = $("#btn-pg-ipum-global-clear");
+    if (ipumGlobalClear) ipumGlobalClear.addEventListener("click", () => { const t = $("#pg-ipum-global-paste"); if (t) t.value = ""; });
+
+    const ipumGlobalApply = $("#btn-pg-ipum-global-apply");
+    if (ipumGlobalApply) ipumGlobalApply.addEventListener("click", async () => {
+      const txt = $("#pg-ipum-global-paste")?.value?.trim() || "";
+      const m = $("#pg-ipum-global-msg");
+      if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
+
+      const empMap = new Map();
+      state.students.forEach((s) => { if (s.empNo) empMap.set(String(s.empNo).trim(), s); });
+
+      const records = [];
+      let skipped = 0;
+      txt.split(/\r?\n/).forEach((line) => {
+        const parts = line.trim().split(/[\t\s]+/).map((p) => p.replace(/,/g, "").trim()).filter(Boolean);
+        if (parts.length < 3) return;
+        const rawEmp = parts[0];
+        const count  = parseInt(parts[1], 10);
+        const amt    = parseInt(parts[parts.length - 1], 10);
+        if (isNaN(count) || isNaN(amt)) return;
+        const s = empMap.get(rawEmp);
+        if (s) {
+          records.push({ ...s, ipumCount: count, ipumAmt: amt });
+        } else {
+          skipped++;
+        }
+      });
+
+      if (records.length === 0) {
+        if (m) { m.textContent = `❌ 매칭된 사번 없음 (미매칭 ${skipped}건)。 사번을 확인하세요.`; m.className = "pg-msg err"; }
+        toast("매칭된 사번이 없습니다.", "error");
+        return;
+      }
+
+      ipumGlobalApply.disabled = true;
+      if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
+      try {
+        if (typeof window.DataAPI.saveMany === "function") {
+          await window.DataAPI.saveMany(records);
+        } else {
+          for (const r of records) await window.DataAPI.save(r);
+        }
+        const resultMsg = `✅ ${records.length}명 저장 완료 / ${skipped}건 미매칭(버림)`;
+        if (m) { m.textContent = resultMsg; m.className = "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 10000); }
+        toast(`인품실적 저장 완료: ${records.length}명 성공, ${skipped}건 버림`, "success");
+      } catch (e) {
+        console.error(e);
+        if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      }
+      ipumGlobalApply.disabled = false;
+    });
+
     // ── 실적진도현황 붙여넣기 핸들러 ──────────────────────────────
     const progressPasteApply = $("#btn-pg-progress-paste-apply");
     if (progressPasteApply) progressPasteApply.addEventListener("click", async () => {
@@ -4167,10 +4237,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (existing) {
           const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
           const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
-          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate, ...targetUpdate });
+          const ipumUpdate = (pgIpumCount > 0 || pgIpumAmt > 0) ? { ipumCount: pgIpumCount, ipumAmt: pgIpumAmt } : {};
+          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate, ...targetUpdate, ...ipumUpdate });
         } else {
           const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
-          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent, target: newTarget });
+          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent, target: newTarget, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt });
         }
       });
 
@@ -5234,7 +5305,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
