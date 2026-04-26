@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.04";
+  const APP_VERSION = "1.05";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3528,9 +3528,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       `;
       document.body.appendChild(modal);
 
-      // 닫기 요소(백드롭, ×, 하단 버튼)
+      // 닫기 요소(백드롭, ×, 하단 버튼) — click + touchend for mobile
       modal.querySelectorAll("[data-pg-close]").forEach((el) => {
         el.addEventListener("click", (e) => { e.stopPropagation(); closePgFullModal(); });
+        el.addEventListener("touchend", (e) => { e.stopPropagation(); e.preventDefault(); closePgFullModal(); }, { passive: false });
       });
 
       // 패널 내부의 빈 공간(인터랙티브 요소 제외) 탭 시에도 닫기
@@ -5312,7 +5313,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
