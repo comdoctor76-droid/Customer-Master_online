@@ -166,6 +166,7 @@ window.DataAPI = {
         record.tenureMonths = Number(student.tenureMonths) || 0;
       }
       if (student.current !== undefined)   record.current   = Number(student.current)   || 0;
+      if (student.hiCap !== undefined)     record.hiCap     = Number(student.hiCap)     || 0;
       if (student.ipumCount !== undefined) record.ipumCount = Number(student.ipumCount) || 0;
       if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
       if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
