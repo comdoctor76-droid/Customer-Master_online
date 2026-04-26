@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.10";
+  const APP_VERSION = "1.11";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3400,12 +3400,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const mainKpi = document.getElementById("main-kpi-grid");
     if (!region) {
       section.hidden = true;
-      if (mainKpi) mainKpi.hidden = false;
+      if (mainKpi) mainKpi.style.display = "";
       if (state._hrankTimer) { clearTimeout(state._hrankTimer); state._hrankTimer = null; }
       return;
     }
     section.hidden = false;
-    if (mainKpi) mainKpi.hidden = true;
+    if (mainKpi) mainKpi.style.display = "none";
 
     // 같은 지역단으로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
     if (state._hrankTimer && section.dataset.hrRegion === region && section.querySelector(".hr-slide")) return;
@@ -3590,6 +3590,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       state._hrankTimer = setTimeout(hrStep, hrDurations[hrSlide]);
     }
     state._hrankTimer = setTimeout(hrStep, hrDurations[0]);
+
+    // 터치 스와이프 지원
+    const slidesEl = section.querySelector(".hr-slides");
+    if (slidesEl) {
+      let _tx = 0;
+      slidesEl.addEventListener("touchstart", (e) => { _tx = e.touches[0].clientX; }, { passive: true });
+      slidesEl.addEventListener("touchend", (e) => {
+        const dx = e.changedTouches[0].clientX - _tx;
+        if (Math.abs(dx) < 40) return;
+        const total = section.querySelectorAll(".hr-slide").length;
+        hrSlide = dx < 0 ? (hrSlide + 1) % total : (hrSlide - 1 + total) % total;
+        hrGoTo(hrSlide);
+        if (state._hrankTimer) clearTimeout(state._hrankTimer);
+        state._hrankTimer = setTimeout(hrStep, hrDurations[hrSlide]);
+      }, { passive: true });
+    }
   }
 
   function renderProgressTop10(list, kind, limit) {
@@ -5526,7 +5542,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
