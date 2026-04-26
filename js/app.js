@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.03";
+  const APP_VERSION = "1.04";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3914,7 +3914,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                   <td><strong>${escapeHtml(s.name || "")}</strong></td>
                   <td class="r">${Nf(base)}</td>
                   <td class="r">${Nf(cur)}</td>
-                  <td><input type="text" class="pg-input pg-team-input" data-emp="${escapeHtml(s.empNo)}" value="${escapeHtml(s.team || "")}" placeholder="예) 1팀"></td>
+                  <td><input type="number" class="pg-input pg-team-input" data-emp="${escapeHtml(s.empNo)}" value="${parseInt(s.team, 10) > 0 ? parseInt(s.team, 10) : ""}" placeholder="조번호" min="1" style="width:70px"></td>
                 </tr>`;
               }).join("")}</tbody>
             </table></div>
@@ -4420,7 +4420,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
       shuffled.forEach((s, idx) => {
         const teamNo = (idx % n) + 1;
-        const teamName = `${teamNo}팀`;
+        const teamName = String(teamNo);
         const inp = document.querySelector(`#progress-body .pg-team-input[data-emp="${s.empNo}"]`);
         if (inp) inp.value = teamName;
       });
@@ -4860,6 +4860,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     $("#form-target").value = computedTarget;
     $("#form-honors").value = s.honors || "";
     $("#form-cohort").value = s.cohort || "";
+    const teamNum = parseInt(s.team, 10);
+    const formTeamEl = $("#form-team");
+    if (formTeamEl) formTeamEl.value = teamNum > 0 ? teamNum : "";
     editingEmpNo = s.empNo;
     state.formTgtAddAmount = null;
     const ft = $("#form-target"); if (ft) ft.removeAttribute("readonly");
@@ -4880,6 +4883,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const base   = Number($("#form-base").value   || 0);
     let   target = Number($("#form-target").value || 0);
     if (!target && region !== "호남지역단" && base > 0) target = base + 50000;
+    const teamInput = parseInt($("#form-team")?.value, 10);
+    const existingStudent = state.students.find((x) => x.empNo === empNo);
+    const existingTeam = existingStudent?.team || "";
     return {
       region,
       center: state.form.center,
@@ -4890,7 +4896,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       phone: $("#form-phone").value.trim(),
       base,
       target,
-      honors: Number($("#form-honors").value || 0)
+      honors: Number($("#form-honors").value || 0),
+      team: teamInput > 0 ? String(teamInput) : existingTeam
     };
   }
 
@@ -5305,7 +5312,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
