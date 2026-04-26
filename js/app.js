@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.09";
+  const APP_VERSION = "1.10";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3397,12 +3397,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (!section) return;
 
     const region = state.filter.region;
+    const mainKpi = document.getElementById("main-kpi-grid");
     if (!region) {
       section.hidden = true;
+      if (mainKpi) mainKpi.hidden = false;
       if (state._hrankTimer) { clearTimeout(state._hrankTimer); state._hrankTimer = null; }
       return;
     }
     section.hidden = false;
+    if (mainKpi) mainKpi.hidden = true;
 
     // 같은 지역단으로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
     if (state._hrankTimer && section.dataset.hrRegion === region && section.querySelector(".hr-slide")) return;
@@ -3490,11 +3493,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const kpiBase    = list.reduce((a, s) => a + (Number(s.base)   || 0), 0);
     const kpiTarget  = list.reduce((a, s) => a + (Number(s.target) || 0), 0);
     const kpiHonors  = list.reduce((a, s) => a + (Number(s.honors) || 0), 0);
-    const kpiSlide = `<div class="hr-slide hr-slide-hidden"><div class="hr-kpi-grid">
-      <div class="hr-kpi-card"><div class="hr-kpi-label">전체 교육생</div><div class="hr-kpi-value">${kpiTotal.toLocaleString()}</div><div class="hr-kpi-unit">명</div></div>
-      <div class="hr-kpi-card"><div class="hr-kpi-label">평균실적 합계</div><div class="hr-kpi-value">${kpiBase.toLocaleString()}</div><div class="hr-kpi-unit">건</div></div>
-      <div class="hr-kpi-card"><div class="hr-kpi-label">마스터목표 합계</div><div class="hr-kpi-value">${kpiTarget.toLocaleString()}</div><div class="hr-kpi-unit">건</div></div>
-      <div class="hr-kpi-card hr-kpi-hl"><div class="hr-kpi-label">아너스목표 합계</div><div class="hr-kpi-value">${kpiHonors.toLocaleString()}</div><div class="hr-kpi-unit">건</div></div>
+    const kpiSlide = `<div class="hr-slide hr-slide-hidden"><div class="kpi-grid" style="margin-bottom:0">
+      <div class="kpi-card"><div class="kpi-label">전체 교육생</div><div class="kpi-value">${kpiTotal.toLocaleString()}</div><div class="kpi-sub">명</div></div>
+      <div class="kpi-card"><div class="kpi-label">평균실적 합계</div><div class="kpi-value">${kpiBase.toLocaleString()}</div><div class="kpi-sub">건</div></div>
+      <div class="kpi-card"><div class="kpi-label">마스터목표 합계</div><div class="kpi-value">${kpiTarget.toLocaleString()}</div><div class="kpi-sub">건</div></div>
+      <div class="kpi-card highlight"><div class="kpi-label">아너스목표 합계</div><div class="kpi-value">${kpiHonors.toLocaleString()}</div><div class="kpi-sub">건</div></div>
     </div></div>`;
 
     const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: "그룹 하위" };
@@ -5523,7 +5526,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
