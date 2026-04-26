@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.01";
+  const APP_VERSION = "1.02";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3838,10 +3838,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </summary>
           <div class="pg-ac-body">
             <div class="pg-admin-paste">
-              <strong>📋 인품 붙여넣기 — "이름 인품건 인품실적" (탭/공백 구분)</strong>
+              <strong>📋 인품 붙여넣기 — "사번 인품건 인품실적" (탭/공백 구분)</strong>
               <textarea id="pg-ipum-paste" rows="4" placeholder="예)
-정경화  3  450000
-박희자  2  300000"></textarea>
+1001234  3  450000
+1005678  2  300000"></textarea>
               <div class="pg-actions">
                 <button class="btn-outline" id="btn-pg-ipum-paste-apply">📥 인품 붙여넣기 반영</button>
                 <button class="btn-outline small" id="btn-pg-ipum-paste-clear">🗑 초기화</button>
@@ -4231,20 +4231,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ipumPasteApply = $("#btn-pg-ipum-paste-apply");
     if (ipumPasteApply) ipumPasteApply.addEventListener("click", () => {
       const txt = $("#pg-ipum-paste").value;
-      // 학생 이름 사전 정규화 (공백/제로폭 문자 제거) 후 lookup map
-      const normName = (n) => (n || "").replace(/\s+/g, "").replace(/[​-‍﻿]/g, "");
-      const nameMap = new Map();
-      list.forEach((s) => nameMap.set(normName(s.name), s));
-      let cnt = 0;
-      const unmatched = [];
+      const empMap = new Map();
+      list.forEach((s) => { if (s.empNo) empMap.set(String(s.empNo).trim(), s); });
+      let cnt = 0, skipped = 0;
       txt.split(/\r?\n/).forEach((line) => {
         const parts = line.trim().split(/\s+/);
         if (parts.length < 3) return;
-        const rawName = parts[0];
+        const rawEmp = parts[0].replace(/,/g, "").trim();
         const count = parseInt(parts[1].replace(/,/g, ""), 10);
         const amt = parseInt(parts[parts.length - 1].replace(/,/g, ""), 10);
         if (isNaN(count) || isNaN(amt)) return;
-        const s = nameMap.get(normName(rawName));
+        const s = empMap.get(rawEmp);
         if (s) {
           ["f2", "f"].forEach((attr) => {
             const cEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="ipumCount"]`);
@@ -4254,18 +4251,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           });
           cnt++;
         } else {
-          unmatched.push(rawName);
+          skipped++;
         }
       });
       const m = $("#pg-ipum-paste-msg");
       if (m) {
-        const warnPart = unmatched.length ? ` · ⚠️ 이름 미일치 ${unmatched.length}명 (${unmatched.slice(0,3).join(", ")}${unmatched.length>3?"…":""})` : "";
-        m.innerHTML = `✅ ${cnt}명 반영 (아래 [💾 인품 저장] 눌러야 확정)${warnPart}`;
-        m.className = unmatched.length ? "pg-msg warn" : "pg-msg ok";
+        const skipPart = skipped ? ` · 사번 미일치 ${skipped}건 버림` : "";
+        m.innerHTML = `✅ ${cnt}명 반영 (아래 [💾 인품 저장] 눌러야 확정)${skipPart}`;
+        m.className = skipped ? "pg-msg warn" : "pg-msg ok";
         setTimeout(() => { m.textContent = ""; }, 8000);
       }
       if (cnt === 0) {
-        toast("매칭되는 이름이 없습니다. 좌측 지역단과 이름을 확인하세요.", "error");
+        toast("매칭되는 사번이 없습니다. 사번을 확인하세요.", "error");
       } else {
         toast(`${cnt}명 인품 데이터 반영 — [💾 인품 저장] 으로 확정`, "success");
       }
@@ -5237,7 +5234,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260425s)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
