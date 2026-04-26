@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.06";
+  const APP_VERSION = "1.07";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3476,29 +3476,46 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
     });
 
-    function hrMakeSlide(limit) {
-      return `<div class="hr-slide"><div class="hr-grid">${
-        hrCats.map(cat => `
-          <div class="hr-card ${cat.cls}" data-hrpcard="${cat.key}">
-            <div class="hr-head">
-              <span class="hr-icon" aria-hidden="true">${cat.icon}</span>
-              <div class="hr-titles">
-                <strong>${cat.title}</strong>
-                <span class="hr-sub">${cat.sub}</span>
+    const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: "그룹 하위" };
+
+    function hrMakeSlide(isWorst) {
+      const hidden = isWorst ? " hr-slide-hidden" : "";
+      return `<div class="hr-slide${hidden}"><div class="hr-grid">${
+        hrCats.map(cat => {
+          const dispArr = isWorst ? [...cat.arr].reverse().slice(0, 3) : cat.arr.slice(0, 3);
+          const title = isWorst ? (worstTitles[cat.key] || cat.title) : cat.title;
+          const rows = dispArr.length
+            ? dispArr.map((item, i) => {
+                const empNo = cat.isGroup ? "" : item.s.empNo;
+                const name = cat.isGroup ? item.name : (item.s.name || "");
+                const rbCls = isWorst ? "hr-rb-worst" : (i < 3 ? RNKS[i] : "rt");
+                return `<li class="hr-row${empNo ? " hr-clickable" : ""}" data-emp="${escapeHtml(empNo || "")}">
+                  <span class="pg-rb ${rbCls}">${i + 1}</span>
+                  <span class="hr-name">${escapeHtml(name)}</span>
+                  <span class="hr-val">${escapeHtml(cat.valFn(item))}</span>
+                </li>`;
+              }).join("")
+            : `<li class="hr-empty">데이터 없음</li>`;
+          return `
+            <div class="hr-card ${cat.cls}${isWorst ? " hr-card-worst" : ""}" data-hrpcard="${cat.key}">
+              <div class="hr-head">
+                <span class="hr-icon" aria-hidden="true">${cat.icon}</span>
+                <div class="hr-titles">
+                  <strong>${title}</strong>
+                  <span class="hr-sub">${cat.sub}</span>
+                </div>
+                <span class="hr-chev">›</span>
               </div>
-              <span class="hr-chev">›</span>
-            </div>
-            <ol class="hr-list">${hrListRows(cat.arr, cat.isGroup, cat.valFn, limit)}</ol>
-          </div>`).join("")
+              <ol class="hr-list">${rows}</ol>
+            </div>`;
+        }).join("")
       }</div></div>`;
     }
 
     section.innerHTML = `
-      <div class="hr-clip">
-        <div class="hr-track" id="hr-track">
-          ${hrMakeSlide(3)}
-          ${hrMakeSlide(10)}
-        </div>
+      <div class="hr-slides">
+        ${hrMakeSlide(false)}
+        ${hrMakeSlide(true)}
       </div>
       <div class="hr-dots">
         <span class="hr-dot hr-dot-active"></span>
@@ -3506,28 +3523,43 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       </div>
     `;
 
-    section.querySelectorAll(".hr-clickable[data-emp]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.stopPropagation();
-        if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
+    function hrBindClicks() {
+      section.querySelectorAll(".hr-clickable[data-emp]").forEach(el => {
+        el.addEventListener("click", e => {
+          e.stopPropagation();
+          if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
+        });
       });
-    });
+      section.querySelectorAll(".hr-card[data-hrpcard]").forEach(card => {
+        card.addEventListener("click", e => {
+          if (e.target.closest(".hr-clickable")) return;
+          const data = state._hrankFullData && state._hrankFullData[card.dataset.hrpcard];
+          if (data) openPgFullModal(data);
+        });
+      });
+    }
+    hrBindClicks();
 
-    section.querySelectorAll(".hr-card[data-hrpcard]").forEach(card => {
-      card.addEventListener("click", e => {
-        if (e.target.closest(".hr-clickable")) return;
-        const data = state._hrankFullData && state._hrankFullData[card.dataset.hrpcard];
-        if (data) openPgFullModal(data);
+    function hrGoTo(idx) {
+      const slides = section.querySelectorAll(".hr-slide");
+      slides.forEach((s, i) => {
+        if (i === idx) {
+          s.classList.remove("hr-slide-hidden", "hr-slide-enter");
+          void s.offsetWidth;
+          s.classList.add("hr-slide-enter");
+        } else {
+          s.classList.add("hr-slide-hidden");
+          s.classList.remove("hr-slide-enter");
+        }
       });
-    });
+      section.querySelectorAll(".hr-dot").forEach((d, i) => d.classList.toggle("hr-dot-active", i === idx));
+    }
 
     let hrSlide = 0;
     function hrStep() {
+      if (!document.getElementById("home-ranks")) { state._hrankTimer = null; return; }
       hrSlide = (hrSlide + 1) % 2;
-      const track = document.getElementById("hr-track");
-      if (!track) { clearTimeout(state._hrankTimer); state._hrankTimer = null; return; }
-      track.style.transform = `translateX(-${hrSlide * 100}%)`;
-      section.querySelectorAll(".hr-dot").forEach((d, i) => d.classList.toggle("hr-dot-active", i === hrSlide));
+      hrGoTo(hrSlide);
       state._hrankTimer = setTimeout(hrStep, hrSlide === 1 ? 10000 : 5000);
     }
     state._hrankTimer = setTimeout(hrStep, 5000);
@@ -5457,7 +5489,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
