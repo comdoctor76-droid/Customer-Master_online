@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.05";
+  const APP_VERSION = "1.06";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -242,6 +242,8 @@
     $("#kpi-target").textContent = sum("target").toLocaleString();
     $("#kpi-honors").textContent = sum("honors").toLocaleString();
     $("#mini-total").textContent = state.students.length;
+    const ptRegion = document.getElementById("page-title-region");
+    if (ptRegion) ptRegion.textContent = state.filter.region ? ` — ${state.filter.region}` : "";
   }
 
   // 사이드바 지점별 교육생 명단 — 클릭하면 면담관리 패널로 이동
@@ -3390,6 +3392,147 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     `;
   }
 
+  function renderHomeRanks() {
+    const section = document.getElementById("home-ranks");
+    if (!section) return;
+    if (state._hrankTimer) { clearTimeout(state._hrankTimer); state._hrankTimer = null; }
+
+    const region = state.filter.region;
+    if (!region) { section.hidden = true; return; }
+    section.hidden = false;
+
+    const list = state.students.filter((s) => s.region === region);
+    if (!list.length) { section.innerHTML = ""; return; }
+
+    const stats = list.map(getProgressStat);
+    const byAmt = [...stats].sort((a, b) => b.net - a.net);
+    const byRateRaw = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
+    const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
+    const amtExcludeIds = new Set(byAmt.slice(0, 2).filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank).map((s) => s.s.empNo));
+    const byRate = byRateRaw.filter((s) => !amtExcludeIds.has(s.s.empNo));
+
+    const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
+    const groupKeyFn = hasAnyTeam
+      ? ((s) => (s.s.team || "").toString().trim() || "(팀 미배정)")
+      : ((s) => s.s.branch || "(미지정)");
+    const groupMap = {};
+    stats.forEach((st) => {
+      const k = groupKeyFn(st);
+      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [] };
+      groupMap[k].base += st.base;
+      groupMap[k].current += st.current;
+      groupMap[k].members.push(st.s.name || "");
+    });
+    const groupRanking = Object.entries(groupMap).map(([k, g]) => ({
+      name: k, rate: g.base > 0 ? (g.current / g.base) * 100 : 0, members: g.members
+    })).sort((a, b) => b.rate - a.rate);
+
+    const RNKS = ["r1", "r2", "r3"];
+
+    function hrListRows(arr, isGroup, valFn, limit) {
+      const top = arr.slice(0, limit);
+      if (!top.length) return `<li class="hr-empty">데이터 없음</li>`;
+      return top.map((item, i) => {
+        const empNo = isGroup ? "" : item.s.empNo;
+        const name = isGroup ? item.name : (item.s.name || "");
+        return `<li class="hr-row${empNo ? " hr-clickable" : ""}" data-emp="${escapeHtml(empNo || "")}">
+          <span class="pg-rb ${i < 3 ? RNKS[i] : "rt"}">${i + 1}</span>
+          <span class="hr-name">${escapeHtml(name)}</span>
+          <span class="hr-val">${escapeHtml(valFn(item))}</span>
+        </li>`;
+      }).join("");
+    }
+
+    const hrCats = [
+      { key: "rate", icon: "📈", title: "최고 신장률", sub: "기준실적 대비 순증률", cls: "hr-rate",
+        arr: byRate, isGroup: false,
+        valFn: (st) => `${st.base > 0 ? (st.net / st.base * 100).toFixed(1) : "0.0"}%` },
+      { key: "amt", icon: "💰", title: "최고 신장액", sub: "순증 금액 절대값", cls: "hr-amt",
+        arr: byAmt, isGroup: false,
+        valFn: (st) => `${st.net >= 0 ? "+" : ""}${Nf(st.net)}원` },
+      { key: "ipum", icon: "✨", title: "인품왕", sub: "신상품 판매액", cls: "hr-ipum",
+        arr: byIpum, isGroup: false,
+        valFn: (st) => `${Nf(st.ipumAmt)}원` },
+      { key: "group", icon: "🏅", title: "그룹 순증", sub: hasAnyTeam ? "팀별 순증" : "지점별 순증", cls: "hr-group",
+        arr: groupRanking, isGroup: true,
+        valFn: (g) => `${g.rate.toFixed(1)}%` }
+    ];
+
+    state._hrankFullData = {};
+    hrCats.forEach(cat => {
+      if (cat.key === "group") {
+        state._hrankFullData[cat.key] = {
+          title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
+          subtitle: cat.sub,
+          bodyHTML: `<table class="pg-tbl pg-tbl-wide"><thead><tr><th>#</th><th>${hasAnyTeam ? "팀" : "지점"}</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead><tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody></table>`
+        };
+      } else {
+        const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
+        const subs = { rate: "기준실적 대비 순증률", amt: "순증 금액 절대값", ipum: "신상품 판매액" };
+        state._hrankFullData[cat.key] = {
+          title: ttls[cat.key], subtitle: subs[cat.key],
+          bodyHTML: cat.arr.length ? renderProgressTop10(cat.arr, cat.key, Infinity) : `<div class="pg-empty">데이터 없음</div>`
+        };
+      }
+    });
+
+    function hrMakeSlide(limit) {
+      return `<div class="hr-slide"><div class="hr-grid">${
+        hrCats.map(cat => `
+          <div class="hr-card ${cat.cls}" data-hrpcard="${cat.key}">
+            <div class="hr-head">
+              <span class="hr-icon" aria-hidden="true">${cat.icon}</span>
+              <div class="hr-titles">
+                <strong>${cat.title}</strong>
+                <span class="hr-sub">${cat.sub}</span>
+              </div>
+              <span class="hr-chev">›</span>
+            </div>
+            <ol class="hr-list">${hrListRows(cat.arr, cat.isGroup, cat.valFn, limit)}</ol>
+          </div>`).join("")
+      }</div></div>`;
+    }
+
+    section.innerHTML = `
+      <div class="hr-clip">
+        <div class="hr-track" id="hr-track">
+          ${hrMakeSlide(3)}
+          ${hrMakeSlide(10)}
+        </div>
+      </div>
+      <div class="hr-dots">
+        <span class="hr-dot hr-dot-active"></span>
+        <span class="hr-dot"></span>
+      </div>
+    `;
+
+    section.querySelectorAll(".hr-clickable[data-emp]").forEach(el => {
+      el.addEventListener("click", e => {
+        e.stopPropagation();
+        if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
+      });
+    });
+
+    section.querySelectorAll(".hr-card[data-hrpcard]").forEach(card => {
+      card.addEventListener("click", e => {
+        if (e.target.closest(".hr-clickable")) return;
+        const data = state._hrankFullData && state._hrankFullData[card.dataset.hrpcard];
+        if (data) openPgFullModal(data);
+      });
+    });
+
+    let hrSlide = 0;
+    function hrStep() {
+      hrSlide = (hrSlide + 1) % 2;
+      const track = document.getElementById("hr-track");
+      if (!track) { clearTimeout(state._hrankTimer); state._hrankTimer = null; return; }
+      track.style.transform = `translateX(-${hrSlide * 100}%)`;
+      section.querySelectorAll(".hr-dot").forEach((d, i) => d.classList.toggle("hr-dot-active", i === hrSlide));
+      state._hrankTimer = setTimeout(hrStep, hrSlide === 1 ? 10000 : 5000);
+    }
+    state._hrankTimer = setTimeout(hrStep, 5000);
+  }
+
   function renderProgressTop10(list, kind, limit) {
     const max = (limit === undefined || limit === null) ? 10 : limit;
     const top = (max === Infinity || max <= 0) ? list.slice() : list.slice(0, max);
@@ -4569,6 +4712,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   function render() {
+    renderHomeRanks();
     const list = filteredStudents();
     renderKPIs(list);
     renderSidebarStudentList(list);
@@ -5313,7 +5457,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));

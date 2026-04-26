@@ -3702,3 +3702,128 @@ body {
     font-size: 12px;
   }
 }
+
+/* ============ 헤더 버전 뱃지 (모바일) ============ */
+.hdr-ver-badge { display: none; }
+@media (max-width: 768px) {
+  .hdr-ver-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 800;
+    background: rgba(255,255,255,0.22);
+    color: rgba(255,255,255,0.9);
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.2px;
+  }
+}
+
+/* ============ 페이지 타이틀 지역단 표시 ============ */
+.page-title-region {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--orange);
+  margin-left: 6px;
+}
+@media (max-width: 768px) {
+  .page-title-region { font-size: 13px; display: block; margin-left: 0; margin-top: 2px; }
+}
+
+/* ============ KPI 모바일 2x2 ============ */
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; margin-bottom: 12px; }
+  .kpi-value { font-size: 25px; }
+  .kpi-card { padding: 10px 12px; }
+}
+
+/* ============ 홈 실적 랭킹 섹션 ============ */
+.home-ranks-section {
+  margin-bottom: 16px;
+}
+.hr-clip {
+  overflow: hidden;
+  border-radius: 12px;
+}
+.hr-track {
+  display: flex;
+  transition: transform 0.5s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+}
+.hr-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+.hr-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.hr-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  cursor: pointer;
+  transition: transform 0.15s;
+  overflow: hidden;
+  border-top: 3px solid #ddd;
+}
+.hr-card:active { transform: scale(0.98); }
+.hr-rate { border-top-color: #e8651a; }
+.hr-amt { border-top-color: #1565c0; }
+.hr-ipum { border-top-color: #7b1fa2; }
+.hr-group { border-top-color: #2e7d32; }
+.hr-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.hr-icon { font-size: 22px; flex-shrink: 0; }
+.hr-titles { flex: 1; min-width: 0; }
+.hr-titles strong { font-size: 12px; font-weight: 900; color: var(--navy); display: block; line-height: 1.2; }
+.hr-sub { font-size: 10px; color: var(--ink-3); display: block; margin-top: 1px; }
+.hr-chev { font-size: 18px; color: var(--ink-3); flex-shrink: 0; }
+.hr-list { list-style: none; margin: 0; padding: 0; }
+.hr-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  cursor: default;
+}
+.hr-row:last-child { border-bottom: none; }
+.hr-clickable { cursor: pointer; }
+.hr-clickable:active { background: rgba(0,0,0,0.04); border-radius: 4px; }
+.hr-row .pg-rb { flex-shrink: 0; width: 18px; height: 18px; font-size: 9px; }
+.hr-name { flex: 1; font-size: 11px; font-weight: 700; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-val { font-size: 11px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+.hr-empty { text-align: center; font-size: 10px; color: var(--ink-3); padding: 10px 4px; }
+.hr-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.hr-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ddd;
+  transition: background 0.2s;
+}
+.hr-dot-active { background: var(--orange); }
+
+/* 모바일 2x2 + 아이콘/설명 제거 + 풀리스트 3개만 */
+@media (max-width: 768px) {
+  .hr-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .hr-icon { display: none; }
+  .hr-sub { display: none; }
+  .hr-titles strong { font-size: 11px; }
+  .hr-card { padding: 10px 8px; }
+  /* 전체 목록 슬라이드에서 4번째 이후 항목 숨김 */
+  .hr-slide:last-child .hr-list li:nth-child(n+4) { display: none; }
+}
