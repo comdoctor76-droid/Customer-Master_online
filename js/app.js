@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.08";
+  const APP_VERSION = "1.09";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3466,23 +3466,36 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         valFn: (g) => `${g.rate.toFixed(1)}%` }
     ];
 
+    const _closeBtnBar = `<div class="pg-body-close-bar"><button class="btn-outline small" data-pg-close>✕ 닫기</button></div>`;
     state._hrankFullData = {};
     hrCats.forEach(cat => {
       if (cat.key === "group") {
         state._hrankFullData[cat.key] = {
           title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
           subtitle: cat.sub,
-          bodyHTML: `<table class="pg-tbl pg-tbl-wide"><thead><tr><th>#</th><th>${hasAnyTeam ? "팀" : "지점"}</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead><tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody></table>`
+          bodyHTML: _closeBtnBar + `<table class="pg-tbl pg-tbl-wide"><thead><tr><th>#</th><th>${hasAnyTeam ? "팀" : "지점"}</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead><tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody></table>`
         };
       } else {
         const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
         const subs = { rate: "기준실적 대비 순증률", amt: "순증 금액 절대값", ipum: "신상품 판매액" };
         state._hrankFullData[cat.key] = {
           title: ttls[cat.key], subtitle: subs[cat.key],
-          bodyHTML: cat.arr.length ? renderProgressTop10(cat.arr, cat.key, Infinity) : `<div class="pg-empty">데이터 없음</div>`
+          bodyHTML: _closeBtnBar + (cat.arr.length ? renderProgressTop10(cat.arr, cat.key, Infinity) : `<div class="pg-empty">데이터 없음</div>`)
         };
       }
     });
+
+    // 교육생 통계 슬라이드용 KPI 계산
+    const kpiTotal   = list.length;
+    const kpiBase    = list.reduce((a, s) => a + (Number(s.base)   || 0), 0);
+    const kpiTarget  = list.reduce((a, s) => a + (Number(s.target) || 0), 0);
+    const kpiHonors  = list.reduce((a, s) => a + (Number(s.honors) || 0), 0);
+    const kpiSlide = `<div class="hr-slide hr-slide-hidden"><div class="hr-kpi-grid">
+      <div class="hr-kpi-card"><div class="hr-kpi-label">전체 교육생</div><div class="hr-kpi-value">${kpiTotal.toLocaleString()}</div><div class="hr-kpi-unit">명</div></div>
+      <div class="hr-kpi-card"><div class="hr-kpi-label">평균실적 합계</div><div class="hr-kpi-value">${kpiBase.toLocaleString()}</div><div class="hr-kpi-unit">건</div></div>
+      <div class="hr-kpi-card"><div class="hr-kpi-label">마스터목표 합계</div><div class="hr-kpi-value">${kpiTarget.toLocaleString()}</div><div class="hr-kpi-unit">건</div></div>
+      <div class="hr-kpi-card hr-kpi-hl"><div class="hr-kpi-label">아너스목표 합계</div><div class="hr-kpi-value">${kpiHonors.toLocaleString()}</div><div class="hr-kpi-unit">건</div></div>
+    </div></div>`;
 
     const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: "그룹 하위" };
 
@@ -3524,9 +3537,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       <div class="hr-slides">
         ${hrMakeSlide(false)}
         ${hrMakeSlide(true)}
+        ${kpiSlide}
       </div>
       <div class="hr-dots">
         <span class="hr-dot hr-dot-active"></span>
+        <span class="hr-dot"></span>
         <span class="hr-dot"></span>
       </div>
     `;
@@ -3563,14 +3578,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       section.querySelectorAll(".hr-dot").forEach((d, i) => d.classList.toggle("hr-dot-active", i === idx));
     }
 
+    const hrDurations = [5000, 10000, 3000];
     let hrSlide = 0;
     function hrStep() {
       if (!document.getElementById("home-ranks")) { state._hrankTimer = null; return; }
-      hrSlide = (hrSlide + 1) % 2;
+      hrSlide = (hrSlide + 1) % 3;
       hrGoTo(hrSlide);
-      state._hrankTimer = setTimeout(hrStep, hrSlide === 1 ? 10000 : 5000);
+      state._hrankTimer = setTimeout(hrStep, hrDurations[hrSlide]);
     }
-    state._hrankTimer = setTimeout(hrStep, 5000);
+    state._hrankTimer = setTimeout(hrStep, hrDurations[0]);
   }
 
   function renderProgressTop10(list, kind, limit) {
@@ -3750,6 +3766,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (emp) openProgressStudentPopup(emp, true /* pushStack */);
       });
     });
+    // 바디 내 동적 닫기 버튼 바인딩
+    modal.querySelector("#pg-full-modal-body").querySelectorAll("[data-pg-close]").forEach((el) => {
+      el.addEventListener("click", (e) => { e.stopPropagation(); closePgFullModal(); });
+      el.addEventListener("touchend", (e) => { e.stopPropagation(); e.preventDefault(); closePgFullModal(); }, { passive: false });
+    });
   }
 
   // 모달 닫기 — 스택에 이전 내용이 있으면 복원, 없으면 완전 닫기
@@ -3770,6 +3791,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const emp = el.dataset.emp;
           if (emp) openProgressStudentPopup(emp, true);
         });
+      });
+      // 복원된 바디의 동적 닫기 버튼 재바인딩
+      modal.querySelector("#pg-full-modal-body").querySelectorAll("[data-pg-close]").forEach((el) => {
+        el.addEventListener("click", (e) => { e.stopPropagation(); closePgFullModal(); });
+        el.addEventListener("touchend", (e) => { e.stopPropagation(); e.preventDefault(); closePgFullModal(); }, { passive: false });
       });
       return;
     }
@@ -5497,7 +5523,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260426h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
