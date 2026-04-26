@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.11";
+  const APP_VERSION = "1.12";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -5542,7 +5542,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
@@ -6009,6 +6009,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     }
 
+    // 연락처 자동 하이픈 포맷 (010-0000-0000)
+    const contactEl = document.getElementById("er-reporter-contact");
+    if (contactEl) {
+      contactEl.addEventListener("input", () => {
+        let v = contactEl.value.replace(/\D/g, "").slice(0, 11);
+        if (v.length > 7) v = v.slice(0, 3) + "-" + v.slice(3, 7) + "-" + v.slice(7);
+        else if (v.length > 3) v = v.slice(0, 3) + "-" + v.slice(3);
+        contactEl.value = v;
+      });
+    }
+
     const removeBtn = document.getElementById("er-remove-img");
     if (removeBtn) {
       removeBtn.addEventListener("click", () => {
@@ -6026,9 +6037,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const content = (document.getElementById("er-content")?.value || "").trim();
         const reporterName = (document.getElementById("er-reporter-name")?.value || "").trim();
         const reporterContact = (document.getElementById("er-reporter-contact")?.value || "").trim();
+        if (!title) { toast("오류 제목을 입력하세요.", "error"); return; }
         if (!content) { toast("오류 내용을 입력하세요.", "error"); return; }
         if (!reporterName) { toast("신고자 이름을 입력하세요.", "error"); return; }
-        if (!reporterContact) { toast("신고자 연락처를 입력하세요.", "error"); return; }
+        if (!/^\d{3}-\d{3,4}-\d{4}$/.test(reporterContact)) { toast("연락처를 010-0000-0000 형식으로 입력하세요.", "error"); return; }
         submitBtn.disabled = true;
         try {
           await window.DataAPI.addErrorReport({ title, content, reporterName, reporterContact, imageBase64: modal._imageBase64 || null });
@@ -6052,19 +6064,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function renderErrorReportsBoard() {
     const board = document.getElementById("error-reports-board");
     if (!board) return;
+    const delBtn = document.getElementById("btn-er-delete-sel");
     const list = state.errorReports || [];
     if (!list.length) {
       board.innerHTML = `<p class="settings-desc" style="color:#999;">접수된 오류신고가 없습니다.</p>`;
+      if (delBtn) delBtn.hidden = true;
       return;
     }
+    if (delBtn) delBtn.hidden = false;
+
     board.innerHTML = list.map((r) => {
       const dateStr = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ko-KR") : "—";
-      const resolved = r.resolved ? "er-item-resolved" : "";
-      const checkIcon = r.resolved ? "✅" : "⬜";
+      const resolvedCls = r.resolved ? "er-item-resolved" : "";
+      const badge = r.resolved
+        ? `<span class="er-confirmed-badge">확인</span>`
+        : `<span class="er-item-status" title="확인 처리">⬜</span>`;
       return `
-        <div class="er-item ${resolved}" data-erid="${escapeHtml(r.id)}">
+        <div class="er-item ${resolvedCls}" data-erid="${escapeHtml(r.id)}">
           <div class="er-item-head">
-            <span class="er-item-status" title="해결 여부 토글">${checkIcon}</span>
+            <input type="checkbox" class="er-item-chk" data-erid="${escapeHtml(r.id)}">
+            ${badge}
             <span class="er-item-date">${dateStr}</span>
             <span class="er-item-reporter">${escapeHtml(r.reporterName || "—")}</span>
             <span class="er-item-title">${escapeHtml(r.title || "(제목 없음)")}</span>
@@ -6079,7 +6098,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       `;
     }).join("");
 
-    // Toggle expand
+    // Toggle expand (제목/날짜 클릭)
     board.querySelectorAll(".er-item-title, .er-item-date").forEach((el) => {
       el.style.cursor = "pointer";
       el.addEventListener("click", () => {
@@ -6088,7 +6107,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
 
-    // Toggle resolved
+    // 확인 처리 토글 (⬜ 아이콘 클릭)
     board.querySelectorAll(".er-item-status").forEach((el) => {
       el.style.cursor = "pointer";
       el.addEventListener("click", async () => {
@@ -6101,7 +6120,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
 
-    // Print
+    // 인쇄
     board.querySelectorAll(".er-item-print").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -6110,6 +6129,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (rep) printErrorReport(rep);
       });
     });
+
+    // 선택 삭제 버튼
+    if (delBtn) {
+      delBtn.onclick = async () => {
+        const checked = [...board.querySelectorAll(".er-item-chk:checked")].map((el) => el.dataset.erid);
+        if (!checked.length) { toast("삭제할 항목을 선택하세요.", "error"); return; }
+        if (!confirm(`선택한 ${checked.length}건을 삭제합니다. 되돌릴 수 없습니다.`)) return;
+        delBtn.disabled = true;
+        try {
+          await Promise.all(checked.map((id) => window.DataAPI.deleteErrorReport(id)));
+          toast(`${checked.length}건 삭제 완료`, "success");
+        } catch (e) { toast("삭제 실패: " + e.message, "error"); }
+        finally { delBtn.disabled = false; }
+      };
+    }
   }
 
   function printErrorReport(rep) {

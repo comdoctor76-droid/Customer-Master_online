@@ -3640,14 +3640,22 @@ body {
 .er-image-preview img { max-width: 100%; max-height: 200px; border-radius: 6px; border: 1px solid var(--line-soft); object-fit: contain; }
 .er-remove-img { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55); color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
 
+/* 오류신고모음 헤더 */
+.er-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.er-section-head h3 { margin: 0; }
+.er-del-btn { color: var(--danger); border-color: var(--danger); }
+.er-del-btn:hover { background: var(--danger-bg); }
+
 /* 오류신고모음 보드 */
 .er-board { display: flex; flex-direction: column; gap: 6px; }
 .er-item { border: 1px solid var(--line-soft); border-radius: 8px; overflow: hidden; transition: border-color .15s; }
 .er-item:hover { border-color: var(--navy-2); }
-.er-item-resolved { background: #F5F5F5; opacity: .75; }
+.er-item-resolved { background: #F5F5F5; opacity: .85; }
 .er-item-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: default; background: #fff; }
 .er-item-resolved .er-item-head { background: #F5F5F5; }
+.er-item-chk { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--danger); }
 .er-item-status { font-size: 18px; flex-shrink: 0; }
+.er-confirmed-badge { flex-shrink: 0; background: var(--success-bg); color: var(--success); border: 1px solid #a5d6a7; border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .er-item-date { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
 .er-item-reporter { font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; }
 .er-item-title { flex: 1; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

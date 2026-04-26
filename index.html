@@ -138,7 +138,10 @@
         </div>
         <div class="settings-body">
           <div class="settings-section" id="error-reports-section">
-            <h3>📋 오류신고모음</h3>
+            <div class="er-section-head">
+              <h3>📋 오류신고모음</h3>
+              <button id="btn-er-delete-sel" class="btn-outline small er-del-btn" hidden>🗑 선택 삭제</button>
+            </div>
             <div id="error-reports-board" class="er-board">
               <p class="settings-desc" style="color:#999;">오류신고 내역을 불러오는 중...</p>
             </div>
@@ -460,8 +463,8 @@
       </div>
       <div class="modal-body">
         <div class="er-form">
-          <label class="er-field">오류 제목
-            <input type="text" id="er-title" class="er-input" placeholder="오류 제목 (선택)">
+          <label class="er-field">오류 제목 <span class="er-req">*</span>
+            <input type="text" id="er-title" class="er-input" placeholder="오류 제목을 입력하세요" required>
           </label>
           <label class="er-field">오류 내용 <span class="er-req">*</span>
             <textarea id="er-content" class="er-textarea" rows="4" placeholder="발생한 오류나 문제를 설명해주세요" required></textarea>
@@ -477,7 +480,7 @@
             <input type="text" id="er-reporter-name" class="er-input" placeholder="이름을 입력하세요" required>
           </label>
           <label class="er-field">신고자 연락처 <span class="er-req">*</span>
-            <input type="tel" id="er-reporter-contact" class="er-input" placeholder="연락처를 입력하세요" required>
+            <input type="tel" id="er-reporter-contact" class="er-input" placeholder="010-0000-0000" maxlength="13" required>
           </label>
         </div>
       </div>

@@ -470,6 +470,11 @@ window.DataAPI = {
   async updateErrorReport(id, data) {
     await setDoc(doc(db, "errorReports", id), data, { merge: true });
   },
+
+  // 오류신고 삭제
+  async deleteErrorReport(id) {
+    await deleteDoc(doc(db, "errorReports", id));
+  },
 };
 
 // 온라인/오프라인 상태 배지 제어
