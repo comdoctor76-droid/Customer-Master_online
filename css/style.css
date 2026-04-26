@@ -3742,19 +3742,22 @@ body {
 .home-ranks-section {
   margin-bottom: 16px;
 }
-.hr-clip {
-  overflow: hidden;
-  border-radius: 12px;
+/* 수직 슬라이드 — 위에서 내려오는 애니메이션 */
+.hr-slides { position: relative; }
+.hr-slide { width: 100%; }
+.hr-slide.hr-slide-hidden { display: none; }
+@keyframes hr-slide-down {
+  from { opacity: 0; transform: translateY(-18px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.hr-track {
-  display: flex;
-  transition: transform 0.5s cubic-bezier(.4,0,.2,1);
-  will-change: transform;
-}
-.hr-slide {
-  flex: 0 0 100%;
-  min-width: 0;
-}
+.hr-slide.hr-slide-enter { animation: hr-slide-down 0.45s cubic-bezier(.4,0,.2,1) forwards; }
+/* WORST 카드 스타일 */
+.hr-card-worst { opacity: 0.92; }
+.hr-card-worst.hr-rate { border-top-color: #e53935; background: #fff8f8; }
+.hr-card-worst.hr-amt  { border-top-color: #e53935; background: #fff8f8; }
+.hr-card-worst.hr-ipum { border-top-color: #e53935; background: #fff8f8; }
+.hr-card-worst.hr-group{ border-top-color: #e53935; background: #fff8f8; }
+.pg-rb.hr-rb-worst { background: #ef5350; color: #fff; }
 .hr-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -3824,6 +3827,4 @@ body {
   .hr-sub { display: none; }
   .hr-titles strong { font-size: 11px; }
   .hr-card { padding: 10px 8px; }
-  /* 전체 목록 슬라이드에서 4번째 이후 항목 숨김 */
-  .hr-slide:last-child .hr-list li:nth-child(n+4) { display: none; }
 }
