@@ -849,11 +849,26 @@ body {
   font-size: 10.5px;
 }
 
+/* 교육생 상세 정보 섹션 */
+.pg-si-section { margin-bottom: 14px; }
+.pg-si-head { font-size: 12px; font-weight: 800; color: var(--navy-2); text-transform: uppercase; letter-spacing: 0.4px; padding: 4px 0; margin-bottom: 6px; border-bottom: 1px solid var(--line-soft); }
+.pg-si-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.pg-si-row { display: flex; flex-direction: column; padding: 6px 8px; background: var(--bg-soft); border-radius: 6px; }
+.pg-si-label { font-size: 10px; color: var(--ink-3); font-weight: 700; margin-bottom: 2px; }
+.pg-si-val { font-size: 13px; font-weight: 700; color: var(--navy); word-break: break-all; }
+.pg-si-award { background: var(--orange-light); border-radius: 8px; padding: 10px 12px; border: 1px solid var(--orange-l); }
+.pg-si-award .pg-si-head { border-bottom-color: var(--orange-l); color: var(--orange-dark); }
+.pg-si-award-val { font-size: 17px; font-weight: 900; color: var(--orange); }
+@media (max-width: 480px) {
+  .pg-si-grid { grid-template-columns: 1fr; }
+}
+
 /* 실적진도 모달 하단 닫기/돌아가기 버튼 */
 .pg-full-modal .modal-foot {
   padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line-soft);
   display: flex;
+  gap: 8px;
   justify-content: center;
 }
 .pg-full-modal .modal-foot .btn-primary {
