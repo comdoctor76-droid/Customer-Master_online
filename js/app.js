@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.12";
+  const APP_VERSION = "1.13";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3687,8 +3687,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const rateC = st.rate >= 120 ? "#0040b0" : st.rate >= 100 ? "#006030" : st.rate >= 80 ? "#884400" : "#880000";
     const netC  = st.net > 0 ? "#0040b0" : st.net < 0 ? "#880000" : "#333";
     const initial = (s.name || "?").trim().charAt(0) || "?";
+    const targetDisp = Number(s.target) || (s.region !== "호남지역단" && st.base > 0 ? st.base + 50000 : 0);
+    function row(label, val) {
+      return `<div class="pg-si-row"><span class="pg-si-label">${label}</span><span class="pg-si-val">${val || "—"}</span></div>`;
+    }
     openPgFullModal({
-      title: `👤 ${escapeHtml(s.name || "")} 실적 상세`,
+      title: `👤 ${escapeHtml(s.name || "")} 교육생 정보`,
       subtitle: `${escapeHtml(s.region || "")} · ${escapeHtml(s.center || "")} · ${escapeHtml(s.branch || "")}`,
       bodyHTML: `
         <div class="pg-dm-id">
@@ -3699,23 +3703,65 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <span class="pg-dm-id-branch">🏢 ${escapeHtml(s.branch || "(미지정)")}</span>
               <span class="pg-dm-id-emp">사번 ${escapeHtml(s.empNo || "")}</span>
               ${s.cohort ? `<span class="pg-dm-id-cohort">${escapeHtml(s.cohort)}</span>` : ""}
-              ${s.team ? `<span class="pg-dm-id-team">${escapeHtml(s.team)}</span>` : ""}
+              ${s.team ? `<span class="pg-dm-id-team">${escapeHtml(String(s.team))}조</span>` : ""}
             </div>
           </div>
         </div>
-        <div class="pg-dm-grid">
-          <div class="pg-dm-cell"><div class="pg-dm-l">기준실적</div><div class="pg-dm-v">${Nf(st.base)}원</div></div>
-          ${st.hiCap ? `<div class="pg-dm-cell"><div class="pg-dm-l">장기하이캡</div><div class="pg-dm-v">${Nf(st.hiCap)}원</div></div>` : ""}
-          <div class="pg-dm-cell"><div class="pg-dm-l">현재실적</div><div class="pg-dm-v">${Nf(st.current)}원</div></div>
-          <div class="pg-dm-cell"><div class="pg-dm-l">달성률</div><div class="pg-dm-v" style="color:${rateC};">${st.rate.toFixed(1)}%</div></div>
-          <div class="pg-dm-cell"><div class="pg-dm-l">순증</div><div class="pg-dm-v" style="color:${netC};">${st.net >= 0 ? "+" : ""}${Nf(st.net)}원</div></div>
-          <div class="pg-dm-cell pg-dm-wide"><div class="pg-dm-l">🏆 예상 시상</div><div class="pg-dm-v" style="color:var(--orange);">${awdText}</div></div>
-          ${st.ipumAmt ? `<div class="pg-dm-cell pg-dm-wide"><div class="pg-dm-l">✨ 인품 (신상품)</div><div class="pg-dm-v">${st.ipumCount}건 · ${Nf(st.ipumAmt)}원</div></div>` : ""}
+
+        <div class="pg-si-section">
+          <div class="pg-si-head">📋 기본 정보</div>
+          <div class="pg-si-grid">
+            ${row("사번", escapeHtml(s.empNo || ""))}
+            ${row("성명", escapeHtml(s.name || ""))}
+            ${row("연락처", escapeHtml(s.phone || ""))}
+            ${row("기수", escapeHtml(s.cohort || ""))}
+            ${row("지역단", escapeHtml(s.region || ""))}
+            ${row("비전센터", escapeHtml(s.center || ""))}
+            ${row("지점", escapeHtml(s.branch || ""))}
+            ${row("조편성", s.team ? `${escapeHtml(String(s.team))}조` : "")}
+          </div>
+        </div>
+
+        <div class="pg-si-section">
+          <div class="pg-si-head">🎯 실적 목표</div>
+          <div class="pg-si-grid">
+            ${row("기준실적", `${Nf(st.base)}원`)}
+            ${row("마스터목표", targetDisp ? `${Nf(targetDisp)}원` : "")}
+            ${row("아너스목표", Number(s.honors) ? `${Nf(Number(s.honors))}원` : "")}
+            ${st.hiCap ? row("장기하이캡", `${Nf(st.hiCap)}원`) : ""}
+          </div>
+        </div>
+
+        <div class="pg-si-section">
+          <div class="pg-si-head">📊 현재 실적</div>
+          <div class="pg-si-grid">
+            ${row("현재실적", `${Nf(st.current)}원`)}
+            ${row("달성률", `<span style="color:${rateC};font-weight:700">${st.base > 0 ? st.rate.toFixed(1) + "%" : "—"}</span>`)}
+            ${row("순증", `<span style="color:${netC};font-weight:700">${st.net >= 0 ? "+" : ""}${Nf(st.net)}원</span>`)}
+            ${st.ipumAmt ? row("인품(신상품)", `${st.ipumCount}건 · ${Nf(st.ipumAmt)}원`) : ""}
+          </div>
+        </div>
+
+        <div class="pg-si-section pg-si-award">
+          <div class="pg-si-head">🏆 예상 시상</div>
+          <div class="pg-si-award-val">${awdText}</div>
         </div>
       `,
-      closeLabel: pushStack ? "← TOP10 으로" : "← 돌아가기",
+      closeLabel: pushStack ? "← 목록으로" : "← 돌아가기",
       pushStack: !!pushStack
     });
+    // 면담관리 버튼 설정
+    const pgModal = document.getElementById("modal-pg-full");
+    const extraBtn = pgModal && pgModal.querySelector("#pg-full-modal-extra");
+    if (extraBtn) {
+      extraBtn.textContent = "📝 면담관리";
+      extraBtn.hidden = false;
+      extraBtn.onclick = () => {
+        pgModal.hidden = true;
+        selectStudent(s.empNo);
+        switchView("#students");
+      };
+    }
   }
 
   // 재사용 가능한 풀스크린 실적진도 모달
@@ -3740,6 +3786,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </div>
           <div class="modal-body pg-full-modal-body" id="pg-full-modal-body"></div>
           <div class="modal-foot">
+            <button class="btn-outline" id="pg-full-modal-extra" hidden></button>
             <button class="btn-primary" id="pg-full-modal-close" data-pg-close>닫기</button>
           </div>
         </div>
@@ -3776,6 +3823,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     modal.querySelector("#pg-full-modal-body").innerHTML = bodyHTML || "";
     const closeBtn = modal.querySelector("#pg-full-modal-close");
     if (closeBtn) closeBtn.textContent = closeLabel || "닫기";
+    // extra 버튼 항상 리셋 (각 호출처에서 직접 설정)
+    const extraBtn = modal.querySelector("#pg-full-modal-extra");
+    if (extraBtn) { extraBtn.hidden = true; extraBtn.onclick = null; extraBtn.textContent = ""; }
     modal.hidden = false;
     // 모달 바디의 이름 클릭 → 교육생 상세 팝업(스택 push)
     modal.querySelectorAll(".pg-tr-click, .pg-pcard-row[data-emp]").forEach((el) => {
@@ -3803,6 +3853,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       modal.querySelector("#pg-full-modal-body").innerHTML = prev.bodyHTML || "";
       const closeBtn = modal.querySelector("#pg-full-modal-close");
       if (closeBtn) closeBtn.textContent = prev.closeLabel || "닫기";
+      // 스택 복원 시 extra 버튼 숨김
+      const extraBtn2 = modal.querySelector("#pg-full-modal-extra");
+      if (extraBtn2) { extraBtn2.hidden = true; extraBtn2.onclick = null; extraBtn2.textContent = ""; }
       // 복원된 바디의 이름 클릭 재바인딩
       modal.querySelectorAll(".pg-tr-click, .pg-pcard-row[data-emp]").forEach((el) => {
         el.addEventListener("click", (ev) => {
@@ -5542,7 +5595,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
