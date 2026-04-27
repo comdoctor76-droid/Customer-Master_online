@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.13";
+  const APP_VERSION = "1.14";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3713,7 +3713,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="pg-si-grid">
             ${row("사번", escapeHtml(s.empNo || ""))}
             ${row("성명", escapeHtml(s.name || ""))}
-            ${row("연락처", escapeHtml(s.phone || ""))}
+            ${s.phone ? row("연락처", `<a href="tel:${escapeHtml(s.phone)}" class="pg-si-phone-link">${escapeHtml(s.phone)}</a>`) : row("연락처", "")}
             ${row("기수", escapeHtml(s.cohort || ""))}
             ${row("지역단", escapeHtml(s.region || ""))}
             ${row("비전센터", escapeHtml(s.center || ""))}
@@ -3775,7 +3775,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       modal.hidden = true;
       state._pgModalStack = [];
       modal.innerHTML = `
-        <div class="modal-backdrop" data-pg-close></div>
+        <div class="modal-backdrop"></div>
         <div class="modal-panel pg-full-modal-panel">
           <div class="modal-head pg-full-modal-head">
             <div class="pg-full-modal-titles">
@@ -3793,16 +3793,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       `;
       document.body.appendChild(modal);
 
-      // 닫기 요소(백드롭, ×, 하단 버튼) — click + touchend for mobile
+      // 닫기 요소(×, 하단 버튼) — click + touchend for mobile (백드롭 클릭 닫기 제거)
       modal.querySelectorAll("[data-pg-close]").forEach((el) => {
         el.addEventListener("click", (e) => { e.stopPropagation(); closePgFullModal(); });
         el.addEventListener("touchend", (e) => { e.stopPropagation(); e.preventDefault(); closePgFullModal(); }, { passive: false });
-      });
-
-      // 패널 내부의 빈 공간(인터랙티브 요소 제외) 탭 시에도 닫기
-      modal.querySelector(".modal-panel").addEventListener("click", (e) => {
-        if (e.target.closest(".pg-tr-click, .pg-pcard-row, .modal-close, button, a, input, textarea, select, .pg-rb, .pg-pcard-prize, .pg-pcard-chev")) return;
-        closePgFullModal();
       });
     }
     // 현재 모달이 이미 열려 있고 pushStack 옵션이면 기존 상태를 스택에 저장
@@ -5595,7 +5589,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
