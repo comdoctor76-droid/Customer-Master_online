@@ -127,7 +127,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.23";
+  const APP_VERSION = "1.24";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -5791,7 +5791,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -5847,15 +5847,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     el.innerHTML = sorted.map((it, i) => {
       const rate = it.payRate || "full";
       const optHtml = rateOpts.map((o) => `<option value="${o.v}"${rate === o.v ? " selected" : ""}>${o.t}</option>`).join("");
-      return `<div class="ap-row ap-row-compact" data-i="${i}">
-        <span class="ap-row-prefix">순증</span>
-        <input type="number" class="pg-input ap-pi-crit" value="${escapeHtml(String(it.critVal))}" min="0" step="10" style="width:52px;">
-        <span class="ap-row-suffix">만↑</span>
-        <span class="ap-row-arrow">→</span>
-        <input type="number" class="pg-input ap-pi-pay" value="${escapeHtml(String(it.payVal))}" min="0" step="1" style="width:52px;">
-        <button type="button" class="ap-toggle-btn ap-pi-type" data-val="${escapeHtml(it.payType)}">${it.payType === "pct" ? "%" : "만"}</button>
-        <select class="pg-input ap-pi-payrate">${optHtml}</select>
-        <button type="button" class="ap-del-btn" title="삭제">✕</button>
+      return `<div class="ap-pi-card" data-i="${i}">
+        <div class="ap-pi-row">
+          <span class="ap-pi-lbl">순증</span>
+          <input type="number" class="pg-input ap-pi-crit" value="${escapeHtml(String(it.critVal))}" min="0" step="10" style="flex:1;min-width:0;">
+          <span class="ap-pi-unit">만↑</span>
+        </div>
+        <div class="ap-pi-row">
+          <span class="ap-pi-lbl">시상</span>
+          <input type="number" class="pg-input ap-pi-pay" value="${escapeHtml(String(it.payVal))}" min="0" step="1" style="flex:1;min-width:0;">
+          <button type="button" class="ap-toggle-btn ap-pi-type ap-pi-type-sm" data-val="${escapeHtml(it.payType)}">${it.payType === "pct" ? "%" : "만"}</button>
+        </div>
+        <div class="ap-pi-footer">
+          <select class="pg-input ap-pi-payrate">${optHtml}</select>
+          <button type="button" class="ap-del-btn" title="삭제">✕</button>
+        </div>
       </div>`;
     }).join("");
   }
@@ -5924,11 +5930,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function _apCollect() {
     // Personal increment items
     const piItems = [];
-    document.querySelectorAll("#ap-pi-list .ap-row").forEach((row) => {
-      const crit = Number(row.querySelector(".ap-pi-crit").value) || 0;
-      const pay  = Number(row.querySelector(".ap-pi-pay").value)  || 0;
-      const typ  = row.querySelector(".ap-pi-type").dataset.val;
-      const rate = row.querySelector(".ap-pi-payrate")?.value || "full";
+    document.querySelectorAll("#ap-pi-list .ap-pi-card").forEach((card) => {
+      const crit = Number(card.querySelector(".ap-pi-crit").value) || 0;
+      const pay  = Number(card.querySelector(".ap-pi-pay").value)  || 0;
+      const typ  = card.querySelector(".ap-pi-type").dataset.val;
+      const rate = card.querySelector(".ap-pi-payrate")?.value || "full";
       piItems.push({ critVal: crit, payType: typ, payVal: pay, payRate: rate });
     });
     const topPayouts = (slot) => {
@@ -5996,7 +6002,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       // 삭제 버튼
       const del = e.target.closest(".ap-del-btn");
       if (del) {
-        const row = del.closest(".ap-row");
+        const row = del.closest(".ap-row, .ap-pi-card");
         if (row) row.remove();
       }
     });
