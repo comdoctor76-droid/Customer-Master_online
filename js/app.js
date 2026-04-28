@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.17";
+  const APP_VERSION = "1.18";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -241,7 +241,7 @@
     $("#kpi-base").textContent = sum("base").toLocaleString();
     $("#kpi-target").textContent = sum("target").toLocaleString();
     $("#kpi-honors").textContent = sum("honors").toLocaleString();
-    $("#mini-total").textContent = state.students.length;
+    $("#mini-total").textContent = list.length;
     const ptRegion = document.getElementById("page-title-region");
     if (ptRegion) ptRegion.textContent = state.filter.region ? ` — ${state.filter.region}` : "";
   }
@@ -3407,12 +3407,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     section.hidden = false;
     if (mainKpi) mainKpi.style.display = "none";
 
-    // 같은 지역단으로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
-    if (state._hrankTimer && section.dataset.hrRegion === region && section.querySelector(".hr-slide")) return;
+    const cohort = state.filter.cohort || "";
+
+    // 같은 지역단+기수로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
+    if (state._hrankTimer && section.dataset.hrRegion === region && section.dataset.hrCohort === cohort && section.querySelector(".hr-slide")) return;
     if (state._hrankTimer) { clearTimeout(state._hrankTimer); state._hrankTimer = null; }
     section.dataset.hrRegion = region;
+    section.dataset.hrCohort = cohort;
 
-    const list = state.students.filter((s) => s.region === region);
+    const list = state.students.filter((s) => s.region === region && (!cohort || s.cohort === cohort));
     if (!list.length) { section.innerHTML = ""; return; }
 
     const stats = list.map(getProgressStat);
@@ -5607,7 +5610,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
