@@ -3,10 +3,43 @@
 (function () {
   const LS_KEY = "cmf.filter.v1";
   const LS_DEFAULTS_KEY = "cmf.masterTargetDefaults.v1";
+  const LS_AWARD_PLANS_KEY = "cmf.awardPlans.v1";
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
+
+  const DEFAULT_AWARD_PLAN = {
+    title: "2026년 고객컨설팅 마스터과정 활성화 시상안",
+    tiers: [
+      { condition: "순증 5만원↑",  payout: "5만원 지급" },
+      { condition: "순증 10만원↑", payout: "10만원 지급" },
+      { condition: "순증 20만원↑", payout: "20만원 지급" },
+      { condition: "순증 30만원↑", payout: "120% 지급" },
+      { condition: "순증 50만원↑", payout: "150% 지급" }
+    ],
+    rateTop10: "<strong>📈 신장률 TOP10:</strong> 1위 30만원 / 2~3위 20만원 / 4~10위 주유권 5만원",
+    amtTop10: "<strong>💰 신장액 TOP10:</strong> 1위 50만원 / 2~3위 30만원 / 4~10위 주유권 10만원",
+    criteria: "⚠️ 개인 시상 기준조건 : 기준 인보험 실적 대비 <strong>순증 30만원 이상</strong> 달성자에 한함",
+    duplicate: "※ 신장률·신장액 TOP10 중복시상 없음 — 두 항목 모두 해당 시 높은 시상금 1회 지급 (동점이면 순위 높은 곳)",
+    exclusion: "※ 환산실적 80만원 미만 시상제외 | 합산 하이캡 배수 15 미만시 50% 지급"
+  };
+
+  function getAwardPlan(region) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+      const saved = stored[region] || {};
+      return { ...DEFAULT_AWARD_PLAN, ...saved, tiers: saved.tiers || DEFAULT_AWARD_PLAN.tiers };
+    } catch { return { ...DEFAULT_AWARD_PLAN, tiers: [...DEFAULT_AWARD_PLAN.tiers] }; }
+  }
+
+  function saveAwardPlan(region, plan) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+      stored[region] = plan;
+      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
+    } catch (e) { console.error("[AwardPlan] save error:", e); }
+  }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.19";
+  const APP_VERSION = "1.20";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3283,21 +3316,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     };
 
     // 시상안 박스 + KPI 영역
+    const _plan = getAwardPlan(state.progressRegion);
+    const _tiersHtml = (_plan.tiers || DEFAULT_AWARD_PLAN.tiers).map((t) =>
+      `<div class="pg-tier"><div class="pg-tc">${escapeHtml(t.condition)}</div><div class="pg-tn">${escapeHtml(t.payout)}</div></div>`
+    ).join("");
     return `
       <div class="pg-wrap">
         <div class="pg-award-box">
-          <h3>📋 ${escapeHtml(state.progressRegion)} 고객마스터 활성화 시상안</h3>
-          <div class="pg-tier-row">
-            <div class="pg-tier"><div class="pg-tc">순증 5만원↑</div><div class="pg-tn">5만원</div></div>
-            <div class="pg-tier"><div class="pg-tc">순증 10만원↑</div><div class="pg-tn">10만원</div></div>
-            <div class="pg-tier"><div class="pg-tc">순증 20만원↑</div><div class="pg-tn">20만원</div></div>
-            <div class="pg-tier"><div class="pg-tc">순증 30만원↑</div><div class="pg-tn">120%</div></div>
-            <div class="pg-tier"><div class="pg-tc">순증 50만원↑</div><div class="pg-tn">150%</div></div>
-          </div>
-          <div class="pg-an"><strong>📈 신장률 TOP10:</strong> 1위 30만 / 2~3위 20만 / 4~10위 주유권 5만</div>
-          <div class="pg-an"><strong>💰 신장액 TOP10:</strong> 1위 50만 / 2~3위 30만 / 4~10위 주유권 10만</div>
-          <div class="pg-an-crit">⚠️ 개인 시상 기준: 기준실적 대비 <strong>순증 30만원 이상</strong> 달성자</div>
-          <div class="pg-an-warn">※ 신장률·신장액 중복시상 없음 — 신장액 TOP2 적용 시 신장률에서 제외</div>
+          <h3>📋 ${escapeHtml(state.progressRegion)} 고객컨설팅 마스터과정 활성화 시상안</h3>
+          ${_plan.title ? `<div class="pg-award-subtitle">${escapeHtml(_plan.title)}</div>` : ""}
+          <div class="pg-tier-row">${_tiersHtml}</div>
+          ${_plan.rateTop10 ? `<div class="pg-an">${_plan.rateTop10}</div>` : ""}
+          ${_plan.amtTop10 ? `<div class="pg-an">${_plan.amtTop10}</div>` : ""}
+          ${_plan.criteria ? `<div class="pg-an-crit">${_plan.criteria}</div>` : ""}
+          ${_plan.duplicate ? `<div class="pg-an-warn">${_plan.duplicate}</div>` : ""}
+          ${_plan.exclusion ? `<div class="pg-an-warn">${_plan.exclusion}</div>` : ""}
         </div>
 
         <div class="pg-kpi-card">
@@ -5613,10 +5646,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
+    $("#btn-open-award-plan")?.addEventListener("click", openAwardPlanModal);
+    bindAwardPlanModal();
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
     $("#btn-go-progress-admin")?.addEventListener("click", () => {
       switchView("#progress");
@@ -5640,6 +5675,69 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
     const sdDelete = $("#btn-sd-delete");
     if (sdDelete) sdDelete.addEventListener("click", doStudentsDeleteFromModal);
+  }
+
+  // ========== 시상안 편집 ==========
+  function openAwardPlanModal() {
+    const modal = document.getElementById("modal-award-plan");
+    const regionSelect = document.getElementById("award-plan-region");
+    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    const current = state.progressRegion || state.filter.region || (regions[0] || "");
+    regionSelect.innerHTML = regions.map((r) =>
+      `<option value="${escapeHtml(r)}"${r === current ? " selected" : ""}>${escapeHtml(r)}</option>`
+    ).join("");
+    loadAwardPlanForm(current);
+    regionSelect.onchange = () => loadAwardPlanForm(regionSelect.value);
+    openModal("#modal-award-plan");
+  }
+
+  function loadAwardPlanForm(region) {
+    const plan = region ? getAwardPlan(region) : { ...DEFAULT_AWARD_PLAN, tiers: [...DEFAULT_AWARD_PLAN.tiers] };
+    document.getElementById("ap-title").value = plan.title || "";
+    document.getElementById("ap-rate-top10").value = plan.rateTop10 || "";
+    document.getElementById("ap-amt-top10").value = plan.amtTop10 || "";
+    document.getElementById("ap-criteria").value = plan.criteria || "";
+    document.getElementById("ap-duplicate").value = plan.duplicate || "";
+    document.getElementById("ap-exclusion").value = plan.exclusion || "";
+    const tiersEl = document.getElementById("ap-tiers");
+    const tiers = (plan.tiers && plan.tiers.length) ? plan.tiers : DEFAULT_AWARD_PLAN.tiers;
+    tiersEl.innerHTML = tiers.map((t, i) => `
+      <div class="ap-tier-row">
+        <input type="text" class="pg-input ap-tier-cond" data-idx="${i}" value="${escapeHtml(t.condition)}" placeholder="조건 예) 순증 5만원↑">
+        <input type="text" class="pg-input ap-tier-pay" data-idx="${i}" value="${escapeHtml(t.payout)}" placeholder="지급 예) 5만원 지급">
+      </div>`).join("");
+  }
+
+  function bindAwardPlanModal() {
+    document.getElementById("btn-award-plan-save")?.addEventListener("click", () => {
+      const region = document.getElementById("award-plan-region").value;
+      const tiers = [];
+      const condInputs = document.querySelectorAll("#ap-tiers .ap-tier-cond");
+      condInputs.forEach((inp) => {
+        const i = inp.dataset.idx;
+        const payInp = document.querySelector(`#ap-tiers .ap-tier-pay[data-idx="${i}"]`);
+        tiers.push({ condition: inp.value.trim(), payout: payInp ? payInp.value.trim() : "" });
+      });
+      const plan = {
+        title: document.getElementById("ap-title").value.trim(),
+        tiers,
+        rateTop10: document.getElementById("ap-rate-top10").value.trim(),
+        amtTop10: document.getElementById("ap-amt-top10").value.trim(),
+        criteria: document.getElementById("ap-criteria").value.trim(),
+        duplicate: document.getElementById("ap-duplicate").value.trim(),
+        exclusion: document.getElementById("ap-exclusion").value.trim()
+      };
+      saveAwardPlan(region, plan);
+      toast(`${region} 시상안 저장 완료`, "success");
+      if (state.progressRegion === region) renderProgressPanel();
+    });
+    document.getElementById("btn-award-plan-reset")?.addEventListener("click", () => {
+      if (!confirm("시상안을 기본값으로 초기화합니까?")) return;
+      loadAwardPlanForm(null);
+    });
+    document.getElementById("btn-award-plan-close")?.addEventListener("click", () => {
+      document.getElementById("modal-award-plan").hidden = true;
+    });
   }
 
   // ========== 설정 ==========
