@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.18";
+  const APP_VERSION = "1.19";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -243,7 +243,11 @@
     $("#kpi-honors").textContent = sum("honors").toLocaleString();
     $("#mini-total").textContent = list.length;
     const ptRegion = document.getElementById("page-title-region");
-    if (ptRegion) ptRegion.textContent = state.filter.region ? ` — ${state.filter.region}` : "";
+    if (ptRegion) {
+      const r = state.filter.region;
+      const c = state.filter.cohort;
+      ptRegion.textContent = r ? ` — ${r} ${c || "전체"}` : "";
+    }
   }
 
   // 사이드바 지점별 교육생 명단 — 클릭하면 면담관리 패널로 이동
@@ -5030,16 +5034,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const zeroTargetCount = state.students.filter((s) => !s.target || Number(s.target) === 0).length;
     const nonHonamCount = state.students.filter((s) => s.region && s.region !== "호남지역단").length;
     container.innerHTML = `
-      <table class="settings-info" style="width:auto;margin-bottom:8px;">
-        <thead><tr><th style="min-width:120px;">지역단</th><th>마스터목표 기본값</th></tr></thead>
-        <tbody>${regions.map((r) => {
-          const val = stored[r] !== undefined ? stored[r] : DEFAULT_MASTER_TARGET;
-          return `<tr>
-            <td>${escapeHtml(r)}</td>
-            <td><input type="number" class="settings-target-input" data-region="${escapeHtml(r)}" value="${val}" min="0" step="1000" style="width:120px;"> 원</td>
-          </tr>`;
-        }).join("")}</tbody>
-      </table>
+      <div class="settings-defaults-grid">${regions.map((r) => {
+        const val = stored[r] !== undefined ? stored[r] : DEFAULT_MASTER_TARGET;
+        return `<div class="settings-defaults-item">
+          <span class="settings-defaults-label">${escapeHtml(r)}</span>
+          <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+            <input type="number" class="settings-target-input" data-region="${escapeHtml(r)}" value="${val}" min="0" step="1000" style="width:100px;text-align:right;"> 원
+          </span>
+        </div>`;
+      }).join("")}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn-primary small" id="btn-save-default-targets">💾 지역단별 기본값 저장</button>
         <button class="btn-outline small" id="btn-bulk-set-target">🔄 마스터목표 일괄 적용 (평균실적+20만원, ${zeroTargetCount}명 대상)</button>
@@ -5610,12 +5613,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
-    $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
-    $("#btn-export-json-all").addEventListener("click", () => exportJSON(state.students, "all"));
+    $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
+    $("#btn-go-progress-admin")?.addEventListener("click", () => {
+      switchView("#progress");
+      state.progressSubTab = "admin";
+      document.querySelectorAll("#progress-panel .sub-tab").forEach((b) =>
+        b.classList.toggle("active", b.dataset.psub === "admin")
+      );
+      renderProgressPanel();
+    });
     $("#file-import-json").addEventListener("change", onImportJSONFile);
     $("#btn-delete-filtered").addEventListener("click", onDeleteFiltered);
     const openSdBtn = $("#btn-open-student-delete");
@@ -5633,11 +5643,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   // ========== 설정 ==========
-  function exportJSON(list, scope) {
+  function exportJSONForRegion(list, regionLabel) {
     if (!list.length) { toast("내보낼 데이터가 없습니다.", "error"); return; }
+    const now = new Date();
+    const dateStr = String(now.getFullYear()) +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      String(now.getDate()).padStart(2, "0") +
+      String(now.getHours()).padStart(2, "0") +
+      String(now.getMinutes()).padStart(2, "0") +
+      String(now.getSeconds()).padStart(2, "0");
+    const filename = `${regionLabel}_${dateStr}_backup.json`;
     const payload = {
-      exportedAt: new Date().toISOString(),
-      scope,
+      exportedAt: now.toISOString(),
+      region: regionLabel,
       count: list.length,
       students: list.map((s) => ({
         region: s.region || "", center: s.center || "", branch: s.branch || "",
@@ -5650,10 +5668,112 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `students_${scope}_${new Date().toISOString().slice(0,10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    toast(`${list.length}건 JSON 내보내기 완료.`, "success");
+    toast(`${list.length}건 백업 완료: ${filename}`, "success");
+  }
+
+  function openBackupModal() {
+    const modal = document.getElementById("modal-backup");
+    const body = document.getElementById("backup-modal-body");
+    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="backup-row backup-row-all">
+          <span style="font-weight:800;">📦 전체 (${state.students.length}명)</span>
+          <button class="btn-primary small" data-br="전체">전체 백업</button>
+        </div>
+        ${regions.map((r) => {
+          const cnt = state.students.filter((s) => s.region === r).length;
+          return `<div class="backup-row">
+            <span>${escapeHtml(r)} <small style="color:var(--ink-3);">(${cnt}명)</small></span>
+            <button class="btn-outline small" data-br="${escapeHtml(r)}">백업</button>
+          </div>`;
+        }).join("")}
+      </div>`;
+    body.querySelectorAll("[data-br]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const region = btn.dataset.br;
+        const list = region === "전체" ? state.students : state.students.filter((s) => s.region === region);
+        exportJSONForRegion(list, region);
+      });
+    });
+    openModal("#modal-backup");
+  }
+
+  function showRestoreConfirm(arr, detectedRegion) {
+    const modal = document.getElementById("modal-restore-confirm");
+    const msgEl = document.getElementById("restore-confirm-msg");
+    const regionWrap = document.getElementById("restore-region-select-wrap");
+    const regionSelect = document.getElementById("restore-region-select");
+    const yesBtn = document.getElementById("btn-restore-yes");
+    const noBtn = document.getElementById("btn-restore-no");
+    const cancelBtn = document.getElementById("btn-restore-cancel");
+
+    let pendingRegion = detectedRegion;
+
+    const populateRegionSelect = () => {
+      const regions = ["전체", ...[...new Set(state.students.map((s) => s.region).filter(Boolean))].sort()];
+      regionSelect.innerHTML = regions.map((r) => `<option value="${r}">${r}</option>`).join("");
+      if (pendingRegion && regions.includes(pendingRegion)) regionSelect.value = pendingRegion;
+    };
+
+    if (detectedRegion) {
+      msgEl.textContent = `"${detectedRegion}"으로 ${arr.length}건 복원하시겠습니까?`;
+      regionWrap.hidden = true;
+      noBtn.hidden = false;
+      yesBtn.textContent = "예, 복원합니다";
+    } else {
+      msgEl.textContent = `${arr.length}건의 교육생 데이터를 복원합니다. 복원할 지역단을 선택하세요.`;
+      populateRegionSelect();
+      regionWrap.hidden = false;
+      noBtn.hidden = true;
+      yesBtn.textContent = "선택한 지역단으로 복원";
+    }
+
+    modal.hidden = false;
+
+    yesBtn.onclick = async () => {
+      const target = regionWrap.hidden ? (pendingRegion || "전체") : regionSelect.value;
+      modal.hidden = true;
+      await doRestore(arr, target);
+    };
+
+    noBtn.onclick = () => {
+      msgEl.textContent = `${arr.length}건의 교육생 데이터를 복원합니다. 복원할 지역단을 선택하세요.`;
+      populateRegionSelect();
+      regionWrap.hidden = false;
+      noBtn.hidden = true;
+      yesBtn.textContent = "선택한 지역단으로 복원";
+    };
+
+    cancelBtn.onclick = () => { modal.hidden = true; };
+  }
+
+  async function doRestore(arr, targetRegion) {
+    const backupList = (targetRegion && targetRegion !== "전체")
+      ? state.students.filter((s) => s.region === targetRegion)
+      : state.students;
+    toast("만약을 위해 백업 파일을 만듭니다.", "");
+    await new Promise((r) => setTimeout(r, 600));
+    exportJSONForRegion(backupList, targetRegion || "전체");
+    await new Promise((r) => setTimeout(r, 800));
+    try {
+      if (typeof window.DataAPI.saveMany === "function") {
+        const { committed, errors } = await window.DataAPI.saveMany(arr);
+        toast(`${committed}건 복원 완료${errors.length ? ` / ${errors.length}건 실패` : ""}`, errors.length ? "error" : "success");
+      } else {
+        let ok = 0, fail = 0;
+        for (const s of arr) {
+          try { await window.DataAPI.save(s); ok++; } catch { fail++; }
+        }
+        toast(`${ok}건 복원, ${fail}건 실패`, fail ? "error" : "success");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("복원 실패: " + err.message, "error");
+    }
   }
 
   async function onImportJSONFile(e) {
@@ -5665,20 +5785,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const data = JSON.parse(text);
       const arr = Array.isArray(data) ? data : (Array.isArray(data.students) ? data.students : null);
       if (!arr || !arr.length) { toast("유효한 students 배열이 없습니다.", "error"); return; }
-      if (!confirm(`${arr.length}건의 교육생 데이터를 복원합니다. 동일 사번은 merge 됩니다. 진행할까요?`)) return;
-      if (typeof window.DataAPI.saveMany === "function") {
-        const { committed, errors } = await window.DataAPI.saveMany(arr);
-        toast(`${committed}건 복원 완료${errors.length ? ` / ${errors.length}건 실패` : ""}`, errors.length ? "error" : "success");
-      } else {
-        let ok = 0, fail = 0;
-        for (const s of arr) {
-          try { await window.DataAPI.save(s); ok++; } catch (err) { fail++; }
-        }
-        toast(`${ok}건 복원, ${fail}건 실패`, fail ? "error" : "success");
-      }
+      // 파일명에서 지역단 자동 감지: "지역단명_YYYYMMDDHHMMSS_backup.json"
+      const match = file.name.match(/^(.+?)_\d{8,14}_backup\.json$/i);
+      const detectedRegion = match ? match[1] : null;
+      showRestoreConfirm(arr, detectedRegion);
     } catch (err) {
       console.error(err);
-      toast("복원 실패: " + err.message, "error");
+      toast("파일 파싱 실패: " + err.message, "error");
     }
   }
 

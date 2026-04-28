@@ -3312,6 +3312,38 @@ body {
 /* ============ 설정 패널 ============ */
 #settings-panel { margin-bottom: 20px; }
 .settings-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.settings-defaults-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.settings-defaults-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  gap: 8px;
+  white-space: nowrap;
+}
+.settings-defaults-label { font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.backup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-radius: 8px;
+  gap: 8px;
+  font-size: 13px;
+}
+.backup-row-all { background: var(--orange-light); border: 1px solid var(--orange-l); }
+@media (max-width: 768px) {
+  .settings-defaults-grid { grid-template-columns: 1fr; }
+}
 .settings-section {
   padding: 14px 16px;
   background: var(--bg-soft);

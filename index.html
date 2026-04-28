@@ -80,6 +80,7 @@
               <option value="3기">3기</option>
               <option value="4기">4기</option>
               <option value="5기">5기</option>
+              <option value="6기">6기</option>
             </select>
           </label>
           <label class="side-field">&nbsp;
@@ -148,17 +149,24 @@
           </div>
 
           <div class="settings-section">
-            <h3>데이터 백업</h3>
-            <p class="settings-desc">현재 필터 기준 교육생 데이터를 JSON 파일로 내보냅니다.</p>
+            <h3>실적관리</h3>
+            <p class="settings-desc">실적 데이터 입력, 팀 배정, 시상 현황을 관리합니다.</p>
             <div class="settings-actions">
-              <button class="btn-outline" id="btn-export-json">📦 JSON 내보내기 (현재 필터)</button>
-              <button class="btn-outline" id="btn-export-json-all">📦 전체 JSON 내보내기</button>
+              <button class="btn-outline" id="btn-go-progress-admin">⚙️ 실적관리 열기</button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>데이터 백업</h3>
+            <p class="settings-desc">지역단별 또는 전체 교육생 데이터를 JSON 파일로 백업합니다.</p>
+            <div class="settings-actions">
+              <button class="btn-outline" id="btn-open-backup-modal">📦 데이터 백업</button>
             </div>
           </div>
 
           <div class="settings-section">
             <h3>데이터 복원</h3>
-            <p class="settings-desc">백업한 JSON 파일을 업로드하여 교육생 데이터를 일괄 복원합니다. (기존 동일 사번은 merge 됩니다)</p>
+            <p class="settings-desc">백업한 JSON 파일을 업로드하여 교육생 데이터를 복원합니다. 복원 전 현재 데이터를 자동 백업합니다.</p>
             <div class="settings-actions">
               <input type="file" id="file-import-json" accept=".json" hidden>
               <button class="btn-outline" id="btn-import-json">📥 JSON 파일에서 복원</button>
@@ -210,7 +218,6 @@
             <span class="pg-region-tag">🏢 <span id="progress-region-label">지역단 미선택</span></span>
             <div class="sub-tabs">
               <button class="sub-tab active" data-psub="home">🏠 홈</button>
-              <button class="sub-tab" data-psub="admin">⚙️ 실적관리</button>
             </div>
           </div>
         </div>
@@ -285,6 +292,7 @@
                 <option>3기</option>
                 <option>4기</option>
                 <option>5기</option>
+                <option>6기</option>
               </select>
             </label>
             <label>사번 <span class="req">*</span>
@@ -487,6 +495,42 @@
       <div class="modal-foot">
         <button class="btn-primary" id="btn-er-submit">💾 저장</button>
         <button class="btn-outline" data-close>취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터 백업 모달 -->
+  <div id="modal-backup" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" style="max-width:480px;">
+      <div class="modal-head">
+        <h2>📦 데이터 백업</h2>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body" id="backup-modal-body" style="padding:16px;max-height:70vh;overflow-y:auto;">
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터 복원 확인 모달 -->
+  <div id="modal-restore-confirm" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel" style="max-width:460px;">
+      <div class="modal-head">
+        <h2>📥 데이터 복원</h2>
+      </div>
+      <div class="modal-body" style="padding:16px 20px;">
+        <p id="restore-confirm-msg" style="font-size:14px;line-height:1.6;margin-bottom:12px;"></p>
+        <div id="restore-region-select-wrap" hidden style="margin-top:4px;">
+          <label style="font-size:13px;font-weight:600;">복원할 지역단 선택
+            <select id="restore-region-select" class="side-input" style="display:block;margin-top:6px;width:100%;"></select>
+          </label>
+        </div>
+      </div>
+      <div class="modal-foot" style="display:flex;gap:8px;justify-content:center;padding:12px 16px;flex-wrap:wrap;">
+        <button class="btn-primary" id="btn-restore-yes">예, 복원합니다</button>
+        <button class="btn-outline" id="btn-restore-no">아니오</button>
+        <button class="btn-outline" id="btn-restore-cancel">취소</button>
       </div>
     </div>
   </div>
