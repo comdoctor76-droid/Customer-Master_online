@@ -510,7 +510,7 @@
   <!-- 시상안 편집 모달 -->
   <div id="modal-award-plan" class="modal" hidden>
     <div class="modal-backdrop"></div>
-    <div class="modal-panel wide" style="max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="modal-panel wide" style="max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
       <div class="modal-head" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div>
           <h2 style="margin:0;">🏆 시상안 편집</h2>
@@ -531,29 +531,49 @@
           <label class="ap-label">📋 시상안 제목</label>
           <input type="text" id="ap-title" class="pg-input" style="width:100%;" placeholder="예) 2026년 고객컨설팅 마스터과정 활성화 시상안">
         </div>
-        <div class="ap-field">
-          <label class="ap-label">🎯 Tier 5개 <span style="font-weight:400;color:var(--ink-3);">(조건 | 지급)</span></label>
-          <div id="ap-tiers" style="display:flex;flex-direction:column;gap:6px;"></div>
+
+        <div class="ap-section">
+          <div class="ap-sec-head">
+            <label class="ap-chk-label"><input type="checkbox" id="ap-pi-en"> <span class="ap-label-inline">🎯 개인순증시상</span></label>
+            <button type="button" class="btn-outline small ap-add-btn" id="ap-pi-add">＋ 추가</button>
+          </div>
+          <div id="ap-pi-list" class="ap-list"></div>
         </div>
-        <div class="ap-field">
-          <label class="ap-label">📈 신장률 TOP10 문구</label>
-          <input type="text" id="ap-rate-top10" class="pg-input" style="width:100%;">
+
+        <div class="ap-section">
+          <div class="ap-sec-head">
+            <label class="ap-chk-label"><input type="checkbox" id="ap-t1-en"> <span class="ap-label-inline">신장</span></label>
+            <button type="button" class="ap-toggle-btn" id="ap-t1-type" data-val="rate">률(%)</button>
+            <span class="ap-label-inline">Top</span>
+            <input type="number" id="ap-t1-n" class="pg-input ap-n-input" min="1" max="50" value="10">
+            <button type="button" class="btn-outline small ap-add-btn" id="ap-t1-add">＋ 추가</button>
+          </div>
+          <div id="ap-t1-list" class="ap-list"></div>
         </div>
-        <div class="ap-field">
-          <label class="ap-label">💰 신장액 TOP10 문구</label>
-          <input type="text" id="ap-amt-top10" class="pg-input" style="width:100%;">
+
+        <div class="ap-section">
+          <div class="ap-sec-head">
+            <label class="ap-chk-label"><input type="checkbox" id="ap-t2-en"> <span class="ap-label-inline">신장</span></label>
+            <button type="button" class="ap-toggle-btn" id="ap-t2-type" data-val="amt">금액(원)</button>
+            <span class="ap-label-inline">Top</span>
+            <input type="number" id="ap-t2-n" class="pg-input ap-n-input" min="1" max="50" value="10">
+            <button type="button" class="btn-outline small ap-add-btn" id="ap-t2-add">＋ 추가</button>
+          </div>
+          <div id="ap-t2-list" class="ap-list"></div>
         </div>
-        <div class="ap-field">
-          <label class="ap-label">⚠️ 기준조건 안내 <span style="font-weight:400;color:var(--ink-3);">(HTML 태그 사용 가능)</span></label>
-          <textarea id="ap-criteria" class="pg-input" rows="2" style="width:100%;resize:vertical;"></textarea>
+
+        <div class="ap-section">
+          <div class="ap-sec-head">
+            <label class="ap-chk-label"><input type="checkbox" id="ap-elig-en"> <span class="ap-label-inline">⚠️ 기준조건 (이하 시상에서 제외)</span></label>
+            <button type="button" class="ap-toggle-btn" id="ap-elig-op" data-val="and">AND</button>
+            <button type="button" class="btn-outline small ap-add-btn" id="ap-elig-add">＋ 추가</button>
+          </div>
+          <div id="ap-elig-list" class="ap-list"></div>
         </div>
+
         <div class="ap-field">
-          <label class="ap-label">※ 중복시상 안내</label>
-          <textarea id="ap-duplicate" class="pg-input" rows="2" style="width:100%;resize:vertical;"></textarea>
-        </div>
-        <div class="ap-field">
-          <label class="ap-label">※ 환산실적/하이캡 안내</label>
-          <textarea id="ap-exclusion" class="pg-input" rows="2" style="width:100%;resize:vertical;"></textarea>
+          <label class="ap-label">※ 기타사항</label>
+          <textarea id="ap-notes" class="pg-input" rows="2" style="width:100%;resize:vertical;"></textarea>
         </div>
       </div>
     </div>
