@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.16";
+  const APP_VERSION = "1.17";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -5278,8 +5278,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const parseErrors = [];
     lines.forEach((line, i) => {
       const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-      const [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] =
+      let [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] =
         cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
+      // "2" → "2기" 자동 정규화 (드롭다운 옵션과 일치시키기 위해)
+      if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
       // 헤더 행 자동 스킵
       if (region === "지역단" && center === "비전센터" && branch === "지점") return;
       if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
@@ -5298,6 +5300,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       toast(msg, "error");
       setBulkProgress(msg, "error");
       return { ok: 0, fail: 0, total: 0 };
+    }
+
+    // 평균실적 단위 오입력 경고 (0 < base < 1000 은 의심)
+    const baseWarnNames = records.filter((r) => r.base > 0 && r.base < 1000).map((r) => `${r.name || r.empNo}(${r.base}원)`);
+    if (baseWarnNames.length) {
+      toast(`⚠️ 평균실적 단위 확인: ${baseWarnNames.join(", ")} — 원(₩) 단위로 입력하세요`, "error");
     }
 
     // 2. 저장 — writeBatch 일괄 (1회 네트워크 호출)
@@ -5599,7 +5607,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));
