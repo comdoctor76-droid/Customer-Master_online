@@ -13,11 +13,11 @@
     personalIncr: {
       enabled: true,
       items: [
-        { critVal: 50, payType: "pct",   payVal: 150 },
-        { critVal: 30, payType: "pct",   payVal: 120 },
-        { critVal: 20, payType: "fixed", payVal: 20 },
-        { critVal: 10, payType: "fixed", payVal: 10 },
-        { critVal: 5,  payType: "fixed", payVal: 5  }
+        { critVal: 50, payType: "pct",   payVal: 150, payRate: "full" },
+        { critVal: 30, payType: "pct",   payVal: 120, payRate: "full" },
+        { critVal: 20, payType: "fixed", payVal: 20,  payRate: "full" },
+        { critVal: 10, payType: "fixed", payVal: 10,  payRate: "full" },
+        { critVal: 5,  payType: "fixed", payVal: 5,   payRate: "full" }
       ]
     },
     // 2. 신장X TopN (slot 1) — 기본: 신장률
@@ -127,7 +127,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.22";
+  const APP_VERSION = "1.23";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -5791,7 +5791,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -5838,24 +5838,34 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function _apRenderPi(items) {
     const el = document.getElementById("ap-pi-list");
-    el.innerHTML = items.map((it, i) => `
-      <div class="ap-row" data-i="${i}">
+    const sorted = [...items].sort((a, b) => a.critVal - b.critVal);
+    const rateOpts = [
+      { v: "full", t: "100%" },
+      { v: "half", t: "50%" },
+      { v: "none", t: "부지급" }
+    ];
+    el.innerHTML = sorted.map((it, i) => {
+      const rate = it.payRate || "full";
+      const optHtml = rateOpts.map((o) => `<option value="${o.v}"${rate === o.v ? " selected" : ""}>${o.t}</option>`).join("");
+      return `<div class="ap-row ap-row-compact" data-i="${i}">
         <span class="ap-row-prefix">순증</span>
-        <input type="number" class="pg-input ap-pi-crit" value="${escapeHtml(String(it.critVal))}" min="0" step="10" style="width:90px;">
-        <span class="ap-row-suffix">만원↑</span>
+        <input type="number" class="pg-input ap-pi-crit" value="${escapeHtml(String(it.critVal))}" min="0" step="10" style="width:52px;">
+        <span class="ap-row-suffix">만↑</span>
         <span class="ap-row-arrow">→</span>
-        <input type="number" class="pg-input ap-pi-pay" value="${escapeHtml(String(it.payVal))}" min="0" step="1" style="width:90px;">
-        <button type="button" class="ap-toggle-btn ap-pi-type" data-val="${escapeHtml(it.payType)}">${it.payType === "pct" ? "%" : "만원"}</button>
+        <input type="number" class="pg-input ap-pi-pay" value="${escapeHtml(String(it.payVal))}" min="0" step="1" style="width:52px;">
+        <button type="button" class="ap-toggle-btn ap-pi-type" data-val="${escapeHtml(it.payType)}">${it.payType === "pct" ? "%" : "만"}</button>
+        <select class="pg-input ap-pi-payrate">${optHtml}</select>
         <button type="button" class="ap-del-btn" title="삭제">✕</button>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   }
 
   function _apRenderTop(slot, payouts) {
     const el = document.getElementById(`ap-${slot}-list`);
     el.innerHTML = payouts.map((amt, i) => `
-      <div class="ap-row" data-i="${i}">
+      <div class="ap-row ap-row-compact" data-i="${i}">
         <span class="ap-row-prefix">${i + 1}위</span>
-        <input type="number" class="pg-input ap-top-pay" value="${escapeHtml(String(amt))}" min="0" step="1" style="width:120px;">
+        <input type="number" class="pg-input ap-top-pay" value="${escapeHtml(String(amt))}" min="0" step="1" style="width:52px;">
         <span class="ap-row-suffix">만원</span>
         <button type="button" class="ap-del-btn" title="삭제">✕</button>
       </div>`).join("");
@@ -5918,7 +5928,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const crit = Number(row.querySelector(".ap-pi-crit").value) || 0;
       const pay  = Number(row.querySelector(".ap-pi-pay").value)  || 0;
       const typ  = row.querySelector(".ap-pi-type").dataset.val;
-      piItems.push({ critVal: crit, payType: typ, payVal: pay });
+      const rate = row.querySelector(".ap-pi-payrate")?.value || "full";
+      piItems.push({ critVal: crit, payType: typ, payVal: pay, payRate: rate });
     });
     const topPayouts = (slot) => {
       const arr = [];
@@ -5993,7 +6004,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 추가 버튼들
     document.getElementById("ap-pi-add")?.addEventListener("click", () => {
       const cur = _apCollect().personalIncr.items;
-      cur.push({ critVal: 0, payType: "fixed", payVal: 0 });
+      cur.push({ critVal: 0, payType: "fixed", payVal: 0, payRate: "full" });
       _apRenderPi(cur);
     });
     document.getElementById("ap-t1-add")?.addEventListener("click", () => {

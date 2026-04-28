@@ -2804,7 +2804,9 @@ body {
 .ap-toggle-btn:active { transform: scale(0.96); }
 .ap-n-input { width: 70px; padding: 4px 8px; font-size: 13px; }
 .ap-add-btn { margin-left: auto; }
-.ap-list { display: flex; flex-direction: column; gap: 6px; }
+.ap-list { display: flex; flex-direction: column; gap: 4px; }
+.ap-pi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 4px; }
+.ap-top-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
 .ap-row {
   display: flex;
   align-items: center;
@@ -2815,6 +2817,7 @@ body {
   border-radius: 6px;
   flex-wrap: wrap;
 }
+.ap-row-compact { padding: 3px 5px; gap: 3px; }
 .ap-row-prefix, .ap-row-suffix { font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
 .ap-row-arrow { color: var(--ink-3); font-weight: 700; }
 .ap-del-btn {
@@ -2832,9 +2835,12 @@ body {
   margin-left: auto;
 }
 .ap-del-btn:hover { color: #e53935; border-color: #e53935; }
+.ap-pi-payrate { font-size: 11px; padding: 2px 2px; height: 26px; width: auto; min-width: 60px; }
 @media (max-width: 640px) {
   .ap-sec-head .ap-add-btn { margin-left: 0; }
   .ap-row { font-size: 12px; }
+  .ap-pi-grid { grid-template-columns: 1fr; }
+  .ap-top-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* KPI 카드 */
