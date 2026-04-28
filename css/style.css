@@ -2805,8 +2805,25 @@ body {
 .ap-n-input { width: 70px; padding: 4px 8px; font-size: 13px; }
 .ap-add-btn { margin-left: auto; }
 .ap-list { display: flex; flex-direction: column; gap: 4px; }
-.ap-pi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 4px; }
-.ap-top-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
+.ap-pi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.ap-top-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 4px; }
+/* 개인순증 카드 */
+.ap-pi-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ap-pi-row { display: flex; align-items: center; gap: 3px; }
+.ap-pi-lbl { font-size: 11px; font-weight: 700; color: var(--ink-2); white-space: nowrap; min-width: 20px; }
+.ap-pi-unit { font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.ap-pi-footer { display: flex; align-items: center; gap: 4px; }
+.ap-pi-payrate { font-size: 11px; padding: 2px 2px; height: 26px; flex: 1; min-width: 0; }
+.ap-pi-type-sm { padding: 2px 5px !important; font-size: 11px !important; }
+/* 신장률/신장금액 행 */
 .ap-row {
   display: flex;
   align-items: center;
@@ -2833,14 +2850,18 @@ body {
   align-items: center;
   justify-content: center;
   margin-left: auto;
+  flex-shrink: 0;
 }
 .ap-del-btn:hover { color: #e53935; border-color: #e53935; }
-.ap-pi-payrate { font-size: 11px; padding: 2px 2px; height: 26px; width: auto; min-width: 60px; }
 @media (max-width: 640px) {
   .ap-sec-head .ap-add-btn { margin-left: 0; }
   .ap-row { font-size: 12px; }
-  .ap-pi-grid { grid-template-columns: 1fr; }
-  .ap-top-grid { grid-template-columns: repeat(2, 1fr); }
+  .ap-pi-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .ap-top-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+}
+@media (max-width: 400px) {
+  .ap-pi-grid { grid-template-columns: repeat(3, 1fr); }
+  .ap-top-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* KPI 카드 */
