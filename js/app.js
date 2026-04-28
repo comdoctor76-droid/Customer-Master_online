@@ -39,7 +39,7 @@
     } catch (e) { console.error("[AwardPlan] save error:", e); }
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.20";
+  const APP_VERSION = "1.21";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3075,7 +3075,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function openProgressRegionPicker() {
     // 학생이 존재하는 지역단만 추출
-    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
     if (!regions.length) { toast("등록된 교육생이 없습니다.", "error"); return; }
     // 간단 모달 대신 prompt + select — 모달 재사용 대신 빠른 구현
     openPickerModal("지역단 선택", regions, (picked) => {
@@ -5057,7 +5057,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function renderMasterTargetSettings() {
     const container = document.getElementById("settings-default-targets");
     if (!container) return;
-    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
     if (!regions.length) {
       container.innerHTML = `<p class="settings-desc" style="color:#999;">등록된 교육생이 없어 지역단 목록을 불러올 수 없습니다.</p>`;
       return;
@@ -5646,7 +5646,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -5681,7 +5681,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function openAwardPlanModal() {
     const modal = document.getElementById("modal-award-plan");
     const regionSelect = document.getElementById("award-plan-region");
-    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
     const current = state.progressRegion || state.filter.region || (regions[0] || "");
     regionSelect.innerHTML = regions.map((r) =>
       `<option value="${escapeHtml(r)}"${r === current ? " selected" : ""}>${escapeHtml(r)}</option>`
@@ -5775,7 +5775,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function openBackupModal() {
     const modal = document.getElementById("modal-backup");
     const body = document.getElementById("backup-modal-body");
-    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
     body.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:8px;">
         <div class="backup-row backup-row-all">
@@ -5812,7 +5812,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     let pendingRegion = detectedRegion;
 
     const populateRegionSelect = () => {
-      const regions = ["전체", ...[...new Set(state.students.map((s) => s.region).filter(Boolean))].sort()];
+      const regions = ["전체", ...[...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort()];
       regionSelect.innerHTML = regions.map((r) => `<option value="${r}">${r}</option>`).join("");
       if (pendingRegion && regions.includes(pendingRegion)) regionSelect.value = pendingRegion;
     };
