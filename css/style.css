@@ -2765,7 +2765,77 @@ body {
 /* 시상안 편집 모달 */
 .ap-field { margin-bottom: 14px; }
 .ap-label { display: block; font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
-.ap-tier-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ap-section {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+.ap-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.ap-chk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.ap-chk-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.ap-label-inline { font-size: 13px; font-weight: 700; color: var(--navy); }
+.ap-toggle-btn {
+  background: var(--orange);
+  color: #fff;
+  border: 1px solid var(--orange);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ap-toggle-btn:active { transform: scale(0.96); }
+.ap-n-input { width: 70px; padding: 4px 8px; font-size: 13px; }
+.ap-add-btn { margin-left: auto; }
+.ap-list { display: flex; flex-direction: column; gap: 6px; }
+.ap-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+.ap-row-prefix, .ap-row-suffix { font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.ap-row-arrow { color: var(--ink-3); font-weight: 700; }
+.ap-del-btn {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #999;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+.ap-del-btn:hover { color: #e53935; border-color: #e53935; }
+@media (max-width: 640px) {
+  .ap-sec-head .ap-add-btn { margin-left: 0; }
+  .ap-row { font-size: 12px; }
+}
 
 /* KPI 카드 */
 .pg-kpi-card {

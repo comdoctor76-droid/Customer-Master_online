@@ -9,26 +9,58 @@
 
   const DEFAULT_AWARD_PLAN = {
     title: "2026년 고객컨설팅 마스터과정 활성화 시상안",
-    tiers: [
-      { condition: "순증 5만원↑",  payout: "5만원 지급" },
-      { condition: "순증 10만원↑", payout: "10만원 지급" },
-      { condition: "순증 20만원↑", payout: "20만원 지급" },
-      { condition: "순증 30만원↑", payout: "120% 지급" },
-      { condition: "순증 50만원↑", payout: "150% 지급" }
-    ],
-    rateTop10: "<strong>📈 신장률 TOP10:</strong> 1위 30만원 / 2~3위 20만원 / 4~10위 주유권 5만원",
-    amtTop10: "<strong>💰 신장액 TOP10:</strong> 1위 50만원 / 2~3위 30만원 / 4~10위 주유권 10만원",
-    criteria: "⚠️ 개인 시상 기준조건 : 기준 인보험 실적 대비 <strong>순증 30만원 이상</strong> 달성자에 한함",
-    duplicate: "※ 신장률·신장액 TOP10 중복시상 없음 — 두 항목 모두 해당 시 높은 시상금 1회 지급 (동점이면 순위 높은 곳)",
-    exclusion: "※ 환산실적 80만원 미만 시상제외 | 합산 하이캡 배수 15 미만시 50% 지급"
+    // 1. 개인순증시상
+    personalIncr: {
+      enabled: true,
+      items: [
+        { critVal: 50, payType: "pct",   payVal: 150 },
+        { critVal: 30, payType: "pct",   payVal: 120 },
+        { critVal: 20, payType: "fixed", payVal: 20 },
+        { critVal: 10, payType: "fixed", payVal: 10 },
+        { critVal: 5,  payType: "fixed", payVal: 5  }
+      ]
+    },
+    // 2. 신장X TopN (slot 1) — 기본: 신장률
+    topAward1: {
+      enabled: true,
+      type: "rate",
+      n: 10,
+      payouts: [30, 20, 20, 5, 5, 5, 5, 5, 5, 5]
+    },
+    // 3. 신장X TopN (slot 2) — 기본: 신장액
+    topAward2: {
+      enabled: true,
+      type: "amt",
+      n: 10,
+      payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10]
+    },
+    // 4. 기준조건 (eligibility)
+    eligibility: {
+      enabled: true,
+      operator: "and",
+      conditions: [
+        { field: "converted", threshold: 80 }
+      ]
+    },
+    // 5. 기타사항
+    notes: "※ 환산실적 80만원 미만 시상제외 | 합산 하이캡 배수 15 미만시 50% 지급"
   };
 
   function getAwardPlan(region) {
     try {
       const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
-      const saved = stored[region] || {};
-      return { ...DEFAULT_AWARD_PLAN, ...saved, tiers: saved.tiers || DEFAULT_AWARD_PLAN.tiers };
-    } catch { return { ...DEFAULT_AWARD_PLAN, tiers: [...DEFAULT_AWARD_PLAN.tiers] }; }
+      const saved = stored[region];
+      if (!saved) return JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN));
+      // 새 구조 + 기본값 병합 (필드 누락 안전)
+      return {
+        title:         saved.title         ?? DEFAULT_AWARD_PLAN.title,
+        personalIncr:  saved.personalIncr  ?? DEFAULT_AWARD_PLAN.personalIncr,
+        topAward1:     saved.topAward1     ?? DEFAULT_AWARD_PLAN.topAward1,
+        topAward2:     saved.topAward2     ?? DEFAULT_AWARD_PLAN.topAward2,
+        eligibility:   saved.eligibility   ?? DEFAULT_AWARD_PLAN.eligibility,
+        notes:         saved.notes         ?? DEFAULT_AWARD_PLAN.notes
+      };
+    } catch { return JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN)); }
   }
 
   function saveAwardPlan(region, plan) {
@@ -38,8 +70,64 @@
       localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
     } catch (e) { console.error("[AwardPlan] save error:", e); }
   }
+
+  // 기준조건 체크용: 학생 metric 추출 (만원 단위 기준)
+  function getStudentMetric(s, field) {
+    if (field === "converted") return Number(s.base || 0) / 10000;
+    if (field === "hiCap")     return Number(s.hiCap || 0);
+    if (field === "monthly")   return Number(s.insAvg || 0) / 10000;
+    return 0;
+  }
+
+  // 시상 자격 확인
+  function isEligibleForAward(student, plan) {
+    if (!plan?.eligibility?.enabled) return true;
+    const conds = plan.eligibility.conditions || [];
+    if (!conds.length) return true;
+    const checks = conds.map((c) => getStudentMetric(student, c.field) > Number(c.threshold || 0));
+    return plan.eligibility.operator === "or" ? checks.some(Boolean) : checks.every(Boolean);
+  }
+
+  // 개인순증 시상금 계산 (원 단위)
+  function calcPersonalAward(stat, plan) {
+    if (!plan?.personalIncr?.enabled) return 0;
+    const items = (plan.personalIncr.items || []).filter((it) => Number(it.critVal) > 0 || Number(it.payVal) > 0);
+    if (!items.length) return 0;
+    const sorted = [...items].sort((a, b) => Number(b.critVal) - Number(a.critVal));
+    const netManwon = Number(stat.net || 0) / 10000;
+    for (const item of sorted) {
+      if (netManwon >= Number(item.critVal)) {
+        if (item.payType === "pct") return Math.round(Number(stat.net) * (Number(item.payVal) / 100));
+        return Math.round(Number(item.payVal) * 10000);
+      }
+    }
+    return 0;
+  }
+
+  // 순위별 시상금 (원 단위) — rank: 1-based
+  function calcRankAward(rank, topConfig) {
+    if (!topConfig?.enabled) return 0;
+    if (rank > Number(topConfig.n || 0)) return 0;
+    const payouts = topConfig.payouts || [];
+    const idx = rank - 1;
+    const v = payouts[idx];
+    if (v === undefined || v === null) return 0;
+    return Math.round(Number(v) * 10000);
+  }
+
+  // 정렬: type "rate" or "amt"
+  function sortStatsForType(stats, type) {
+    return [...stats].sort((a, b) => {
+      if (type === "rate") {
+        const ra = a.base > 0 ? a.net / a.base : 0;
+        const rb = b.base > 0 ? b.net / b.base : 0;
+        return rb - ra;
+      }
+      return b.net - a.net;
+    });
+  }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.21";
+  const APP_VERSION = "1.22";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3059,19 +3147,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   // 현재실적·인품실적이 없으면 0으로 처리
   // 시상 규칙은 호남지역단 기준 하드코딩 상수 (추후 per-region override 가능)
 
-  const PROGRESS_AWARDS = {
-    // 순증액별 고정시상/비율시상 (원)
-    tiers: [
-      { min: 500000, type: "pct", val: 1.5 },
-      { min: 300000, type: "pct", val: 1.2 },
-      { min: 200000, type: "fixed", val: 200000 },
-      { min: 100000, type: "fixed", val: 100000 },
-      { min: 50000,  type: "fixed", val: 50000 }
-    ],
-    rateTop10: [300000, 200000, 200000, 50000, 50000, 50000, 50000, 50000, 50000, 50000], // 1위 30만 / 2~3위 20만 / 4~10위 주유권 5만
-    amtTop10:  [500000, 300000, 300000, 100000, 100000, 100000, 100000, 100000, 100000, 100000], // 1위 50만 / 2~3위 30만 / 4~10위 주유권 10만
-    minNetForRank: 300000 // 개인 기준: 순증 30만 이상
-  };
+  // PROGRESS_AWARDS 는 v1.22 부터 지역단별 시상안(localStorage)에서 동적 로드
+  // → getProgressAwardConfig(region) 사용
 
   function openProgressRegionPicker() {
     // 학생이 존재하는 지역단만 추출
@@ -3172,20 +3249,55 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return { s, base, current, hiCap, net, rate, ipumCount, ipumAmt };
   }
 
-  function tierAward(net) {
-    for (const t of PROGRESS_AWARDS.tiers) {
+  // 지역단별 시상안 → PROGRESS_AWARDS 호환 객체 생성
+  function getProgressAwardConfig(region) {
+    const plan = getAwardPlan(region);
+    const personalItems = (plan.personalIncr?.enabled ? (plan.personalIncr.items || []) : []);
+    const tiers = personalItems
+      .filter((it) => Number(it.critVal) > 0)
+      .slice()
+      .sort((a, b) => Number(b.critVal) - Number(a.critVal))
+      .map((it) => ({
+        min: Number(it.critVal) * 10000,
+        type: it.payType,
+        val: it.payType === "pct" ? Number(it.payVal) / 100 : Number(it.payVal) * 10000,
+        payVal: Number(it.payVal),
+        payType: it.payType
+      }));
+    const top1 = plan.topAward1?.enabled ? plan.topAward1 : null;
+    const top2 = plan.topAward2?.enabled ? plan.topAward2 : null;
+    const rateConfig = (top1 && top1.type === "rate") ? top1 : (top2 && top2.type === "rate") ? top2 : null;
+    const amtConfig  = (top1 && top1.type === "amt")  ? top1 : (top2 && top2.type === "amt")  ? top2 : null;
+    const rateTop = rateConfig ? Array.from({ length: Number(rateConfig.n) }, (_, i) => calcRankAward(i + 1, rateConfig)) : [];
+    const amtTop  = amtConfig  ? Array.from({ length: Number(amtConfig.n)  }, (_, i) => calcRankAward(i + 1, amtConfig))  : [];
+    return {
+      plan,
+      tiers,
+      rateTop10: rateTop,
+      amtTop10:  amtTop,
+      rateConfig,
+      amtConfig,
+      bothEnabled: !!(rateConfig && amtConfig),
+      isEligible: (student) => isEligibleForAward(student, plan)
+    };
+  }
+
+  function tierAward(net, region) {
+    const pa = getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
+    for (const t of pa.tiers) {
       if (net >= t.min) {
         return t.type === "pct" ? Math.round(net * t.val) : t.val;
       }
     }
     return 0;
   }
-  function tierLabel(net) {
-    if (net >= 500000) return "150% 지급";
-    if (net >= 300000) return "120% 지급";
-    if (net >= 200000) return "20만원";
-    if (net >= 100000) return "10만원";
-    if (net >= 50000)  return "5만원";
+  function tierLabel(net, region) {
+    const pa = getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
+    for (const t of pa.tiers) {
+      if (net >= t.min) {
+        return t.type === "pct" ? `${t.payVal}% 지급` : `${t.payVal}만원`;
+      }
+    }
     return "-";
   }
   const Nf = (v) => Math.round(Number(v) || 0).toLocaleString();
@@ -3200,14 +3312,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const total = stats.length;
     const avgR = stats.reduce((a, s) => a + s.rate, 0) / total;
     const over5 = stats.filter((s) => s.net >= 50000).length;
-    const elig = stats.filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank);
+    const _pa = getProgressAwardConfig(state.progressRegion);
+    const elig = stats.filter((s) => _pa.isEligible(s.s));
     const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byAmt  = [...stats].sort((a, b) => b.net - a.net);
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
 
-    // 신장액 TOP2 (기준 30만 이상)는 신장률 시상에서 제외
-    const amtExcludeIds = new Set(byAmt.slice(0, 2).filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank).map((s) => s.s.empNo));
-    const rateFinalList = byRate.filter((s) => !amtExcludeIds.has(s.s.empNo));
+    // 중복시상: 신장률·신장액 양쪽 대상이 되는 경우 더 큰 시상만 지급 (표시는 양쪽 그대로)
+    const rateFinalList = byRate;
 
     const a5 = stats.filter((s) => s.net >= 500000).length;
     const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
@@ -3237,29 +3349,29 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // TOP3 미리보기 행 (신장률/신장액/인품/그룹 공통)
     const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
       const rate = st.base > 0 ? (st.net / st.base) * 100 : 0;
-      const belowMin = st.net < PROGRESS_AWARDS.minNetForRank;
-      const prizeAmt = PROGRESS_AWARDS.rateTop10[i] || 0;
-      const prizeTxt = belowMin ? "기준미달" :
-        (prizeAmt >= 100000 ? `시상 ${Math.round(prizeAmt/10000)}만원` : `주유권 ${Math.round(prizeAmt/10000)}만`);
+      const notEligible = !_pa.isEligible(st.s);
+      const prizeAmt = _pa.rateTop10[i] || 0;
+      const prizeTxt = notEligible ? "기준미달" :
+        (prizeAmt > 0 ? `시상 ${Math.round(prizeAmt/10000)}만원` : "-");
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
         <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
         <div class="pg-pcard-content">
           <div class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> <span class="pg-pcard-val">${rate.toFixed(1)}%</span></div>
-          <span class="pg-pcard-prize ${belowMin?"pg-b-no":""}">${prizeTxt}</span>
+          <span class="pg-pcard-prize ${notEligible?"pg-b-no":""}">${prizeTxt}</span>
         </div>
       </li>`;
     }).join("");
 
     const pcardAmtTop3 = byAmt.slice(0, 3).map((st, i) => {
-      const belowMin = st.net < PROGRESS_AWARDS.minNetForRank;
-      const prizeAmt = PROGRESS_AWARDS.amtTop10[i] || 0;
-      const prizeTxt = belowMin ? "기준미달" :
-        (prizeAmt >= 200000 ? `시상 ${Math.round(prizeAmt/10000)}만원` : `주유권 ${Math.round(prizeAmt/10000)}만`);
+      const notEligible = !_pa.isEligible(st.s);
+      const prizeAmt = _pa.amtTop10[i] || 0;
+      const prizeTxt = notEligible ? "기준미달" :
+        (prizeAmt > 0 ? `시상 ${Math.round(prizeAmt/10000)}만원` : "-");
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
         <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
         <div class="pg-pcard-content">
           <div class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> <span class="pg-pcard-val">${st.net>=0?"+":""}${Nf(st.net)}원</span></div>
-          <span class="pg-pcard-prize ${belowMin?"pg-b-no":""}">${prizeTxt}</span>
+          <span class="pg-pcard-prize ${notEligible?"pg-b-no":""}">${prizeTxt}</span>
         </div>
       </li>`;
     }).join("");
@@ -3290,7 +3402,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     state._pgCardFullData = {
       rate: {
         title: `📈 신장률 전체 순위 (${rateFinalList.length}명)`,
-        subtitle: "기준실적 대비 순증률 — 신장액 TOP2 제외",
+        subtitle: "기준실적 대비 순증률",
         bodyHTML: renderProgressTop10(rateFinalList, "rate", Infinity)
       },
       amt: {
@@ -3316,21 +3428,45 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     };
 
     // 시상안 박스 + KPI 영역
-    const _plan = getAwardPlan(state.progressRegion);
-    const _tiersHtml = (_plan.tiers || DEFAULT_AWARD_PLAN.tiers).map((t) =>
-      `<div class="pg-tier"><div class="pg-tc">${escapeHtml(t.condition)}</div><div class="pg-tn">${escapeHtml(t.payout)}</div></div>`
-    ).join("");
+    const _plan = _pa.plan;
+    let _tiersHtml = "";
+    if (_plan.personalIncr?.enabled) {
+      const _items = (_plan.personalIncr.items || []).slice().sort((a, b) => Number(a.critVal) - Number(b.critVal));
+      _tiersHtml = _items.map((it) => {
+        const cond = `순증 ${escapeHtml(String(it.critVal))}만원↑`;
+        const pay = it.payType === "pct" ? `${escapeHtml(String(it.payVal))}%` : `${escapeHtml(String(it.payVal))}만원`;
+        return `<div class="pg-tier"><div class="pg-tc">${cond}</div><div class="pg-tn">${pay}</div></div>`;
+      }).join("");
+    }
+    const _topToHtml = (top) => {
+      if (!top?.enabled) return "";
+      const typeLabel = top.type === "rate" ? "신장률" : "신장액";
+      const icon = top.type === "rate" ? "📈" : "💰";
+      const payouts = (top.payouts || []).slice(0, Number(top.n));
+      const items = payouts.map((p, i) => `${i + 1}위 ${escapeHtml(String(p))}만원`).join(" / ");
+      return `<div class="pg-an"><strong>${icon} ${typeLabel} TOP${escapeHtml(String(top.n))}:</strong> ${items}</div>`;
+    };
+    const _eligText = (() => {
+      if (!_plan.eligibility?.enabled) return "";
+      const conds = _plan.eligibility.conditions || [];
+      if (!conds.length) return "";
+      const fLabel = (f) => ({ converted: "환산실적", hiCap: "하이캡", monthly: "월납보험료" }[f] || f);
+      const fUnit  = (f) => f === "hiCap" ? "" : "만원";
+      const op = _plan.eligibility.operator === "or" ? " 또는 " : " 그리고 ";
+      const txt = conds.map((c) => `${escapeHtml(fLabel(c.field))} ${escapeHtml(String(c.threshold))}${fUnit(c.field)} 이하`).join(op);
+      return `<div class="pg-an-crit">⚠️ 시상 제외 조건: ${txt} → 시상 제외</div>`;
+    })();
     return `
       <div class="pg-wrap">
         <div class="pg-award-box">
           <h3>📋 ${escapeHtml(state.progressRegion)} 고객컨설팅 마스터과정 활성화 시상안</h3>
           ${_plan.title ? `<div class="pg-award-subtitle">${escapeHtml(_plan.title)}</div>` : ""}
-          <div class="pg-tier-row">${_tiersHtml}</div>
-          ${_plan.rateTop10 ? `<div class="pg-an">${_plan.rateTop10}</div>` : ""}
-          ${_plan.amtTop10 ? `<div class="pg-an">${_plan.amtTop10}</div>` : ""}
-          ${_plan.criteria ? `<div class="pg-an-crit">${_plan.criteria}</div>` : ""}
-          ${_plan.duplicate ? `<div class="pg-an-warn">${_plan.duplicate}</div>` : ""}
-          ${_plan.exclusion ? `<div class="pg-an-warn">${_plan.exclusion}</div>` : ""}
+          ${_tiersHtml ? `<div class="pg-tier-row">${_tiersHtml}</div>` : ""}
+          ${_topToHtml(_plan.topAward1)}
+          ${_topToHtml(_plan.topAward2)}
+          ${_eligText}
+          ${_pa.bothEnabled ? `<div class="pg-an-warn">※ 신장률·신장액 TOP 중복시상 없음 — 두 항목 모두 해당 시 더 큰 시상 1회만 지급</div>` : ""}
+          ${_plan.notes ? `<div class="pg-an-warn">${escapeHtml(_plan.notes)}</div>` : ""}
         </div>
 
         <div class="pg-kpi-card">
@@ -3395,7 +3531,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         <div class="pg-grid2 pg-desktop-only">
           <div class="pg-card">
-            <h4>📈 신장률 TOP10 <small>(신장액 TOP2 제외)</small></h4>
+            <h4>📈 신장률 TOP <small>(중복시상 시 더 큰 시상만 지급)</small></h4>
             ${renderProgressTop10(rateFinalList, "rate")}
           </div>
           <div class="pg-card">
@@ -3459,8 +3595,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byAmt = [...stats].sort((a, b) => b.net - a.net);
     const byRateRaw = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
-    const amtExcludeIds = new Set(byAmt.slice(0, 2).filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank).map((s) => s.s.empNo));
-    const byRate = byRateRaw.filter((s) => !amtExcludeIds.has(s.s.empNo));
+    // 중복시상 정책: 양쪽 대상 중 더 큰 시상만 지급. 표시는 양쪽 모두.
+    const byRate = byRateRaw;
 
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
     const groupKeyFn = hasAnyTeam
@@ -3659,7 +3795,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   function renderProgressTop10(list, kind, limit) {
-    const max = (limit === undefined || limit === null) ? 10 : limit;
+    const region = state.progressRegion;
+    const pa = getProgressAwardConfig(region);
+    let max;
+    if (limit === undefined || limit === null) {
+      if (kind === "rate") max = pa.rateConfig?.n || 10;
+      else if (kind === "amt") max = pa.amtConfig?.n || 10;
+      else max = 10;
+    } else {
+      max = limit;
+    }
     const top = (max === Infinity || max <= 0) ? list.slice() : list.slice(0, max);
     if (!top.length) return `<div class="pg-empty">데이터 없음</div>`;
     return `
@@ -3674,22 +3819,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           } else if (kind === "rate") {
             const rate = st.base > 0 ? (st.net / st.base) * 100 : 0;
             value = rate.toFixed(1) + "%";
-            if (st.net < PROGRESS_AWARDS.minNetForRank) {
+            if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else {
-              const amt = PROGRESS_AWARDS.rateTop10[i] || 0;
-              prize = amt ? `<span class="pg-bdg pg-b-g">${amt >= 100000 ? Math.round(amt/10000)+"만원" : "주유권"+Math.round(amt/10000)+"만"}</span>` : "-";
+              const amt = pa.rateTop10[i] || 0;
+              prize = amt > 0 ? `<span class="pg-bdg pg-b-g">${Math.round(amt/10000)}만원</span>` : "-";
             }
           } else {
             value = (st.net >= 0 ? "+" : "") + Nf(st.net);
-            if (st.net < PROGRESS_AWARDS.minNetForRank) {
+            if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else {
-              const amt = PROGRESS_AWARDS.amtTop10[i] || 0;
-              prize = amt ? `<span class="pg-bdg pg-b-g">${amt >= 200000 ? Math.round(amt/10000)+"만원" : "주유권"+Math.round(amt/10000)+"만"}</span>` : "-";
+              const amt = pa.amtTop10[i] || 0;
+              prize = amt > 0 ? `<span class="pg-bdg pg-b-g">${Math.round(amt/10000)}만원</span>` : "-";
             }
           }
-          // 모달에서 클릭 가능한 행으로 표시 (data-emp 필요)
           return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s.empNo)}"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${value}</td><td>${prize}</td></tr>`;
         }).join("")}</tbody>
       </table>
@@ -4007,7 +4151,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const mid50 = stats.filter((s) => s.rate >= 50 && s.rate < 80).length;
     const low50 = stats.filter((s) => s.rate < 50).length;
     const avgR = total > 0 ? (stats.reduce((a, s) => a + s.rate, 0) / total) : 0;
-    const elig = stats.filter((s) => s.net >= PROGRESS_AWARDS.minNetForRank).length;
+    const _adminPa = getProgressAwardConfig(state.progressRegion);
+    const elig = stats.filter((s) => _adminPa.isEligible(s.s)).length;
     const a5 = stats.filter((s) => s.net >= 500000).length;
     const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
     const cash = stats.filter((s) => s.net >= 50000 && s.net < 300000).length;
@@ -5646,7 +5791,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -5691,42 +5836,186 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     openModal("#modal-award-plan");
   }
 
-  function loadAwardPlanForm(region) {
-    const plan = region ? getAwardPlan(region) : { ...DEFAULT_AWARD_PLAN, tiers: [...DEFAULT_AWARD_PLAN.tiers] };
-    document.getElementById("ap-title").value = plan.title || "";
-    document.getElementById("ap-rate-top10").value = plan.rateTop10 || "";
-    document.getElementById("ap-amt-top10").value = plan.amtTop10 || "";
-    document.getElementById("ap-criteria").value = plan.criteria || "";
-    document.getElementById("ap-duplicate").value = plan.duplicate || "";
-    document.getElementById("ap-exclusion").value = plan.exclusion || "";
-    const tiersEl = document.getElementById("ap-tiers");
-    const tiers = (plan.tiers && plan.tiers.length) ? plan.tiers : DEFAULT_AWARD_PLAN.tiers;
-    tiersEl.innerHTML = tiers.map((t, i) => `
-      <div class="ap-tier-row">
-        <input type="text" class="pg-input ap-tier-cond" data-idx="${i}" value="${escapeHtml(t.condition)}" placeholder="조건 예) 순증 5만원↑">
-        <input type="text" class="pg-input ap-tier-pay" data-idx="${i}" value="${escapeHtml(t.payout)}" placeholder="지급 예) 5만원 지급">
+  function _apRenderPi(items) {
+    const el = document.getElementById("ap-pi-list");
+    el.innerHTML = items.map((it, i) => `
+      <div class="ap-row" data-i="${i}">
+        <span class="ap-row-prefix">순증</span>
+        <input type="number" class="pg-input ap-pi-crit" value="${escapeHtml(String(it.critVal))}" min="0" step="10" style="width:90px;">
+        <span class="ap-row-suffix">만원↑</span>
+        <span class="ap-row-arrow">→</span>
+        <input type="number" class="pg-input ap-pi-pay" value="${escapeHtml(String(it.payVal))}" min="0" step="1" style="width:90px;">
+        <button type="button" class="ap-toggle-btn ap-pi-type" data-val="${escapeHtml(it.payType)}">${it.payType === "pct" ? "%" : "만원"}</button>
+        <button type="button" class="ap-del-btn" title="삭제">✕</button>
       </div>`).join("");
   }
 
+  function _apRenderTop(slot, payouts) {
+    const el = document.getElementById(`ap-${slot}-list`);
+    el.innerHTML = payouts.map((amt, i) => `
+      <div class="ap-row" data-i="${i}">
+        <span class="ap-row-prefix">${i + 1}위</span>
+        <input type="number" class="pg-input ap-top-pay" value="${escapeHtml(String(amt))}" min="0" step="1" style="width:120px;">
+        <span class="ap-row-suffix">만원</span>
+        <button type="button" class="ap-del-btn" title="삭제">✕</button>
+      </div>`).join("");
+  }
+
+  function _apRenderElig(conds) {
+    const el = document.getElementById("ap-elig-list");
+    const fieldOpts = [
+      { v: "converted", t: "환산실적" },
+      { v: "hiCap",     t: "하이캡" },
+      { v: "monthly",   t: "월납보험료" }
+    ];
+    el.innerHTML = conds.map((c, i) => `
+      <div class="ap-row" data-i="${i}">
+        <select class="pg-input ap-elig-field" style="width:130px;">
+          ${fieldOpts.map((o) => `<option value="${o.v}"${c.field === o.v ? " selected" : ""}>${o.t}</option>`).join("")}
+        </select>
+        <input type="number" class="pg-input ap-elig-th" value="${escapeHtml(String(c.threshold))}" min="0" step="1" style="width:100px;">
+        <span class="ap-row-suffix">이하 제외</span>
+        <button type="button" class="ap-del-btn" title="삭제">✕</button>
+      </div>`).join("");
+  }
+
+  function _apSetToggle(btn, val, choices) {
+    btn.dataset.val = val;
+    const found = choices.find((c) => c.v === val);
+    btn.textContent = found ? found.t : val;
+  }
+
+  function loadAwardPlanForm(region) {
+    const plan = region ? getAwardPlan(region) : JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN));
+    document.getElementById("ap-title").value = plan.title || "";
+    document.getElementById("ap-notes").value = plan.notes || "";
+    // 개인순증시상
+    document.getElementById("ap-pi-en").checked = !!plan.personalIncr?.enabled;
+    _apRenderPi((plan.personalIncr?.items?.length ? plan.personalIncr.items : [{ critVal: 5, payType: "fixed", payVal: 5 }]));
+    // Top1
+    document.getElementById("ap-t1-en").checked = !!plan.topAward1?.enabled;
+    _apSetToggle(document.getElementById("ap-t1-type"), plan.topAward1?.type || "rate",
+      [{ v: "rate", t: "률(%)" }, { v: "amt", t: "금액(원)" }]);
+    document.getElementById("ap-t1-n").value = plan.topAward1?.n || 10;
+    _apRenderTop("t1", (plan.topAward1?.payouts?.length ? plan.topAward1.payouts : [30]));
+    // Top2
+    document.getElementById("ap-t2-en").checked = !!plan.topAward2?.enabled;
+    _apSetToggle(document.getElementById("ap-t2-type"), plan.topAward2?.type || "amt",
+      [{ v: "rate", t: "률(%)" }, { v: "amt", t: "금액(원)" }]);
+    document.getElementById("ap-t2-n").value = plan.topAward2?.n || 10;
+    _apRenderTop("t2", (plan.topAward2?.payouts?.length ? plan.topAward2.payouts : [50]));
+    // Eligibility
+    document.getElementById("ap-elig-en").checked = !!plan.eligibility?.enabled;
+    _apSetToggle(document.getElementById("ap-elig-op"), plan.eligibility?.operator || "and",
+      [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
+    _apRenderElig((plan.eligibility?.conditions?.length ? plan.eligibility.conditions : [{ field: "converted", threshold: 80 }]));
+  }
+
+  function _apCollect() {
+    // Personal increment items
+    const piItems = [];
+    document.querySelectorAll("#ap-pi-list .ap-row").forEach((row) => {
+      const crit = Number(row.querySelector(".ap-pi-crit").value) || 0;
+      const pay  = Number(row.querySelector(".ap-pi-pay").value)  || 0;
+      const typ  = row.querySelector(".ap-pi-type").dataset.val;
+      piItems.push({ critVal: crit, payType: typ, payVal: pay });
+    });
+    const topPayouts = (slot) => {
+      const arr = [];
+      document.querySelectorAll(`#ap-${slot}-list .ap-row`).forEach((row) => {
+        arr.push(Number(row.querySelector(".ap-top-pay").value) || 0);
+      });
+      return arr;
+    };
+    const eligConds = [];
+    document.querySelectorAll("#ap-elig-list .ap-row").forEach((row) => {
+      eligConds.push({
+        field: row.querySelector(".ap-elig-field").value,
+        threshold: Number(row.querySelector(".ap-elig-th").value) || 0
+      });
+    });
+    return {
+      title: document.getElementById("ap-title").value.trim(),
+      personalIncr: {
+        enabled: document.getElementById("ap-pi-en").checked,
+        items: piItems
+      },
+      topAward1: {
+        enabled: document.getElementById("ap-t1-en").checked,
+        type: document.getElementById("ap-t1-type").dataset.val,
+        n: Number(document.getElementById("ap-t1-n").value) || 1,
+        payouts: topPayouts("t1")
+      },
+      topAward2: {
+        enabled: document.getElementById("ap-t2-en").checked,
+        type: document.getElementById("ap-t2-type").dataset.val,
+        n: Number(document.getElementById("ap-t2-n").value) || 1,
+        payouts: topPayouts("t2")
+      },
+      eligibility: {
+        enabled: document.getElementById("ap-elig-en").checked,
+        operator: document.getElementById("ap-elig-op").dataset.val,
+        conditions: eligConds
+      },
+      notes: document.getElementById("ap-notes").value.trim()
+    };
+  }
+
   function bindAwardPlanModal() {
+    const modal = document.getElementById("modal-award-plan");
+    if (!modal) return;
+
+    // 토글 버튼들 (type, op)
+    modal.addEventListener("click", (e) => {
+      const tg = e.target.closest(".ap-toggle-btn");
+      if (tg) {
+        if (tg.id === "ap-t1-type" || tg.id === "ap-t2-type") {
+          const next = tg.dataset.val === "rate" ? "amt" : "rate";
+          _apSetToggle(tg, next, [{ v: "rate", t: "률(%)" }, { v: "amt", t: "금액(원)" }]);
+        } else if (tg.id === "ap-elig-op") {
+          const next = tg.dataset.val === "and" ? "or" : "and";
+          _apSetToggle(tg, next, [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
+        } else if (tg.classList.contains("ap-pi-type")) {
+          const next = tg.dataset.val === "fixed" ? "pct" : "fixed";
+          tg.dataset.val = next;
+          tg.textContent = next === "pct" ? "%" : "만원";
+        }
+        return;
+      }
+      // 삭제 버튼
+      const del = e.target.closest(".ap-del-btn");
+      if (del) {
+        const row = del.closest(".ap-row");
+        if (row) row.remove();
+      }
+    });
+
+    // 추가 버튼들
+    document.getElementById("ap-pi-add")?.addEventListener("click", () => {
+      const cur = _apCollect().personalIncr.items;
+      cur.push({ critVal: 0, payType: "fixed", payVal: 0 });
+      _apRenderPi(cur);
+    });
+    document.getElementById("ap-t1-add")?.addEventListener("click", () => {
+      const cur = _apCollect().topAward1.payouts;
+      cur.push(0);
+      _apRenderTop("t1", cur);
+    });
+    document.getElementById("ap-t2-add")?.addEventListener("click", () => {
+      const cur = _apCollect().topAward2.payouts;
+      cur.push(0);
+      _apRenderTop("t2", cur);
+    });
+    document.getElementById("ap-elig-add")?.addEventListener("click", () => {
+      const cur = _apCollect().eligibility.conditions;
+      cur.push({ field: "converted", threshold: 0 });
+      _apRenderElig(cur);
+    });
+
     document.getElementById("btn-award-plan-save")?.addEventListener("click", () => {
       const region = document.getElementById("award-plan-region").value;
-      const tiers = [];
-      const condInputs = document.querySelectorAll("#ap-tiers .ap-tier-cond");
-      condInputs.forEach((inp) => {
-        const i = inp.dataset.idx;
-        const payInp = document.querySelector(`#ap-tiers .ap-tier-pay[data-idx="${i}"]`);
-        tiers.push({ condition: inp.value.trim(), payout: payInp ? payInp.value.trim() : "" });
-      });
-      const plan = {
-        title: document.getElementById("ap-title").value.trim(),
-        tiers,
-        rateTop10: document.getElementById("ap-rate-top10").value.trim(),
-        amtTop10: document.getElementById("ap-amt-top10").value.trim(),
-        criteria: document.getElementById("ap-criteria").value.trim(),
-        duplicate: document.getElementById("ap-duplicate").value.trim(),
-        exclusion: document.getElementById("ap-exclusion").value.trim()
-      };
+      if (!region) { toast("지역단을 선택하세요.", "error"); return; }
+      const plan = _apCollect();
       saveAwardPlan(region, plan);
       toast(`${region} 시상안 저장 완료`, "success");
       if (state.progressRegion === region) renderProgressPanel();
@@ -5736,7 +6025,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       loadAwardPlanForm(null);
     });
     document.getElementById("btn-award-plan-close")?.addEventListener("click", () => {
-      document.getElementById("modal-award-plan").hidden = true;
+      modal.hidden = true;
     });
   }
 
@@ -6098,14 +6387,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       "#settings":  "settings"
     };
     const target = map[href];
-    // 관리자(설정) 진입 시 암호 체크 (세션 1회 인증으로 캐시)
-    if (target === "settings" && !sessionStorage.getItem("adminAuth")) {
+    // 관리자(설정) 진입 시 암호 체크 — 매번 묻도록
+    if (target === "settings") {
       const pwd = prompt("관리자 암호를 입력하세요:");
       if (pwd !== "2051") {
         toast("암호가 일치하지 않습니다.", "error");
         return;
       }
-      sessionStorage.setItem("adminAuth", "1");
     }
     // nav active 토글 (데스크톱 상단 + 모바일 하단 동시)
     $$(".top-nav a, .mobile-bottom-nav .mbn-btn").forEach((a) => {
