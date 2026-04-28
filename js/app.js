@@ -127,7 +127,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.24";
+  const APP_VERSION = "1.25";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3242,8 +3242,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const base    = s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0);
     const current = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
     const hiCap   = Number(s.hiCap || 0);
-    const ipumCount = s.pgIpumCount !== undefined ? Number(s.pgIpumCount) : Number(s.ipumCount || 0);
-    const ipumAmt   = s.pgIpumAmt   !== undefined ? Number(s.pgIpumAmt)   : Number(s.ipumAmt   || 0);
+    const ipumCount = Number(s.pgIpumCount) > 0 ? Number(s.pgIpumCount) : Number(s.ipumCount || 0);
+    const ipumAmt   = Number(s.pgIpumAmt)   > 0 ? Number(s.pgIpumAmt)   : Number(s.ipumAmt   || 0);
     const net  = current - base;
     const rate = base > 0 ? (current / base) * 100 : 0;
     return { s, base, current, hiCap, net, rate, ipumCount, ipumAmt };
@@ -4703,7 +4703,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (!empNo) return;
         // 전체 교육생에서 조회 (필터 범위 제한 없이)
         const existing = state.students.find((x) => x.empNo === empNo);
-        const pgFields = { pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader };
+        const pgIpumFields = (pgIpumCount > 0 || pgIpumAmt > 0) ? { pgIpumCount, pgIpumAmt } : {};
+        const pgFields = { pgBase, pgCurrent, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader, ...pgIpumFields };
 
         if (existing) {
           const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
@@ -5791,7 +5792,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
