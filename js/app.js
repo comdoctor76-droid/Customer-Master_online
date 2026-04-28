@@ -6,7 +6,7 @@
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.15";
+  const APP_VERSION = "1.16";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3502,6 +3502,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: "그룹 하위" };
 
+    const cmpFmt = v => { const n = Number(v) || 0; return Math.abs(n) >= 10000 ? (n / 10000).toFixed(1) + '만' : String(n); };
+
     function hrMakeSlide(isWorst) {
       const hidden = isWorst ? " hr-slide-hidden" : "";
       return `<div class="hr-slide${hidden}"><div class="hr-grid">${
@@ -3513,9 +3515,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 const empNo = cat.isGroup ? "" : item.s.empNo;
                 const name = cat.isGroup ? item.name : (item.s.name || "");
                 const rbCls = isWorst ? "hr-rb-worst" : (i < 3 ? RNKS[i] : "rt");
+                let nameBlock;
+                if (cat.isGroup) {
+                  nameBlock = `<span class="hr-name">${escapeHtml(name)}</span>`;
+                } else {
+                  const pct = item.base > 0 ? (item.net / item.base * 100).toFixed(1) : '—';
+                  const statsLine = `기준 ${cmpFmt(item.base)} · 현재 ${cmpFmt(item.current)} · 순증 ${item.net >= 0 ? '+' : ''}${cmpFmt(item.net)} (${pct}%)`;
+                  nameBlock = `<div class="hr-name-wrap"><span class="hr-name">${escapeHtml(name)}</span><span class="hr-row-stats">${statsLine}</span></div>`;
+                }
                 return `<li class="hr-row${empNo ? " hr-clickable" : ""}" data-emp="${escapeHtml(empNo || "")}">
                   <span class="pg-rb ${rbCls}">${i + 1}</span>
-                  <span class="hr-name">${escapeHtml(name)}</span>
+                  ${nameBlock}
                   <span class="hr-val">${escapeHtml(cat.valFn(item))}</span>
                 </li>`;
               }).join("")
@@ -5589,7 +5599,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260427f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260428a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-export-json").addEventListener("click", () => exportJSON(filteredStudents(), "filtered"));

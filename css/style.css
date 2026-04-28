@@ -3774,14 +3774,14 @@ body {
   margin-bottom: 16px;
 }
 /* 좌측 슬라이드 — 오른쪽에서 왼쪽으로 진입 */
-.hr-slides { position: relative; overflow: hidden; }
-.hr-slide { width: 100%; }
-.hr-slide.hr-slide-hidden { display: none; }
+.hr-slides { display: grid; overflow: hidden; }
+.hr-slide { grid-column: 1; grid-row: 1; width: 100%; z-index: 0; }
+.hr-slide.hr-slide-hidden { visibility: hidden; pointer-events: none; }
 @keyframes hr-slide-left {
   from { opacity: 0; transform: translateX(40px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.hr-slide.hr-slide-enter { animation: hr-slide-left 0.40s cubic-bezier(.4,0,.2,1) forwards; }
+.hr-slide.hr-slide-enter { animation: hr-slide-left 0.40s cubic-bezier(.4,0,.2,1) forwards; z-index: 1; }
 /* 교육생 통계 KPI 슬라이드 */
 .hr-kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 6px 0; }
 .hr-kpi-card {
@@ -3850,7 +3850,9 @@ body {
 .hr-clickable { cursor: pointer; }
 .hr-clickable:active { background: rgba(0,0,0,0.04); border-radius: 4px; }
 .hr-row .pg-rb { flex-shrink: 0; width: 18px; height: 18px; font-size: 9px; }
-.hr-name { flex: 1; font-size: 11px; font-weight: 700; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-name-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hr-name { font-size: 11px; font-weight: 700; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-row-stats { font-size: 9px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .hr-val { font-size: 11px; font-weight: 700; color: var(--navy); white-space: nowrap; }
 .hr-empty { text-align: center; font-size: 10px; color: var(--ink-3); padding: 10px 4px; }
 .hr-dots {
@@ -3875,4 +3877,5 @@ body {
   .hr-sub { display: none; }
   .hr-titles strong { font-size: 11px; }
   .hr-card { padding: 10px 8px; }
+  .hr-row-stats { display: none; }
 }
