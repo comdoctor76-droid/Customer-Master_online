@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.29";
+  const APP_VERSION = "1.30";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3618,10 +3618,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </div>
         </div>
 
-        <div class="pg-grid2 pg-desktop-only">
+        <div class="pg-grid-ipum-group pg-desktop-only">
           <div class="pg-card">
-            <h4>✨ 인품왕 TOP5 <small>(신상품 판매액)</small></h4>
-            ${byIpum.length ? renderProgressTop10(byIpum.slice(0, 5), "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
+            <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
+            ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
           </div>
           <div class="pg-card">
             <h4>🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상</h4>
@@ -5910,7 +5910,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
