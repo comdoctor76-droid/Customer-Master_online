@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.27";
+  const APP_VERSION = "1.28";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3216,6 +3216,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     setTimeout(() => modal.querySelector("#sp-search").focus(), 50);
   }
 
+  function openProgressAdminOverlay() {
+    const region = state.filter.region || "";
+    if (!region) { toast("좌측 필터에서 지역단을 먼저 선택하세요.", "error"); return; }
+    const list = state.students.filter((s) => s.region === region);
+    const overlay = document.getElementById("pg-admin-overlay");
+    const body = document.getElementById("pg-admin-overlay-body");
+    if (!overlay || !body) return;
+    const titleEl = overlay.querySelector(".pg-admin-overlay-title");
+    if (titleEl) titleEl.textContent = `⚙️ 실적관리 — ${region}`;
+    body.innerHTML = renderProgressAdmin(list);
+    overlay.hidden = false;
+    bindProgressAdminEvents(list, "pg-admin-overlay-body");
+  }
+
   function renderProgressPanel() {
     const body = $("#progress-body");
     if (!body) return;
@@ -3733,6 +3747,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const cmpFmt = v => { const n = Number(v) || 0; return Math.abs(n) >= 10000 ? (n / 10000).toFixed(1) + '만' : String(n); };
 
+    const _hrPlan = getAwardPlan(region);
+    const _hrGa1Thr = _hrPlan?.groupAward1?.enabled
+      ? Number(_hrPlan.groupAward1.threshold || 5) * 10000 : 0;
+
     function hrMakeSlide(isWorst) {
       const hidden = isWorst ? " hr-slide-hidden" : "";
       return `<div class="hr-slide${hidden}"><div class="hr-grid">${
@@ -3746,7 +3764,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 const rbCls = isWorst ? "hr-rb-worst" : (i < 3 ? RNKS[i] : "rt");
                 let nameBlock;
                 if (cat.isGroup) {
-                  nameBlock = `<span class="hr-name">${escapeHtml(name)}</span>`;
+                  const base_k = Math.round(item.base / 1000);
+                  const cur_k  = Math.round(item.current / 1000);
+                  const statsLine = `목표 ${Nf(base_k)}천 · 현재 ${Nf(cur_k)}천 · ${item.rate.toFixed(1)}%`;
+                  const teamSuffix = hasAnyTeam ? "팀" : "";
+                  const memberSpans = (item.memberStats || []).map(st => {
+                    const mNet = st.net || 0;
+                    const missed = _hrGa1Thr > 0 ? mNet < _hrGa1Thr : mNet < 0;
+                    const mEmp = st.s?.empNo || "";
+                    const mName = st.s?.name || "";
+                    return `<span class="hr-member${missed ? " hr-member-miss" : ""}${mEmp ? " hr-member-click" : ""}" data-emp="${escapeHtml(mEmp)}">${escapeHtml(mName)}</span>`;
+                  }).join("");
+                  nameBlock = `<div class="hr-name-wrap">
+                    <span class="hr-name">${escapeHtml(name)}${teamSuffix}</span>
+                    <span class="hr-row-stats">${statsLine}</span>
+                    ${memberSpans ? `<span class="hr-members">${memberSpans}</span>` : ""}
+                  </div>`;
                 } else {
                   const pct = item.base > 0 ? (item.net / item.base * 100).toFixed(1) : '—';
                   const statsLine = `기준 ${cmpFmt(item.base)} · 현재 ${cmpFmt(item.current)} · 순증 ${item.net >= 0 ? '+' : ''}${cmpFmt(item.net)} (${pct}%)`;
@@ -3755,7 +3788,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 return `<li class="hr-row${empNo ? " hr-clickable" : ""}" data-emp="${escapeHtml(empNo || "")}">
                   <span class="pg-rb ${rbCls}">${i + 1}</span>
                   ${nameBlock}
-                  <span class="hr-val">${escapeHtml(cat.valFn(item))}</span>
+                  <span class="hr-val">${cat.isGroup ? item.rate.toFixed(1) + "%" : escapeHtml(cat.valFn(item))}</span>
                 </li>`;
               }).join("")
             : `<li class="hr-empty">데이터 없음</li>`;
@@ -3795,9 +3828,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
         });
       });
+      section.querySelectorAll(".hr-member-click[data-emp]").forEach(el => {
+        el.addEventListener("click", e => {
+          e.stopPropagation();
+          if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
+        });
+      });
       section.querySelectorAll(".hr-card[data-hrpcard]").forEach(card => {
         card.addEventListener("click", e => {
-          if (e.target.closest(".hr-clickable")) return;
+          if (e.target.closest(".hr-clickable, .hr-member-click")) return;
           const data = state._hrankFullData && state._hrankFullData[card.dataset.hrpcard];
           if (data) openPgFullModal(data);
         });
@@ -4453,10 +4492,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   // 팀별 합산 실적 계산 — 입력 중인 현재값(DOM) 반영
-  function computeTeamSummary(list) {
+  function computeTeamSummary(list, root) {
+    root = root || document.getElementById("progress-body");
     const byTeam = {};
     list.forEach((s) => {
-      const inp = document.querySelector(`#progress-body .pg-team-input[data-emp="${s.empNo}"]`);
+      const inp = root ? root.querySelector(`.pg-team-input[data-emp="${s.empNo}"]`) : null;
       const team = (inp ? inp.value : s.team || "").toString().trim();
       if (!team) return;
       if (!byTeam[team]) byTeam[team] = { base: 0, current: 0, members: [] };
@@ -4467,10 +4507,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return byTeam;
   }
 
-  function renderTeamSummary(list) {
+  function renderTeamSummary(list, root) {
     const box = document.getElementById("pg-team-summary");
     if (!box) return;
-    const byTeam = computeTeamSummary(list);
+    const byTeam = computeTeamSummary(list, root);
     const keys = Object.keys(byTeam).sort((a, b) => {
       // "1팀", "2팀"... 숫자 우선 정렬
       const na = parseInt(a, 10), nb = parseInt(b, 10);
@@ -4506,9 +4546,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     `;
   }
 
-  function bindProgressAdminEvents(list) {
+  function bindProgressAdminEvents(list, rootId = "progress-body") {
+    const root = document.getElementById(rootId);
+    if (!root) return;
     // 실시간 계산 (현재실적 변경 시 달성률/순증 재계산)
-    document.querySelectorAll("#progress-body .pg-input[data-f='current']").forEach((inp) => {
+    root.querySelectorAll(".pg-input[data-f='current']").forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
@@ -4527,7 +4569,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const saveBtn = $("#btn-pg-save");
     if (saveBtn) saveBtn.addEventListener("click", async () => {
       const updates = {};
-      document.querySelectorAll("#progress-body .pg-input").forEach((inp) => {
+      root.querySelectorAll(".pg-input").forEach((inp) => {
         const emp = inp.dataset.emp;
         const f = inp.dataset.f;
         if (!updates[emp]) updates[emp] = {};
@@ -4557,9 +4599,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 붙여넣기 모드 전환 버튼
-    document.querySelectorAll("#progress-body .pg-paste-mode-btn").forEach((btn) => {
+    root.querySelectorAll(".pg-paste-mode-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll("#progress-body .pg-paste-mode-btn").forEach((b) => b.classList.remove("active"));
+        root.querySelectorAll(".pg-paste-mode-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         const mode = btn.dataset.mode;
         const monthlyDiv = document.getElementById("pg-paste-mode-monthly");
@@ -4806,19 +4848,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 인품 테이블 ↔ 메인 테이블 동기화 (같은 empNo 의 두 입력을 동시 반영)
-    document.querySelectorAll("#progress-body .pg-input[data-f2]").forEach((inp) => {
+    root.querySelectorAll(".pg-input[data-f2]").forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const f = e.target.dataset.f2; // "ipumCount" or "ipumAmt"
-        const twin = document.querySelector(`#progress-body .pg-input[data-emp="${emp}"][data-f="${f}"]`);
+        const twin = root.querySelector(`.pg-input[data-emp="${emp}"][data-f="${f}"]`);
         if (twin) twin.value = e.target.value;
       });
     });
-    document.querySelectorAll("#progress-body .pg-input[data-f='ipumCount'], #progress-body .pg-input[data-f='ipumAmt']").forEach((inp) => {
+    root.querySelectorAll(".pg-input[data-f='ipumCount'], .pg-input[data-f='ipumAmt']").forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const f = e.target.dataset.f;
-        const twin = document.querySelector(`#progress-body .pg-input[data-emp="${emp}"][data-f2="${f}"]`);
+        const twin = root.querySelector(`.pg-input[data-emp="${emp}"][data-f2="${f}"]`);
         if (twin) twin.value = e.target.value;
       });
     });
@@ -4870,7 +4912,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ipumSaveBtn = $("#btn-pg-ipum-save");
     if (ipumSaveBtn) ipumSaveBtn.addEventListener("click", async () => {
       const updates = {};
-      document.querySelectorAll("#progress-body .pg-input[data-f2]").forEach((inp) => {
+      root.querySelectorAll(".pg-input[data-f2]").forEach((inp) => {
         const emp = inp.dataset.emp;
         const f = inp.dataset.f2;
         if (!emp || !f) return;
@@ -4924,11 +4966,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     // ========== 팀 배정 ==========
     // 초기 요약
-    renderTeamSummary(list);
+    renderTeamSummary(list, root);
 
     // 팀 입력 실시간 반영
-    document.querySelectorAll("#progress-body .pg-team-input").forEach((inp) => {
-      inp.addEventListener("input", () => renderTeamSummary(list));
+    root.querySelectorAll(".pg-team-input").forEach((inp) => {
+      inp.addEventListener("input", () => renderTeamSummary(list, root));
     });
 
     // 자동 배정 (N 팀으로 랜덤 균등 분배)
@@ -4946,10 +4988,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       shuffled.forEach((s, idx) => {
         const teamNo = (idx % n) + 1;
         const teamName = String(teamNo);
-        const inp = document.querySelector(`#progress-body .pg-team-input[data-emp="${s.empNo}"]`);
+        const inp = root.querySelector(`.pg-team-input[data-emp="${s.empNo}"]`);
         if (inp) inp.value = teamName;
       });
-      renderTeamSummary(list);
+      renderTeamSummary(list, root);
       const msg = $("#pg-team-msg");
       if (msg) { msg.textContent = `✅ ${n}개 팀으로 고르게 배정 완료 (저장 버튼을 눌러 확정)`; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 4000); }
     });
@@ -4958,15 +5000,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const clrBtn = $("#btn-pg-team-clear");
     if (clrBtn) clrBtn.addEventListener("click", () => {
       if (!confirm("모든 교육생의 팀 배정을 비웁니다. 저장 버튼을 눌러야 반영됩니다. 계속할까요?")) return;
-      document.querySelectorAll("#progress-body .pg-team-input").forEach((inp) => { inp.value = ""; });
-      renderTeamSummary(list);
+      root.querySelectorAll(".pg-team-input").forEach((inp) => { inp.value = ""; });
+      renderTeamSummary(list, root);
     });
 
     // 팀 저장
     const teamSaveBtn = $("#btn-pg-team-save");
     if (teamSaveBtn) teamSaveBtn.addEventListener("click", async () => {
       const updates = [];
-      document.querySelectorAll("#progress-body .pg-team-input").forEach((inp) => {
+      root.querySelectorAll(".pg-team-input").forEach((inp) => {
         const emp = inp.dataset.emp;
         const team = inp.value.trim();
         const s = state.students.find((x) => x.empNo === emp);
@@ -5850,20 +5892,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
     $("#btn-open-award-plan")?.addEventListener("click", openAwardPlanModal);
     bindAwardPlanModal();
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
-    $("#btn-go-progress-admin")?.addEventListener("click", () => {
-      switchView("#progress");
-      state.progressSubTab = "admin";
-      document.querySelectorAll("#progress-panel .sub-tab").forEach((b) =>
-        b.classList.toggle("active", b.dataset.psub === "admin")
-      );
-      renderProgressPanel();
+    $("#btn-go-progress-admin")?.addEventListener("click", openProgressAdminOverlay);
+    $("#btn-pg-admin-overlay-close")?.addEventListener("click", () => {
+      const ov = document.getElementById("pg-admin-overlay");
+      if (ov) ov.hidden = true;
     });
     $("#file-import-json").addEventListener("change", onImportJSONFile);
     $("#btn-delete-filtered").addEventListener("click", onDeleteFiltered);
