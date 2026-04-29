@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.28";
+  const APP_VERSION = "1.29";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -620,7 +620,7 @@
         <div class="sib-avatar">${escapeHtml(initial)}</div>
         <div class="sib-main">
           <div class="sib-name">${escapeHtml(s.name || "")}<span class="sib-emp">${escapeHtml(s.empNo)}</span></div>
-          <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}</div>
+          <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}${s.team ? ` <span class="sib-team">${escapeHtml(String(s.team))}팀</span>` : ""}</div>
         </div>
         <div class="sib-stats">
           <div><span>평균실적</span><strong>${fmt(Number(s.base))}</strong></div>
@@ -679,6 +679,11 @@
             <input type="number" id="iv-pct" placeholder="%">
           </div>
           <div class="iv-field">
+            <label>조(팀) 번호</label>
+            <input type="number" id="iv-team" placeholder="예: 1" min="1" value="${escapeHtml(s.team ? String(s.team) : "")}">
+          </div>
+
+          <div class="iv-field">
             <label>가입설계</label>
             <input type="number" id="iv-plan" placeholder="건">
           </div>
@@ -700,7 +705,6 @@
             <label>2차 마감 실적 <span class="iv-hint">최종</span></label>
             <input type="number" id="iv-close2" placeholder="원" step="1000">
           </div>
-          <div class="iv-field"></div>
           <div class="iv-field"></div>
         </div>
 
@@ -1698,6 +1702,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         window.DataAPI.updateStudentInsAvg(empNo, rec.ins).catch((e) => {
           console.warn("[insAvg sync]", e);
         });
+      }
+      // 팀(조) 번호 변경 시 학생 레코드에 저장
+      const teamVal = ($("#iv-team")?.value || "").trim();
+      const teamNum = parseInt(teamVal, 10);
+      const teamToSave = teamNum > 0 ? String(teamNum) : "";
+      const curStudent = state.students.find((x) => x.empNo === empNo);
+      if (curStudent && teamToSave !== (curStudent.team || "")) {
+        window.DataAPI.save({ ...curStudent, team: teamToSave }).catch((e) => console.warn("[team sync]", e));
       }
       state.editingConsultId = null;
       clearInterviewForm();
@@ -3606,9 +3618,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </div>
         </div>
 
-        <div class="pg-card pg-desktop-only">
-          <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
-          ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
+        <div class="pg-grid2 pg-desktop-only">
+          <div class="pg-card">
+            <h4>✨ 인품왕 TOP5 <small>(신상품 판매액)</small></h4>
+            ${byIpum.length ? renderProgressTop10(byIpum.slice(0, 5), "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
+          </div>
+          <div class="pg-card">
+            <h4>🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상</h4>
+            <div class="pg-tbl-wrap">${renderGroupTable(groupRanking, _pa.plan, hasAnyTeam)}</div>
+          </div>
         </div>
 
         <div class="pg-card pg-full-tbl-card pg-desktop-only" id="pg-full-tbl-card">
@@ -5892,7 +5910,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
