@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.32";
+  const APP_VERSION = "1.33";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3390,6 +3390,163 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return `<table class="pg-tbl pg-tbl-wide"><thead><tr>${thCells}</tr></thead><tbody>${rows}</tbody></table>`;
   }
 
+  function renderTeamCards(groupRanking, plan) {
+    const ga1 = plan?.groupAward1;
+    const ga2 = plan?.groupAward2;
+    const ga1En = !!ga1?.enabled;
+    const ga2En = !!ga2?.enabled;
+    const ga1Thr = ga1En ? Number(ga1.threshold || 5) * 10000 : 0;
+    const ga2Rate = ga2En ? Number(ga2.rateThreshold || 110) : 0;
+
+    return groupRanking.map((g) => {
+      const mStats = g.memberStats || [];
+      const total = mStats.length || g.members.length;
+      const ga1Ach = ga1En ? mStats.filter(st => (st.net || 0) >= ga1Thr).length : 0;
+      const ga1All = ga1En && ga1Ach === total && total > 0;
+      const ga2Met = ga2En && g.rate >= ga2Rate;
+      let cardCls = "tac-gray";
+      if (ga1En || ga2En) {
+        if ((!ga1En || ga1All) && (!ga2En || ga2Met)) cardCls = "tac-green";
+        else if (ga1Ach > 0 || ga2Met) cardCls = "tac-orange";
+      }
+      const memberSpans = mStats.map(st => {
+        const mNet = st.net || 0;
+        const missed = ga1Thr > 0 ? mNet < ga1Thr : mNet < 0;
+        const mName = st.s?.name || "";
+        const mEmp = st.s?.empNo || "";
+        return `<span class="tac-member${missed ? " tac-member-miss" : ""}${mEmp ? " hr-member-click" : ""}" data-emp="${escapeHtml(mEmp)}">${escapeHtml(mName)}</span>`;
+      }).join("");
+      const badges = [];
+      if (ga1En) {
+        const bc = ga1All ? "tac-badge-ok" : (ga1Ach > 0 ? "tac-badge-half" : "tac-badge-no");
+        badges.push(`<span class="tac-badge ${bc}">${ga1All ? "✅" : (ga1Ach > 0 ? "△" : "✕")} ${ga1Ach}/${total}명</span>`);
+      }
+      if (ga2En) {
+        badges.push(`<span class="tac-badge ${ga2Met ? "tac-badge-ok" : "tac-badge-no"}">그룹2 ${ga2Met ? "✅" : "✕"}</span>`);
+      }
+      return `<div class="tac-card ${cardCls}" data-teamcard="${escapeHtml(g.name)}">
+        <div class="tac-team-name">${escapeHtml(g.name)}팀</div>
+        <div class="tac-rate">${g.rate.toFixed(1)}%</div>
+        <div class="tac-member-wrap">${memberSpans || "<span class='tac-member'>구성원 없음</span>"}</div>
+        ${badges.length ? `<div class="tac-badges">${badges.join("")}</div>` : ""}
+      </div>`;
+    }).join("");
+  }
+
+  function renderGroupAwardInfo(plan) {
+    const ga1 = plan?.groupAward1;
+    const ga2 = plan?.groupAward2;
+    const boxes = [];
+    if (ga1?.enabled) {
+      const thr = Number(ga1.threshold || 5);
+      const payout = Number(ga1.payout || 5);
+      boxes.push(`<div class="gai-box">
+        <div class="gai-title">🏅 그룹시상1</div>
+        <div class="gai-desc">팀원 전원 순증 ${thr}만원↑</div>
+        <div class="gai-payout">달성 시 ${payout}만원/인</div>
+      </div>`);
+    }
+    if (ga2?.enabled) {
+      const rate = Number(ga2.rateThreshold || 110);
+      const payout = Number(ga2.payout || 15);
+      boxes.push(`<div class="gai-box">
+        <div class="gai-title">🏅 그룹시상2</div>
+        <div class="gai-desc">팀 달성률 ${rate}%↑</div>
+        <div class="gai-payout">달성 시 ${payout}만원/팀</div>
+      </div>`);
+    }
+    return boxes.length ? `<div class="gai-boxes">${boxes.join("")}</div>` : "";
+  }
+
+  function renderTeamAwardFull(groupRanking, plan, hasAnyTeam) {
+    if (!hasAnyTeam) {
+      return `<div class="taf-no-team-notice">팀구분이 없습니다<span class="taf-notice-sub">지점별 달성률 현황</span></div>
+        <div class="pg-tbl-wrap">${renderGroupTable(groupRanking, plan, hasAnyTeam)}</div>`;
+    }
+    const cards = renderTeamCards(groupRanking, plan);
+    const awardInfo = renderGroupAwardInfo(plan);
+    return `<div class="tac-grid">${cards}</div>
+      ${awardInfo}
+      <div class="pg-tbl-wrap taf-tbl-section"><h5 class="taf-tbl-title">📊 전체 순위표</h5>${renderGroupTable(groupRanking, plan, hasAnyTeam)}</div>`;
+  }
+
+  function buildTeamDetailHTML(group, plan) {
+    const ga1 = plan?.groupAward1;
+    const ga2 = plan?.groupAward2;
+    const ga1En = !!ga1?.enabled;
+    const ga2En = !!ga2?.enabled;
+    const ga1Thr = ga1En ? Number(ga1.threshold || 5) * 10000 : 0;
+    const ga2Rate = ga2En ? Number(ga2.rateThreshold || 110) : 0;
+    const mStats = group.memberStats || [];
+    const total = mStats.length || group.members.length;
+    const memberRows = mStats.map(st => {
+      const net = st.net || 0;
+      const rate = st.base > 0 ? (net / st.base * 100).toFixed(1) : "—";
+      const ga1Hit = ga1Thr > 0 ? (net >= ga1Thr ? "✅" : `<span class="taf-red">✕</span>`) : "—";
+      const netFmt = net >= 0 ? `+${Nf(net)}` : Nf(net);
+      return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s?.empNo || "")}">
+        <td><strong>${escapeHtml(st.s?.name || "")}</strong></td>
+        <td class="r">${Nf(st.base || 0)}</td>
+        <td class="r">${Nf(st.current || 0)}</td>
+        <td class="r${net < 0 ? " taf-red" : ""}">${netFmt}</td>
+        <td class="r">${rate}%</td>
+        <td class="r">${ga1Hit}</td>
+      </tr>`;
+    }).join("");
+    const ga1Ach = ga1En ? mStats.filter(st => (st.net || 0) >= ga1Thr).length : 0;
+    const ga1All = ga1En && ga1Ach === total && total > 0;
+    const ga2Met = ga2En && group.rate >= ga2Rate;
+    let awardBoxes = "";
+    if (ga1En) {
+      const payout = Number(ga1.payout || 5);
+      const missed = mStats.filter(st => (st.net || 0) < ga1Thr);
+      const missedNames = missed.map(st => escapeHtml(st.s?.name || "")).join(", ");
+      awardBoxes += `<div class="td-award-box ${ga1All ? "td-award-ok" : "td-award-miss"}">
+        <div class="td-award-title">그룹시상1 — 전원 순증 ${Number(ga1.threshold || 5)}만원↑</div>
+        <div class="td-award-detail">${ga1All ? `✅ 전원 달성! 1인당 ${payout}만원` : `미달 ${missed.length}명: ${missedNames || "-"}`}</div>
+        <div class="td-award-payout">${ga1All ? `팀 합계 ${payout * total}만원 지급` : "시상 미달"}</div>
+      </div>`;
+    }
+    if (ga2En) {
+      const payout = Number(ga2.payout || 15);
+      awardBoxes += `<div class="td-award-box ${ga2Met ? "td-award-ok" : "td-award-miss"}">
+        <div class="td-award-title">그룹시상2 — 달성률 ${ga2Rate}%↑</div>
+        <div class="td-award-detail">현재 달성률 ${group.rate.toFixed(1)}% ${ga2Met ? "✅ 달성" : "✕ 미달"}</div>
+        <div class="td-award-payout">${ga2Met ? `${payout}만원/팀 지급` : "시상 미달"}</div>
+      </div>`;
+    }
+    const cheers = ["함께하면 반드시 이긴다! 화이팅! 🔥", "오늘의 노력이 내일의 결과다! 💪", "우리 팀은 최고다! 전진! 🚀", "포기하지 않는 팀이 승리한다! ✊", "한 명도 포기 없이, 모두 함께 달성하자! 🏆"];
+    const cheer = cheers[Math.floor(Math.random() * cheers.length)];
+    return `<div class="td-stats-tbl-wrap"><table class="pg-tbl">
+      <thead><tr><th>성명</th><th>기준(원)</th><th>현재(원)</th><th>순증(원)</th><th>달성률</th><th>${ga1Thr > 0 ? Math.round(ga1Thr / 10000) + "만↑" : "-"}</th></tr></thead>
+      <tbody>${memberRows || "<tr><td colspan='6' class='pg-empty'>구성원 없음</td></tr>"}</tbody>
+    </table></div>
+    ${awardBoxes ? `<div class="td-award-boxes">${awardBoxes}</div>` : ""}
+    <div class="td-cheer"><div class="td-cheer-label">🎯 오늘의 팀 구호</div><div class="td-cheer-text">${cheer}</div></div>`;
+  }
+
+  function bindTacCardClicks() {
+    const modal = document.getElementById("modal-pg-full");
+    const body = modal?.querySelector("#pg-full-modal-body");
+    if (!body) return;
+    const rgn = state.progressRegion || state.filter.region || "";
+    body.querySelectorAll(".tac-card[data-teamcard]").forEach(tc => {
+      tc.addEventListener("click", e => {
+        e.stopPropagation();
+        const teamName = tc.dataset.teamcard;
+        const group = (state._hrankGroupData || {})[teamName];
+        if (!group) return;
+        const plan = getAwardPlan(rgn);
+        openPgFullModal({
+          title: `🏅 ${escapeHtml(teamName)}팀 상세`,
+          subtitle: `달성률 ${group.rate.toFixed(1)}%`,
+          bodyHTML: buildTeamDetailHTML(group, plan),
+          pushStack: true
+        });
+      });
+    });
+  }
+
   function renderProgressHome(list) {
     const stats = list.map(getProgressStat);
     const total = stats.length;
@@ -3501,11 +3658,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum", Infinity) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`
       },
       group: {
-        title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
+        title: `🏅 ${hasAnyTeam ? "팀시상" : "그룹 순증"} (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
         subtitle: groupLabel,
-        bodyHTML: renderGroupTable(groupRanking, _pa.plan, hasAnyTeam)
+        bodyHTML: renderTeamAwardFull(groupRanking, _pa.plan, hasAnyTeam)
       }
     };
+    state._hrankGroupData = {};
+    groupRanking.forEach(g => { state._hrankGroupData[g.name] = g; });
 
     // 시상안 박스 + KPI 영역
     const _plan = _pa.plan;
@@ -3727,19 +3886,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       { key: "ipum", icon: "✨", title: "인품왕", sub: "신상품 판매액", cls: "hr-ipum",
         arr: byIpum, isGroup: false,
         valFn: (st) => `${Nf(st.ipumAmt)}원` },
-      { key: "group", icon: "🏅", title: "그룹 순증", sub: hasAnyTeam ? "팀별 순증" : "지점별 순증", cls: "hr-group",
+      { key: "group", icon: "🏅", title: hasAnyTeam ? "팀시상" : "그룹 순증", sub: hasAnyTeam ? "팀별 달성률" : "팀구분이 없습니다", cls: "hr-group",
         arr: groupRanking, isGroup: true,
         valFn: (g) => `${g.rate.toFixed(1)}%` }
     ];
+
+    state._hrankGroupData = {};
+    groupRanking.forEach(g => { state._hrankGroupData[g.name] = g; });
 
     const _closeBtnBar = `<div class="pg-body-close-bar"><button class="btn-outline small" data-pg-close>✕ 닫기</button></div>`;
     state._hrankFullData = {};
     hrCats.forEach(cat => {
       if (cat.key === "group") {
         state._hrankFullData[cat.key] = {
-          title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
+          title: `🏅 ${hasAnyTeam ? "팀시상" : "그룹 순증"} (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
           subtitle: cat.sub,
-          bodyHTML: _closeBtnBar + renderGroupTable(groupRanking, getAwardPlan(region), hasAnyTeam)
+          bodyHTML: _closeBtnBar + renderTeamAwardFull(groupRanking, getAwardPlan(region), hasAnyTeam)
         };
       } else {
         const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
@@ -3763,7 +3925,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       <div class="kpi-card highlight"><div class="kpi-label">아너스목표 합계</div><div class="kpi-value">${kpiHonors.toLocaleString()}</div><div class="kpi-sub">건</div></div>
     </div></div>`;
 
-    const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: "그룹 하위" };
+    const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: hasAnyTeam ? "팀시상 하위" : "그룹 하위" };
 
     const cmpFmt = v => { const n = Number(v) || 0; return Math.abs(n) >= 10000 ? (n / 10000).toFixed(1) + '만' : String(n); };
 
@@ -3858,7 +4020,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         card.addEventListener("click", e => {
           if (e.target.closest(".hr-clickable, .hr-member-click")) return;
           const data = state._hrankFullData && state._hrankFullData[card.dataset.hrpcard];
-          if (data) openPgFullModal(data);
+          if (data) {
+            openPgFullModal(data);
+            if (card.dataset.hrpcard === "group") bindTacCardClicks();
+          }
         });
       });
     }
@@ -3971,6 +4136,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const data = state._pgCardFullData && state._pgCardFullData[key];
         if (!data) return;
         openPgFullModal(data);
+        if (key === "group") bindTacCardClicks();
       });
     });
     // 모바일: 전체 실적표 접기/펼치기
@@ -5954,7 +6120,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

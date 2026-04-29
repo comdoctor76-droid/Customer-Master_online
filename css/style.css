@@ -4105,3 +4105,64 @@ body {
 .hr-member-miss { color: #c62828; background: #fce4ec; font-weight: 700; }
 .hr-member-click { cursor: pointer; }
 .hr-member-click:hover { opacity: 0.75; text-decoration: underline; }
+
+/* ── 팀시상 풀뷰 (v1.33) ── */
+.taf-no-team-notice {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 20px 16px 10px; font-size: 15px; font-weight: 700; color: var(--ink-2); text-align: center;
+}
+.taf-notice-sub { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+
+.tac-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px; padding: 4px 0 12px;
+}
+.tac-card {
+  border-radius: 10px; padding: 12px 10px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px;
+  border: 2px solid transparent; transition: transform .15s, box-shadow .15s;
+}
+.tac-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.tac-green  { background: #e8f5e9; border-color: #43a047; }
+.tac-orange { background: #fff3e0; border-color: #fb8c00; }
+.tac-gray   { background: #f5f5f5; border-color: #bdbdbd; }
+.tac-team-name { font-size: 14px; font-weight: 700; color: var(--navy); }
+.tac-rate { font-size: 22px; font-weight: 800; color: var(--ink-1); line-height: 1.1; }
+.tac-green  .tac-rate { color: #2e7d32; }
+.tac-orange .tac-rate { color: #e65100; }
+.tac-member-wrap { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }
+.tac-member { font-size: 10px; color: var(--ink-2); background: rgba(0,0,0,.06); border-radius: 8px; padding: 1px 5px; white-space: nowrap; }
+.tac-member-miss { color: #c62828; background: #fce4ec; font-weight: 700; }
+.tac-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.tac-badge { font-size: 10px; border-radius: 6px; padding: 1px 5px; white-space: nowrap; font-weight: 700; }
+.tac-badge-ok   { background: #c8e6c9; color: #1b5e20; }
+.tac-badge-half { background: #fff9c4; color: #f57f17; }
+.tac-badge-no   { background: #ffcdd2; color: #b71c1c; }
+
+/* 그룹 시상 안내 박스 */
+.gai-boxes { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 14px; }
+.gai-box { flex: 1 1 160px; background: #e3f2fd; border-radius: 8px; padding: 10px 12px; }
+.gai-title { font-size: 13px; font-weight: 700; color: #1565c0; margin-bottom: 2px; }
+.gai-desc { font-size: 12px; color: var(--ink-1); }
+.gai-payout { font-size: 12px; color: #0d47a1; font-weight: 600; margin-top: 2px; }
+
+/* 전체 순위표 섹션 */
+.taf-tbl-section { margin-top: 0; }
+.taf-tbl-title { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 0 0 6px; }
+
+/* 팀 상세 팝업 */
+.td-stats-tbl-wrap { overflow-x: auto; }
+.taf-red { color: #c62828 !important; font-weight: 700; }
+.td-award-boxes { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.td-award-box { flex: 1 1 180px; border-radius: 8px; padding: 10px 12px; }
+.td-award-ok   { background: #e8f5e9; border-left: 4px solid #43a047; }
+.td-award-miss { background: #ffebee; border-left: 4px solid #e53935; }
+.td-award-title { font-size: 13px; font-weight: 700; color: var(--ink-1); margin-bottom: 4px; }
+.td-award-detail { font-size: 12px; color: var(--ink-2); }
+.td-award-payout { font-size: 12px; font-weight: 700; margin-top: 3px; }
+.td-award-ok   .td-award-payout { color: #2e7d32; }
+.td-award-miss .td-award-payout { color: #c62828; }
+.td-cheer { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); border-radius: 10px; padding: 14px 16px; margin-top: 14px; text-align: center; }
+.td-cheer-label { font-size: 11px; color: rgba(255,255,255,.7); margin-bottom: 4px; }
+.td-cheer-text  { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.4; }
