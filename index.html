@@ -564,6 +564,36 @@
 
         <div class="ap-section">
           <div class="ap-sec-head">
+            <label class="ap-chk-label"><input type="checkbox" id="ap-ga1-en"> <span class="ap-label-inline">🏅 그룹시상1 — 팀원 전원 순증달성</span></label>
+          </div>
+          <div class="ap-ga-row">
+            <span class="ap-ga-lbl">팀원 전원</span>
+            <select id="ap-ga1-threshold" class="pg-input ap-ga-sel">
+              <option value="5">5만원↑</option><option value="10">10만원↑</option><option value="15">15만원↑</option><option value="20">20만원↑</option><option value="25">25만원↑</option><option value="30">30만원↑</option><option value="35">35만원↑</option><option value="40">40만원↑</option><option value="45">45만원↑</option><option value="50">50만원↑</option>
+            </select>
+            <span class="ap-ga-lbl">순증 달성 시</span>
+            <select id="ap-ga1-payout" class="pg-input ap-ga-sel">
+              <option value="5">5만원</option><option value="10">10만원</option><option value="15">15만원</option><option value="20">20만원</option><option value="25">25만원</option><option value="30">30만원</option><option value="35">35만원</option><option value="40">40만원</option><option value="45">45만원</option><option value="50">50만원</option>
+            </select>
+            <span class="ap-ga-lbl">지급 (팀원 전원)</span>
+          </div>
+        </div>
+
+        <div class="ap-section">
+          <div class="ap-sec-head">
+            <label class="ap-chk-label"><input type="checkbox" id="ap-ga2-en"> <span class="ap-label-inline">🏅 그룹시상2 — 팀 달성률 시상</span></label>
+          </div>
+          <div class="ap-ga-row">
+            <span class="ap-ga-lbl">팀 달성률</span>
+            <input type="number" id="ap-ga2-rate" class="pg-input ap-ga-num" min="100" max="300" step="5" placeholder="110">
+            <span class="ap-ga-lbl">% 이상 달성 시</span>
+            <input type="number" id="ap-ga2-payout" class="pg-input ap-ga-num" min="1" max="500" step="5" placeholder="15">
+            <span class="ap-ga-lbl">만원 지급 (팀원 전원)</span>
+          </div>
+        </div>
+
+        <div class="ap-section">
+          <div class="ap-sec-head">
             <label class="ap-chk-label"><input type="checkbox" id="ap-elig-en"> <span class="ap-label-inline">⚠️ 기준조건 (이하 시상에서 제외)</span></label>
             <button type="button" class="ap-toggle-btn" id="ap-elig-op" data-val="and">AND</button>
             <button type="button" class="btn-outline small ap-add-btn" id="ap-elig-add">＋ 추가</button>
