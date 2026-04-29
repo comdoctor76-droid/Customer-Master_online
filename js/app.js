@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.30";
+  const APP_VERSION = "1.31";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -1704,12 +1704,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         });
       }
       // 팀(조) 번호 변경 시 학생 레코드에 저장
-      const teamVal = ($("#iv-team")?.value || "").trim();
-      const teamNum = parseInt(teamVal, 10);
-      const teamToSave = teamNum > 0 ? String(teamNum) : "";
-      const curStudent = state.students.find((x) => x.empNo === empNo);
-      if (curStudent && teamToSave !== (curStudent.team || "")) {
-        window.DataAPI.save({ ...curStudent, team: teamToSave }).catch((e) => console.warn("[team sync]", e));
+      // 팀(조) 번호: 값이 있을 때만 저장 — 빈 값으로는 기존 팀 데이터를 절대 덮어쓰지 않음
+      const teamNum = parseInt(($("#iv-team")?.value || "").trim(), 10);
+      if (teamNum > 0) {
+        const teamToSave = String(teamNum);
+        const curStudent = state.students.find((x) => x.empNo === empNo);
+        if (curStudent && teamToSave !== (curStudent.team || "")) {
+          window.DataAPI.save({ ...curStudent, team: teamToSave }).catch((e) => console.warn("[team sync]", e));
+        }
       }
       state.editingConsultId = null;
       clearInterviewForm();
@@ -5910,7 +5912,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
