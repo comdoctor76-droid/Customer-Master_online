@@ -34,6 +34,8 @@
       n: 10,
       payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10]
     },
+    groupAward1: { enabled: false, threshold: 5, payout: 5 },
+    groupAward2: { enabled: false, rateThreshold: 110, payout: 15 },
     // 4. 기준조건 (eligibility)
     eligibility: {
       enabled: true,
@@ -57,6 +59,8 @@
         personalIncr:  saved.personalIncr  ?? DEFAULT_AWARD_PLAN.personalIncr,
         topAward1:     saved.topAward1     ?? DEFAULT_AWARD_PLAN.topAward1,
         topAward2:     saved.topAward2     ?? DEFAULT_AWARD_PLAN.topAward2,
+        groupAward1:   saved.groupAward1   ?? DEFAULT_AWARD_PLAN.groupAward1,
+        groupAward2:   saved.groupAward2   ?? DEFAULT_AWARD_PLAN.groupAward2,
         eligibility:   saved.eligibility   ?? DEFAULT_AWARD_PLAN.eligibility,
         notes:         saved.notes         ?? DEFAULT_AWARD_PLAN.notes
       };
@@ -131,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.26";
+  const APP_VERSION = "1.27";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3311,6 +3315,53 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return `<span class="pg-rb ${cls}">${r}</span>`;
   };
 
+  function renderGroupTable(groupRanking, plan, hasAnyTeam) {
+    const ga1 = plan?.groupAward1;
+    const ga2 = plan?.groupAward2;
+    const ga1En = !!ga1?.enabled;
+    const ga2En = !!ga2?.enabled;
+    const ga1Thr = ga1En ? Number(ga1.threshold || 5) : 5;
+
+    const thCells = [
+      `<th>#</th>`,
+      `<th>${hasAnyTeam ? "팀" : "지점"}</th>`,
+      `<th>구성원</th>`,
+      `<th>목표합계<br><small>(천원)</small></th>`,
+      `<th>현재합계<br><small>(천원)</small></th>`,
+      `<th>달성률</th>`,
+      ...(ga1En ? [`<th>전원${ga1Thr}만↑</th>`, `<th>그룹시상1</th>`] : []),
+      ...(ga2En ? [`<th>그룹시상2</th>`] : [])
+    ].join("");
+
+    const rows = groupRanking.map((g, i) => {
+      const short = g.members.slice(0, 5).join("·") + (g.members.length > 5 ? "…" : "");
+      let ga1Cell = "", ga1AwardCell = "";
+      if (ga1En) {
+        const thr = ga1Thr * 10000;
+        const payout = Number(ga1.payout || 5) * 10000;
+        const total = (g.memberStats || []).length || g.members.length;
+        const achieved = (g.memberStats || []).filter(st => st.net >= thr).length;
+        const allAchieved = achieved === total && total > 0;
+        const icon = allAchieved ? "✅" : (achieved === 0 ? "✕" : "△");
+        const bdg = allAchieved ? "pg-grp-ok" : (achieved > 0 ? "pg-grp-half" : "pg-grp-no");
+        ga1Cell = `<td><span class="pg-grp-badge ${bdg}">${icon}${achieved}/${total}명</span></td>`;
+        ga1AwardCell = `<td>${allAchieved ? `<span class="pg-grp-award">${Math.round(payout/10000)}만원</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
+      }
+      let ga2Cell = "";
+      if (ga2En) {
+        const rateThr = Number(ga2.rateThreshold || 110);
+        const payout = Number(ga2.payout || 15);
+        const metRate = g.rate >= rateThr;
+        ga2Cell = metRate
+          ? `<td><span class="pg-grp-rate">${rateThr}%↑</span>&nbsp;<span class="pg-grp-award">${payout}만원</span></td>`
+          : `<td><span class="pg-grp-miss">미달</span></td>`;
+      }
+      return `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td><small>${escapeHtml(short)}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
+    }).join("");
+
+    return `<table class="pg-tbl pg-tbl-wide"><thead><tr>${thCells}</tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
   function renderProgressHome(list) {
     const stats = list.map(getProgressStat);
     const total = stats.length;
@@ -3336,15 +3387,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const groupMap = {};
     stats.forEach((st) => {
       const k = groupKeyFn(st);
-      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [] };
+      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [], memberStats: [] };
       groupMap[k].base += st.base;
       groupMap[k].current += st.current;
       groupMap[k].members.push(st.s.name || "");
+      groupMap[k].memberStats.push(st);
     });
     const groupRanking = Object.entries(groupMap).map(([name, g]) => ({
       name,
       rate: g.base > 0 ? (g.current / g.base) * 100 : 0,
       members: g.members,
+      memberStats: g.memberStats,
       base: g.base,
       current: g.current
     })).sort((a, b) => b.rate - a.rate);
@@ -3422,12 +3475,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       group: {
         title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
         subtitle: groupLabel,
-        bodyHTML: `
-          <table class="pg-tbl pg-tbl-wide">
-            <thead><tr><th>#</th><th>${hasAnyTeam ? "팀" : "지점"}</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead>
-            <tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i+1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody>
-          </table>
-        `
+        bodyHTML: renderGroupTable(groupRanking, _pa.plan, hasAnyTeam)
       }
     };
 
@@ -3609,13 +3657,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const groupMap = {};
     stats.forEach((st) => {
       const k = groupKeyFn(st);
-      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [] };
+      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [], memberStats: [] };
       groupMap[k].base += st.base;
       groupMap[k].current += st.current;
       groupMap[k].members.push(st.s.name || "");
+      groupMap[k].memberStats.push(st);
     });
     const groupRanking = Object.entries(groupMap).map(([k, g]) => ({
-      name: k, rate: g.base > 0 ? (g.current / g.base) * 100 : 0, members: g.members
+      name: k, rate: g.base > 0 ? (g.current / g.base) * 100 : 0, members: g.members, memberStats: g.memberStats, base: g.base, current: g.current
     })).sort((a, b) => b.rate - a.rate);
 
     const RNKS = ["r1", "r2", "r3"];
@@ -3656,7 +3705,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         state._hrankFullData[cat.key] = {
           title: `🏅 그룹 순증 전체 순위 (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
           subtitle: cat.sub,
-          bodyHTML: _closeBtnBar + `<table class="pg-tbl pg-tbl-wide"><thead><tr><th>#</th><th>${hasAnyTeam ? "팀" : "지점"}</th><th>인원</th><th>기준</th><th>현재</th><th>달성률</th></tr></thead><tbody>${groupRanking.map((g, i) => `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td>${g.members.length}명</td><td class="r">${Nf(g.base)}</td><td class="r">${Nf(g.current)}</td><td>${g.rate.toFixed(1)}%</td></tr>`).join("")}</tbody></table>`
+          bodyHTML: _closeBtnBar + renderGroupTable(groupRanking, getAwardPlan(region), hasAnyTeam)
         };
       } else {
         const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
@@ -5692,6 +5741,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       state.filter.q = e.target.value;
       render();
     });
+    $("#search-box-side")?.addEventListener("click", (e) => {
+      if (e.target.value) { e.target.value = ""; e.target.dispatchEvent(new Event("input")); }
+    });
 
     // 모달 닫기
     $$("[data-close]").forEach((el) => el.addEventListener("click", (e) => {
@@ -5763,6 +5815,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const ok = await saveSingle();
           if (ok) {
             closeModal("#modal-add");
+            const pgFull = document.getElementById("pg-full-modal");
+            if (pgFull) pgFull.hidden = true;
             toast("저장되었습니다.", "success");
           }
         } else {
@@ -5796,7 +5850,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -5817,6 +5871,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (openSdBtn) openSdBtn.addEventListener("click", openStudentDeleteModal);
     const sdSearch = $("#sd-search");
     if (sdSearch) sdSearch.addEventListener("input", (e) => renderStudentDeleteList(e.target.value));
+    if (sdSearch) sdSearch.addEventListener("click", (e) => {
+      if (e.target.value) { e.target.value = ""; e.target.dispatchEvent(new Event("input")); }
+    });
     const sdClear = $("#btn-sd-clear");
     if (sdClear) sdClear.addEventListener("click", () => {
       state.sdSelected = new Set();
@@ -5930,6 +5987,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     _apSetToggle(document.getElementById("ap-elig-op"), plan.eligibility?.operator || "and",
       [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
     _apRenderElig((plan.eligibility?.conditions?.length ? plan.eligibility.conditions : [{ field: "converted", threshold: 80 }]));
+    document.getElementById("ap-ga1-en").checked = !!plan.groupAward1?.enabled;
+    const ga1ThrEl = document.getElementById("ap-ga1-threshold");
+    if (ga1ThrEl) ga1ThrEl.value = plan.groupAward1?.threshold ?? 5;
+    const ga1PayEl = document.getElementById("ap-ga1-payout");
+    if (ga1PayEl) ga1PayEl.value = plan.groupAward1?.payout ?? 5;
+    document.getElementById("ap-ga2-en").checked = !!plan.groupAward2?.enabled;
+    document.getElementById("ap-ga2-rate").value = plan.groupAward2?.rateThreshold ?? 110;
+    document.getElementById("ap-ga2-payout").value = plan.groupAward2?.payout ?? 15;
   }
 
   function _apCollect() {
@@ -5978,6 +6043,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         enabled: document.getElementById("ap-elig-en").checked,
         operator: document.getElementById("ap-elig-op").dataset.val,
         conditions: eligConds
+      },
+      groupAward1: {
+        enabled: document.getElementById("ap-ga1-en")?.checked ?? false,
+        threshold: Number(document.getElementById("ap-ga1-threshold")?.value) || 5,
+        payout: Number(document.getElementById("ap-ga1-payout")?.value) || 5
+      },
+      groupAward2: {
+        enabled: document.getElementById("ap-ga2-en")?.checked ?? false,
+        rateThreshold: Number(document.getElementById("ap-ga2-rate")?.value) || 110,
+        payout: Number(document.getElementById("ap-ga2-payout")?.value) || 15
       },
       notes: document.getElementById("ap-notes").value.trim()
     };
