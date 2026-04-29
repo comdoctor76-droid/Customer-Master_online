@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.31";
+  const APP_VERSION = "1.32";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4483,21 +4483,39 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="pg-team-summary" id="pg-team-summary">
               <!-- 팀별 합산 실적 박스 (실시간) -->
             </div>
+            <div class="pg-team-filter-bar">
+              <label class="pg-team-filter-lbl">기수</label>
+              <select id="pg-team-cohort-filter" class="pg-input pg-team-cohort-sel">
+                <option value="">전체 기수</option>
+                ${[...new Set(rows.map(s => s.cohort || "").filter(Boolean))].sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}
+              </select>
+              <span class="pg-team-unassigned-info">미배정: <strong id="pg-team-unassigned-cnt">${rows.filter(s => !(parseInt(s.team, 10) > 0)).length}</strong>명</span>
+            </div>
             <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
               <thead><tr>
-                <th>#</th><th>지점</th><th>성명</th>
+                <th>#</th><th>기수</th><th>지점</th><th>성명</th>
                 <th>기준실적</th><th>현재실적</th><th>팀</th>
               </tr></thead>
-              <tbody>${rows.map((s, i) => {
+              <tbody>${rows.slice().sort((a, b) => {
+                const aT = parseInt(a.team, 10), bT = parseInt(b.team, 10);
+                const aHas = aT > 0, bHas = bT > 0;
+                if (!aHas && bHas) return -1;
+                if (aHas && !bHas) return 1;
+                if (aHas && bHas && aT !== bT) return aT - bT;
+                return (a.cohort || "").localeCompare(b.cohort || "") || (a.branch || "").localeCompare(b.branch || "") || (a.name || "").localeCompare(b.name || "");
+              }).map((s, i) => {
                 const base = Number(s.base || 0);
                 const cur = Number(s.current || 0);
-                return `<tr>
+                const teamVal = parseInt(s.team, 10);
+                const hasTeam = teamVal > 0;
+                return `<tr class="pg-team-tbl-row${!hasTeam ? " pg-team-unassigned-row" : ""}" data-cohort="${escapeHtml(s.cohort || "")}">
                   <td>${i + 1}</td>
+                  <td><span class="pg-cohort-tag">${escapeHtml(s.cohort || "—")}</span></td>
                   <td>${escapeHtml(s.branch || "")}</td>
                   <td><strong>${escapeHtml(s.name || "")}</strong></td>
                   <td class="r">${Nf(base)}</td>
                   <td class="r">${Nf(cur)}</td>
-                  <td><input type="number" class="pg-input pg-team-input" data-emp="${escapeHtml(s.empNo)}" value="${parseInt(s.team, 10) > 0 ? parseInt(s.team, 10) : ""}" placeholder="조번호" min="1" style="width:70px"></td>
+                  <td><input type="number" class="pg-input pg-team-input" data-emp="${escapeHtml(s.empNo)}" value="${hasTeam ? teamVal : ""}" placeholder="조번호" min="1" style="width:70px"></td>
                 </tr>`;
               }).join("")}</tbody>
             </table></div>
@@ -4517,6 +4535,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byTeam = {};
     list.forEach((s) => {
       const inp = root ? root.querySelector(`.pg-team-input[data-emp="${s.empNo}"]`) : null;
+      // 기수 필터로 숨겨진 행은 집계에서 제외
+      if (inp && inp.closest("tr")?.hidden) return;
       const team = (inp ? inp.value : s.team || "").toString().trim();
       if (!team) return;
       if (!byTeam[team]) byTeam[team] = { base: 0, current: 0, members: [] };
@@ -4988,9 +5008,31 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 초기 요약
     renderTeamSummary(list, root);
 
+    // 기수 필터
+    const cohortFilter = root.querySelector("#pg-team-cohort-filter");
+    const updateUnassignedCnt = () => {
+      const selCohort = cohortFilter ? cohortFilter.value : "";
+      const cnt = [...root.querySelectorAll(".pg-team-tbl-row")].filter(tr => {
+        if (selCohort && tr.dataset.cohort !== selCohort) return false;
+        return tr.classList.contains("pg-team-unassigned-row") || !tr.querySelector(".pg-team-input")?.value;
+      }).length;
+      const el = root.querySelector("#pg-team-unassigned-cnt");
+      if (el) el.textContent = cnt;
+    };
+    if (cohortFilter) {
+      cohortFilter.addEventListener("change", () => {
+        const val = cohortFilter.value;
+        root.querySelectorAll(".pg-team-tbl-row").forEach(tr => {
+          tr.hidden = !!(val && tr.dataset.cohort !== val);
+        });
+        updateUnassignedCnt();
+        renderTeamSummary(list, root);
+      });
+    }
+
     // 팀 입력 실시간 반영
     root.querySelectorAll(".pg-team-input").forEach((inp) => {
-      inp.addEventListener("input", () => renderTeamSummary(list, root));
+      inp.addEventListener("input", () => { renderTeamSummary(list, root); updateUnassignedCnt(); });
     });
 
     // 자동 배정 (N 팀으로 랜덤 균등 분배)
@@ -5912,7 +5954,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260429g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
