@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.35";
+  const APP_VERSION = "1.36";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3588,27 +3588,25 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     })).sort((a, b) => b.rate - a.rate);
     const groupLabel = hasAnyTeam ? "팀별 인보험 순증" : "지점별 인보험 순증 (팀 미배정)";
 
-    // TOP3 미리보기 행 (신장률/신장액/인품/그룹 공통)
-    // 중복시상 미리보기: 더 큰 시상이 다른 항목에 있으면 해당 표시
-    const _mkRatePrize = (st, rawRateIdx) => {
-      if (!_pa.isEligible(st.s)) return { txt: "기준미달", cls: "pg-b-no" };
-      const rateAmt = _pa.rateTop10[rawRateIdx] || 0;
-      const amtRank = byAmt.findIndex(x => x.s.empNo === st.s.empNo);
-      const amtAmt  = (_pa.bothEnabled && amtRank >= 0) ? (_pa.amtTop10[amtRank] || 0) : 0;
-      if (rateAmt > 0 && amtAmt > rateAmt) return { txt: "💰 신장액 시상", cls: "pg-rank-swap-text" };
-      return { txt: rateAmt > 0 ? `시상 ${Math.round(rateAmt/10000)}만원` : "-", cls: "" };
+    // Compute two-pass duplicate-award assignments once; reuse for preview cards + full modals
+    const _bothAsgn = computeBothAwardAssignments(byRate, byAmt, _pa);
+    const _mkRatePrize = (st) => {
+      const a = _bothAsgn.rateAsgn.get(st.s.empNo);
+      if (!a || a.status === "ineligible") return { txt: "기준미달", cls: "pg-b-no" };
+      if (a.status === "other") return { txt: "💰 신장액 시상", cls: "pg-rank-swap-text" };
+      if (a.status === "mine") return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
+      return { txt: "-", cls: "" };
     };
-    const _mkAmtPrize = (st, rawAmtIdx) => {
-      if (!_pa.isEligible(st.s)) return { txt: "기준미달", cls: "pg-b-no" };
-      const amtAmt  = _pa.amtTop10[rawAmtIdx] || 0;
-      const rateRank = byRate.findIndex(x => x.s.empNo === st.s.empNo);
-      const rateAmt  = (_pa.bothEnabled && rateRank >= 0) ? (_pa.rateTop10[rateRank] || 0) : 0;
-      if (amtAmt > 0 && rateAmt > amtAmt) return { txt: "📈 신장률 시상", cls: "pg-rank-swap-text" };
-      return { txt: amtAmt > 0 ? `시상 ${Math.round(amtAmt/10000)}만원` : "-", cls: "" };
+    const _mkAmtPrize = (st) => {
+      const a = _bothAsgn.amtAsgn.get(st.s.empNo);
+      if (!a || a.status === "ineligible") return { txt: "기준미달", cls: "pg-b-no" };
+      if (a.status === "other") return { txt: "📈 신장률 시상", cls: "pg-rank-swap-text" };
+      if (a.status === "mine") return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
+      return { txt: "-", cls: "" };
     };
     const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
       const rate = st.rate || 0;
-      const p = _mkRatePrize(st, i);
+      const p = _mkRatePrize(st);
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
         <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
         <div class="pg-pcard-content">
@@ -3619,7 +3617,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }).join("");
 
     const pcardAmtTop3 = byAmt.slice(0, 3).map((st, i) => {
-      const p = _mkAmtPrize(st, i);
+      const p = _mkAmtPrize(st);
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
         <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
         <div class="pg-pcard-content">
@@ -4137,41 +4135,70 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   // 중복시상 반영 전체 순위표 — 신장률·신장액 중 더 큰 시상만 표시
-  function renderProgressRankFullBothAware(byRate, byAmt, pa, kind) {
-    const list      = kind === "rate" ? byRate : byAmt;
-    const myTop     = kind === "rate" ? pa.rateTop10 : pa.amtTop10;
-    const otherTop  = kind === "rate" ? pa.amtTop10  : pa.rateTop10;
-    const otherList = kind === "rate" ? byAmt : byRate;
-    const bothEnabled = !!(pa.rateConfig && pa.amtConfig) && otherTop.length > 0;
-    const maxN = myTop.length;
+  // Two-pass duplicate-award assignment:
+  // Pass 1 assigns rate prizes using raw amt positions.
+  // Pass 2 assigns amt prizes using EFFECTIVE rate prizes from pass 1,
+  // so a person bumped up in rate (due to exclusions above them) is correctly
+  // excluded from amt when their effective rate prize >= their potential amt prize.
+  function computeBothAwardAssignments(byRate, byAmt, pa) {
+    const rateTop = pa.rateTop10 || [];
+    const amtTop  = pa.amtTop10  || [];
+    const bothEnabled = !!(pa.rateConfig && pa.amtConfig) && rateTop.length > 0 && amtTop.length > 0;
 
-    // empNo → raw position in the other list
-    const otherRankMap = {};
-    otherList.forEach((st, i) => { otherRankMap[st.s.empNo] = i; });
+    const amtRankMap = {};
+    byAmt.forEach((st, i) => { amtRankMap[st.s.empNo] = i; });
 
-    // Walk list and assign effective prizes, accounting for excluded persons
-    let slot = 0; // next prize slot to hand out
-    const asgn = new Map();
-    for (const st of list) {
+    // Pass 1: rate prizes (compare against raw amt prize at same position)
+    let rSlot = 0;
+    const rateAsgn = new Map();
+    for (const st of byRate) {
       const empNo = st.s.empNo;
-      const eligible = pa.isEligible(st.s);
-      const otherRank = otherRankMap[empNo];
-      const rawOther  = (bothEnabled && otherRank !== undefined) ? (otherTop[otherRank] || 0) : 0;
-
-      if (!eligible) {
-        asgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, rawOther });
+      if (!pa.isEligible(st.s)) {
+        rateAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
         continue;
       }
-      const potentialMy = slot < maxN ? (myTop[slot] || 0) : 0;
-      if (potentialMy > 0 && rawOther > potentialMy) {
-        // Other prize is larger → skip this list's prize
-        asgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, rawOther });
-      } else if (potentialMy > 0) {
-        asgn.set(empNo, { status: "mine", effectiveRank: ++slot, effectiveAmt: potentialMy, rawOther });
+      const rawAmt = (bothEnabled && amtRankMap[empNo] !== undefined)
+        ? (amtTop[amtRankMap[empNo]] || 0) : 0;
+      const potentialRate = rSlot < rateTop.length ? (rateTop[rSlot] || 0) : 0;
+      if (potentialRate > 0 && rawAmt > potentialRate) {
+        rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: rawAmt });
+      } else if (potentialRate > 0) {
+        rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: potentialRate, otherAmt: rawAmt });
       } else {
-        asgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, rawOther });
+        rateAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: rawAmt });
       }
     }
+
+    // Pass 2: amt prizes (compare against EFFECTIVE rate prize from pass 1; rate wins ties)
+    let aSlot = 0;
+    const amtAsgn = new Map();
+    for (const st of byAmt) {
+      const empNo = st.s.empNo;
+      if (!pa.isEligible(st.s)) {
+        amtAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
+        continue;
+      }
+      const effectiveRateAmt = bothEnabled ? (rateAsgn.get(empNo)?.effectiveAmt || 0) : 0;
+      const potentialAmt = aSlot < amtTop.length ? (amtTop[aSlot] || 0) : 0;
+      if (potentialAmt > 0 && effectiveRateAmt >= potentialAmt) {
+        amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateAmt });
+      } else if (potentialAmt > 0) {
+        amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: potentialAmt, otherAmt: effectiveRateAmt });
+      } else {
+        amtAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateAmt });
+      }
+    }
+
+    return { rateAsgn, amtAsgn };
+  }
+
+  function renderProgressRankFullBothAware(byRate, byAmt, pa, kind) {
+    const list = kind === "rate" ? byRate : byAmt;
+    const bothEnabled = !!(pa.rateConfig && pa.amtConfig) &&
+      (pa.rateTop10 || []).length > 0 && (pa.amtTop10 || []).length > 0;
+
+    const { rateAsgn, amtAsgn } = computeBothAwardAssignments(byRate, byAmt, pa);
+    const asgnMap = kind === "rate" ? rateAsgn : amtAsgn;
 
     const otherIcon = kind === "rate" ? "💰" : "📈";
     const otherName = kind === "rate" ? "신장액" : "신장률";
@@ -4179,7 +4206,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const rows = list.map(st => {
       const empNo = st.s.empNo;
-      const a = asgn.get(empNo) || { status: "none", effectiveRank: 0, effectiveAmt: 0, rawOther: 0 };
+      const a = asgnMap.get(empNo) || { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 };
       const value = kind === "rate"
         ? (st.rate != null ? st.rate.toFixed(1) : "0.0") + "%"
         : (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
@@ -4189,7 +4216,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         prizeCell = `<span class="pg-bdg pg-b-g">${Math.round(a.effectiveAmt / 10000)}만원</span>`;
       } else if (a.status === "other") {
         rankCell  = `<span class="pg-rb" style="opacity:.3">·</span>`;
-        prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName} ${Math.round(a.rawOther / 10000)}만원</span>`;
+        prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName} ${Math.round(a.otherAmt / 10000)}만원</span>`;
         rowCls    = " pg-rank-deferred";
       } else if (a.status === "ineligible") {
         rankCell  = `<span class="pg-rb" style="opacity:.3">·</span>`;
@@ -6215,7 +6242,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260508b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260508c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
