@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.34";
+  const APP_VERSION = "1.35";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3481,7 +3481,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const total = mStats.length || group.members.length;
     const memberRows = mStats.map(st => {
       const net = st.net || 0;
-      const rate = st.base > 0 ? (net / st.base * 100).toFixed(1) : "—";
+      const rate = st.rate != null ? st.rate.toFixed(1) : "—";
       const ga1Hit = ga1Thr > 0 ? (net >= ga1Thr ? "✅" : `<span class="taf-red">✕</span>`) : "—";
       const netFmt = net >= 0 ? `+${Nf(net)}` : Nf(net);
       return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s?.empNo || "")}">
@@ -3607,7 +3607,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return { txt: amtAmt > 0 ? `시상 ${Math.round(amtAmt/10000)}만원` : "-", cls: "" };
     };
     const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
-      const rate = st.base > 0 ? (st.net / st.base) * 100 : 0;
+      const rate = st.rate || 0;
       const p = _mkRatePrize(st, i);
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
         <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
@@ -3655,7 +3655,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     state._pgCardFullData = {
       rate: {
         title: `📈 신장률 전체 순위 (${rateFinalList.length}명)`,
-        subtitle: "기준실적 대비 순증률",
+        subtitle: "달성률 (현재실적 ÷ 기준실적)",
         bodyHTML: renderProgressRankFullBothAware(byRate, byAmt, _pa, "rate")
       },
       amt: {
@@ -3735,7 +3735,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <div class="pg-pcard-icon">📈</div>
               <div class="pg-pcard-titles">
                 <h5>최고 신장률 TOP10</h5>
-                <p>기준실적 대비 순증률</p>
+                <p>달성률 (현재실적 ÷ 기준실적)</p>
               </div>
               <span class="pg-pcard-chev">›</span>
             </div>
@@ -3889,9 +3889,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
 
     const hrCats = [
-      { key: "rate", icon: "📈", title: "최고 신장률", sub: "기준실적 대비 순증률", cls: "hr-rate",
+      { key: "rate", icon: "📈", title: "최고 신장률", sub: "달성률 (현재실적 ÷ 기준실적)", cls: "hr-rate",
         arr: byRate, isGroup: false,
-        valFn: (st) => `${st.base > 0 ? (st.net / st.base * 100).toFixed(1) : "0.0"}%` },
+        valFn: (st) => `${st.rate != null ? st.rate.toFixed(1) : "0.0"}%` },
       { key: "amt", icon: "💰", title: "최고 신장액", sub: "순증 금액 절대값", cls: "hr-amt",
         arr: byAmt, isGroup: false,
         valFn: (st) => `${st.net >= 0 ? "+" : ""}${Nf(st.net)}원` },
@@ -3917,7 +3917,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         };
       } else {
         const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
-        const subs = { rate: "기준실적 대비 순증률", amt: "순증 금액 절대값", ipum: "신상품 판매액" };
+        const subs = { rate: "달성률 (현재실적 ÷ 기준실적)", amt: "순증 금액 절대값", ipum: "신상품 판매액" };
         let body;
         if (cat.key === "rate") {
           body = byRate.length ? renderProgressRankFullBothAware(byRate, byAmt, _hrankPa, "rate") : `<div class="pg-empty">데이터 없음</div>`;
@@ -3983,7 +3983,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                     ${memberSpans ? `<span class="hr-members">${memberSpans}</span>` : ""}
                   </div>`;
                 } else {
-                  const pct = item.base > 0 ? (item.net / item.base * 100).toFixed(1) : '—';
+                  const pct = item.rate != null ? item.rate.toFixed(1) : '—';
                   const statsLine = `기준 ${cmpFmt(item.base)} · 현재 ${cmpFmt(item.current)} · 순증 ${item.net >= 0 ? '+' : ''}${cmpFmt(item.net)} (${pct}%)`;
                   nameBlock = `<div class="hr-name-wrap"><span class="hr-name">${escapeHtml(name)}</span><span class="hr-row-stats">${statsLine}</span></div>`;
                 }
@@ -4106,7 +4106,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (!top.length) return `<div class="pg-empty">데이터 없음</div>`;
     return `
       <table class="pg-tbl">
-        <thead><tr><th>#</th><th>성명</th><th>지점</th><th>${kind === "ipum" ? "인품실적" : kind === "rate" ? "신장률" : "순증"}</th><th>시상</th></tr></thead>
+        <thead><tr><th>#</th><th>성명</th><th>지점</th><th>${kind === "ipum" ? "인품실적" : kind === "rate" ? "달성률" : "순증"}</th><th>시상</th></tr></thead>
         <tbody>${top.map((st, i) => {
           let value, prize;
           if (kind === "ipum") {
@@ -4114,8 +4114,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i];
             prize = grade ? `<span class="pg-bdg pg-b-p">${grade}</span>` : "-";
           } else if (kind === "rate") {
-            const rate = st.base > 0 ? (st.net / st.base) * 100 : 0;
-            value = rate.toFixed(1) + "%";
+            value = (st.rate || 0).toFixed(1) + "%";
             if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else {
@@ -4176,13 +4175,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const otherIcon = kind === "rate" ? "💰" : "📈";
     const otherName = kind === "rate" ? "신장액" : "신장률";
-    const titleCol  = kind === "rate" ? "신장률" : "순증(원)";
+    const titleCol  = kind === "rate" ? "달성률" : "순증(원)";
 
     const rows = list.map(st => {
       const empNo = st.s.empNo;
       const a = asgn.get(empNo) || { status: "none", effectiveRank: 0, effectiveAmt: 0, rawOther: 0 };
       const value = kind === "rate"
-        ? (st.base > 0 ? (st.net / st.base * 100).toFixed(1) : "0.0") + "%"
+        ? (st.rate != null ? st.rate.toFixed(1) : "0.0") + "%"
         : (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
       let rankCell, prizeCell, rowCls = "";
       if (a.status === "mine") {
@@ -6216,7 +6215,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260508a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260508b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
