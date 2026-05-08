@@ -2963,6 +2963,12 @@ body {
 .pg-b-g { background: #FFF0B0; color: #5A3800; border: 1px solid #D4A800; }
 .pg-b-p { background: #FFE8F4; color: #B0006A; border: 1px solid #E080B0; }
 .pg-b-no { color: #888; }
+/* 중복시상 행 — 다른 항목에서 더 큰 시상을 받는 사람 */
+.pg-rank-deferred { background: #fffde7; }
+.pg-rank-deferred td { opacity: .75; }
+.pg-bdg.pg-rank-swap { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; font-size: 11px; }
+.pg-rank-swap-text { color: #1d4ed8; font-size: 11px; }
+.pg-rank-notice { font-size: 11px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; line-height: 1.5; }
 .pg-rb {
   display: inline-flex;
   align-items: center;
