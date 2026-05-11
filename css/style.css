@@ -4215,3 +4215,27 @@ body {
   width: auto;
   min-width: 72px;
 }
+
+/* 시상안 편집 — 저장 확인 오버레이 */
+.ap-save-confirm {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+}
+.ap-save-confirm[hidden] { display: none; }
+.ap-save-confirm-box {
+  background: #fff; border-radius: 12px;
+  padding: 20px 24px; max-width: 340px; width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  text-align: center;
+}
+.ap-save-confirm-msg {
+  font-size: 14px; font-weight: 700; color: var(--ink-1,#222);
+  margin-bottom: 16px; line-height: 1.5;
+}
+.ap-save-confirm-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* 그룹시상2 다항목 행 */
+.ap-ga2-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ap-ga2-row .ap-row-prefix { font-size: 12px; color: var(--ink-3,#888); white-space: nowrap; }
+.ap-ga2-row .ap-row-suffix { font-size: 12px; color: var(--ink-3,#888); white-space: nowrap; }
