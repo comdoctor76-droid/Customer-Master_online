@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.37";
+  const APP_VERSION = "1.38";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3355,6 +3355,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return `<span class="pg-rb ${cls}">${r}</span>`;
   };
 
+  // Normalize groupAward2 to always return items array (backward compat with old single-item shape)
+  function _ga2Items(ga2) {
+    if (!ga2?.enabled) return [];
+    if (ga2.items?.length) return ga2.items;
+    return [{ rateThreshold: ga2.rateThreshold ?? 110, payout: ga2.payout ?? 15 }];
+  }
+
   function renderGroupTable(groupRanking, plan, hasAnyTeam) {
     const ga1 = plan?.groupAward1;
     const ga2 = plan?.groupAward2;
@@ -3389,12 +3396,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
       let ga2Cell = "";
       if (ga2En) {
-        const rateThr = Number(ga2.rateThreshold || 110);
-        const payout = Number(ga2.payout || 15);
-        const metRate = g.rate >= rateThr;
-        ga2Cell = metRate
-          ? `<td><span class="pg-grp-rate">${rateThr}%↑</span>&nbsp;<span class="pg-grp-award">${payout}만원</span></td>`
-          : `<td><span class="pg-grp-miss">미달</span></td>`;
+        const g2items = _ga2Items(ga2);
+        const metItems = g2items.filter(it => g.rate >= Number(it.rateThreshold || 110));
+        if (metItems.length > 0) {
+          const maxPay = Math.max(...metItems.map(it => Number(it.payout || 15)));
+          ga2Cell = `<td><span class="pg-grp-award">${maxPay}만원</span></td>`;
+        } else {
+          const firstThr = g2items[0]?.rateThreshold || 110;
+          ga2Cell = `<td><span class="pg-grp-miss">미달(${firstThr}%↑)</span></td>`;
+        }
       }
       return `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td><small>${escapeHtml(short)}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
     }).join("");
@@ -3408,14 +3418,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga1En = !!ga1?.enabled;
     const ga2En = !!ga2?.enabled;
     const ga1Thr = ga1En ? Number(ga1.threshold || 5) * 10000 : 0;
-    const ga2Rate = ga2En ? Number(ga2.rateThreshold || 110) : 0;
 
     return groupRanking.map((g) => {
       const mStats = g.memberStats || [];
       const total = mStats.length || g.members.length;
       const ga1Ach = ga1En ? mStats.filter(st => (st.net || 0) >= ga1Thr).length : 0;
       const ga1All = ga1En && ga1Ach === total && total > 0;
-      const ga2Met = ga2En && g.rate >= ga2Rate;
+      const ga2Met = ga2En && _ga2Items(ga2).some(it => g.rate >= Number(it.rateThreshold || 110));
       let cardCls = "tac-gray";
       if (ga1En || ga2En) {
         if ((!ga1En || ga1All) && (!ga2En || ga2Met)) cardCls = "tac-green";
@@ -3488,7 +3497,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga1En = !!ga1?.enabled;
     const ga2En = !!ga2?.enabled;
     const ga1Thr = ga1En ? Number(ga1.threshold || 5) * 10000 : 0;
-    const ga2Rate = ga2En ? Number(ga2.rateThreshold || 110) : 0;
     const mStats = group.memberStats || [];
     const total = mStats.length || group.members.length;
     const memberRows = mStats.map(st => {
@@ -3507,7 +3515,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }).join("");
     const ga1Ach = ga1En ? mStats.filter(st => (st.net || 0) >= ga1Thr).length : 0;
     const ga1All = ga1En && ga1Ach === total && total > 0;
-    const ga2Met = ga2En && group.rate >= ga2Rate;
     let awardBoxes = "";
     if (ga1En) {
       const payout = Number(ga1.payout || 5);
@@ -3520,12 +3527,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       </div>`;
     }
     if (ga2En) {
-      const payout = Number(ga2.payout || 15);
-      awardBoxes += `<div class="td-award-box ${ga2Met ? "td-award-ok" : "td-award-miss"}">
-        <div class="td-award-title">그룹시상2 — 달성률 ${ga2Rate}%↑</div>
-        <div class="td-award-detail">현재 달성률 ${group.rate.toFixed(1)}% ${ga2Met ? "✅ 달성" : "✕ 미달"}</div>
-        <div class="td-award-payout">${ga2Met ? `${payout}만원/팀 지급` : "시상 미달"}</div>
-      </div>`;
+      _ga2Items(ga2).forEach((it) => {
+        const rateThr = Number(it.rateThreshold || 110);
+        const payout  = Number(it.payout || 15);
+        const met = group.rate >= rateThr;
+        awardBoxes += `<div class="td-award-box ${met ? "td-award-ok" : "td-award-miss"}">
+          <div class="td-award-title">그룹시상2 — 달성률 ${rateThr}%↑</div>
+          <div class="td-award-detail">현재 달성률 ${group.rate.toFixed(1)}% ${met ? "✅ 달성" : "✕ 미달"}</div>
+          <div class="td-award-payout">${met ? `${payout}만원/팀 지급` : "시상 미달"}</div>
+        </div>`;
+      });
     }
     const cheers = ["함께하면 반드시 이긴다! 화이팅! 🔥", "오늘의 노력이 내일의 결과다! 💪", "우리 팀은 최고다! 전진! 🚀", "포기하지 않는 팀이 승리한다! ✊", "한 명도 포기 없이, 모두 함께 달성하자! 🏆"];
     const cheer = cheers[Math.floor(Math.random() * cheers.length)];
@@ -6254,7 +6265,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260511a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260511b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -6313,7 +6324,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (stepSel && state.progressStep) stepSel.value = state.progressStep;
     _apRefreshFromSelectors();
     [yearSel, cohortSel, stepSel, regionSel].forEach((sel) => {
-      if (sel) sel.onchange = _apRefreshFromSelectors;
+      if (sel) sel.onchange = () => _apMaybeSaveConfirm(_apRefreshFromSelectors);
     });
     openModal("#modal-award-plan");
   }
@@ -6348,9 +6359,39 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return title;
   }
 
+  let _apPendingAction = null;
+  let _apOriginalJSON = null;
+
+  function _apIsDirty() {
+    if (!_apOriginalJSON) return false;
+    try { return JSON.stringify(_apCollect()) !== _apOriginalJSON; } catch { return false; }
+  }
+
+  function _apMaybeSaveConfirm(onProceed) {
+    if (!_apIsDirty()) { onProceed(); return; }
+    _apPendingAction = onProceed;
+    const title = document.getElementById("ap-title-display")?.textContent || "시상안";
+    document.getElementById("ap-save-confirm-msg").textContent = `"${title}"을(를) 저장할까요?`;
+    document.getElementById("ap-save-confirm").hidden = false;
+  }
+
   function _apRefreshFromSelectors() {
     _apGenerateTitle();
     loadAwardPlanForm(_apGetCurrentKey());
+  }
+
+  function _apRenderGa2(items) {
+    const el = document.getElementById("ap-ga2-list");
+    if (!el) return;
+    el.innerHTML = items.map((it, i) => `
+      <div class="ap-row ap-ga2-row" data-i="${i}">
+        <span class="ap-row-prefix">팀달성률</span>
+        <input type="number" class="pg-input ap-ga2-rate" value="${it.rateThreshold || 110}" min="100" max="300" step="5" style="width:70px;" placeholder="110">
+        <span class="ap-row-suffix">%↑ 달성 시 전원</span>
+        <input type="number" class="pg-input ap-ga2-pay" value="${it.payout || 15}" min="1" max="500" step="5" style="width:60px;" placeholder="15">
+        <span class="ap-row-suffix">만원 지급</span>
+        <button type="button" class="ap-del-btn" title="삭제">✕</button>
+      </div>`).join("");
   }
 
   function _apRenderPi(items) {
@@ -6447,8 +6488,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga1PayEl = document.getElementById("ap-ga1-payout");
     if (ga1PayEl) ga1PayEl.value = plan.groupAward1?.payout ?? 5;
     document.getElementById("ap-ga2-en").checked = !!plan.groupAward2?.enabled;
-    document.getElementById("ap-ga2-rate").value = plan.groupAward2?.rateThreshold ?? 110;
-    document.getElementById("ap-ga2-payout").value = plan.groupAward2?.payout ?? 15;
+    const ga2Items = plan.groupAward2?.items?.length
+      ? plan.groupAward2.items
+      : [{ rateThreshold: plan.groupAward2?.rateThreshold ?? 110, payout: plan.groupAward2?.payout ?? 15 }];
+    _apRenderGa2(ga2Items);
+    // Snapshot for dirty check
+    _apOriginalJSON = JSON.stringify(_apCollect());
   }
 
   function _apCollect() {
@@ -6505,8 +6550,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       },
       groupAward2: {
         enabled: document.getElementById("ap-ga2-en")?.checked ?? false,
-        rateThreshold: Number(document.getElementById("ap-ga2-rate")?.value) || 110,
-        payout: Number(document.getElementById("ap-ga2-payout")?.value) || 15
+        items: (() => {
+          const arr = [];
+          document.querySelectorAll("#ap-ga2-list .ap-ga2-row").forEach((row) => {
+            arr.push({
+              rateThreshold: Number(row.querySelector(".ap-ga2-rate")?.value) || 110,
+              payout: Number(row.querySelector(".ap-ga2-pay")?.value) || 15
+            });
+          });
+          return arr.length ? arr : [{ rateThreshold: 110, payout: 15 }];
+        })()
       },
       notes: document.getElementById("ap-notes").value.trim()
     };
@@ -6562,6 +6615,33 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       cur.push({ field: "converted", threshold: 0 });
       _apRenderElig(cur);
     });
+    document.getElementById("ap-ga2-add")?.addEventListener("click", () => {
+      const cur = _apCollect().groupAward2.items || [];
+      cur.push({ rateThreshold: 110, payout: 15 });
+      _apRenderGa2(cur);
+    });
+
+    // 저장 확인 오버레이 버튼
+    document.getElementById("ap-save-confirm-yes")?.addEventListener("click", () => {
+      document.getElementById("ap-save-confirm").hidden = true;
+      // 저장 실행
+      const region = document.getElementById("award-plan-region").value;
+      if (region) {
+        const plan = _apCollect();
+        plan.title = _apGenerateTitle();
+        saveAwardPlan(_apGetCurrentKey(), plan);
+        _apOriginalJSON = JSON.stringify(_apCollect());
+        toast(`시상안 저장 완료: ${plan.title}`, "success");
+        if (state.progressRegion === region) renderProgressPanel();
+      }
+      // 저장 후 원래 대기 중이던 액션 실행
+      if (_apPendingAction) { const fn = _apPendingAction; _apPendingAction = null; fn(); }
+    });
+    document.getElementById("ap-save-confirm-no")?.addEventListener("click", () => {
+      document.getElementById("ap-save-confirm").hidden = true;
+      _apOriginalJSON = null; // dirty 초기화하여 재질문 방지
+      if (_apPendingAction) { const fn = _apPendingAction; _apPendingAction = null; fn(); }
+    });
 
     document.getElementById("btn-award-plan-save")?.addEventListener("click", () => {
       const region = document.getElementById("award-plan-region").value;
@@ -6570,6 +6650,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       plan.title = _apGenerateTitle();
       const key = _apGetCurrentKey();
       saveAwardPlan(key, plan);
+      _apOriginalJSON = JSON.stringify(_apCollect());
       toast(`시상안 저장 완료: ${plan.title}`, "success");
       if (state.progressRegion === region) renderProgressPanel();
     });
@@ -6578,7 +6659,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       loadAwardPlanForm(null);
     });
     document.getElementById("btn-award-plan-close")?.addEventListener("click", () => {
-      modal.hidden = true;
+      _apMaybeSaveConfirm(() => { modal.hidden = true; });
+    });
+    // 백드롭 클릭 시도 dirty 체크
+    modal.querySelector(".modal-backdrop")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      _apMaybeSaveConfirm(() => { modal.hidden = true; });
     });
   }
 
