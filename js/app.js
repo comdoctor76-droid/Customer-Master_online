@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.36";
+  const APP_VERSION = "1.37";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -224,6 +224,9 @@
     // 실적진도 패널 상태
     progressRegion: "",
     progressSubTab: "home",
+    progressYear: String(new Date().getFullYear()),
+    progressCohort: "",
+    progressStep: "",
     // 출력 서브뷰
     printMode: "personal",     // 'personal' | 'branch' | 'vc'
     printConsultCache: {}      // { empNo: consultations[] } — 다건 출력시 캐시
@@ -3287,7 +3290,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   // 지역단별 시상안 → PROGRESS_AWARDS 호환 객체 생성
   function getProgressAwardConfig(region) {
-    const plan = getAwardPlan(region);
+    let _planKey = region;
+    if (state.progressCohort && state.progressStep) {
+      const _y = state.progressYear || String(new Date().getFullYear());
+      const _ck = makeAwardPlanKey(_y, region, state.progressCohort, state.progressStep);
+      try {
+        const _st = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+        if (_st[_ck]) _planKey = _ck;
+      } catch { /**/ }
+    }
+    const plan = getAwardPlan(_planKey);
     const personalItems = (plan.personalIncr?.enabled ? (plan.personalIncr.items || []) : []);
     const tiers = personalItems
       .filter((it) => Number(it.critVal) > 0)
@@ -3536,7 +3548,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const teamName = tc.dataset.teamcard;
         const group = (state._hrankGroupData || {})[teamName];
         if (!group) return;
-        const plan = getAwardPlan(rgn);
+        const plan = getProgressAwardConfig(rgn).plan;
         openPgFullModal({
           title: `🏅 ${escapeHtml(teamName)}팀 상세`,
           subtitle: `달성률 ${group.rate.toFixed(1)}%`,
@@ -6242,12 +6254,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260508c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260511a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
     $("#btn-open-award-plan")?.addEventListener("click", openAwardPlanModal);
     bindAwardPlanModal();
+    document.getElementById("pg-cohort-sel")?.addEventListener("change", (e) => {
+      state.progressCohort = e.target.value;
+      if (isPanelVisible("progress-panel")) renderProgressPanel();
+    });
+    document.getElementById("pg-step-sel")?.addEventListener("change", (e) => {
+      state.progressStep = e.target.value;
+      if (isPanelVisible("progress-panel")) renderProgressPanel();
+    });
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
     $("#btn-go-progress-admin")?.addEventListener("click", openProgressAdminOverlay);
     $("#btn-pg-admin-overlay-close")?.addEventListener("click", () => {
@@ -6276,15 +6296,61 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   // ========== 시상안 편집 ==========
   function openAwardPlanModal() {
     const modal = document.getElementById("modal-award-plan");
-    const regionSelect = document.getElementById("award-plan-region");
+    const regionSel = document.getElementById("award-plan-region");
     const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
     const current = state.progressRegion || state.filter.region || (regions[0] || "");
-    regionSelect.innerHTML = regions.map((r) =>
+    regionSel.innerHTML = regions.map((r) =>
       `<option value="${escapeHtml(r)}"${r === current ? " selected" : ""}>${escapeHtml(r)}</option>`
     ).join("");
-    loadAwardPlanForm(current);
-    regionSelect.onchange = () => loadAwardPlanForm(regionSelect.value);
+    // Sync year selector to current progress year
+    const yearSel = document.getElementById("award-plan-year");
+    if (yearSel && state.progressYear) yearSel.value = state.progressYear;
+    // Sync cohort selector to current progress cohort
+    const cohortSel = document.getElementById("award-plan-cohort");
+    if (cohortSel && state.progressCohort) cohortSel.value = state.progressCohort;
+    // Sync step selector
+    const stepSel = document.getElementById("award-plan-step");
+    if (stepSel && state.progressStep) stepSel.value = state.progressStep;
+    _apRefreshFromSelectors();
+    [yearSel, cohortSel, stepSel, regionSel].forEach((sel) => {
+      if (sel) sel.onchange = _apRefreshFromSelectors;
+    });
     openModal("#modal-award-plan");
+  }
+
+  function makeAwardPlanKey(year, region, cohort, step) {
+    return `AP:${year}:${region}:${cohort}:${step}`;
+  }
+
+  function _apGetCurrentKey() {
+    const year   = document.getElementById("award-plan-year")?.value   || "";
+    const region = document.getElementById("award-plan-region")?.value || "";
+    const cohort = document.getElementById("award-plan-cohort")?.value || "";
+    const step   = document.getElementById("award-plan-step")?.value   || "";
+    return makeAwardPlanKey(year, region, cohort, step);
+  }
+
+  function _apGenerateTitle() {
+    const year   = document.getElementById("award-plan-year")?.value   || "";
+    const region = document.getElementById("award-plan-region")?.value || "";
+    const cohort = document.getElementById("award-plan-cohort")?.value || "";
+    const step   = document.getElementById("award-plan-step")?.value   || "";
+    const centers = [...new Set(
+      state.students
+        .filter((s) => s.region === region &&
+          String(s.cohort || "").replace("기", "") === cohort)
+        .map((s) => s.center).filter(Boolean)
+    )];
+    const centerStr = centers.length ? `(${centers.join(",")})` : "";
+    const title = `${year}년 ${region} ${cohort}기${centerStr} Step${step} 활성화 시상안`;
+    const el = document.getElementById("ap-title-display");
+    if (el) el.textContent = title;
+    return title;
+  }
+
+  function _apRefreshFromSelectors() {
+    _apGenerateTitle();
+    loadAwardPlanForm(_apGetCurrentKey());
   }
 
   function _apRenderPi(items) {
@@ -6352,9 +6418,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     btn.textContent = found ? found.t : val;
   }
 
-  function loadAwardPlanForm(region) {
-    const plan = region ? getAwardPlan(region) : JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN));
-    document.getElementById("ap-title").value = plan.title || "";
+  function loadAwardPlanForm(key) {
+    const plan = key ? getAwardPlan(key) : JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN));
     document.getElementById("ap-notes").value = plan.notes || "";
     // 개인순증시상
     document.getElementById("ap-pi-en").checked = !!plan.personalIncr?.enabled;
@@ -6411,7 +6476,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
     return {
-      title: document.getElementById("ap-title").value.trim(),
+      title: document.getElementById("ap-title-display")?.textContent?.trim() || "",
       personalIncr: {
         enabled: document.getElementById("ap-pi-en").checked,
         items: piItems
@@ -6502,8 +6567,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const region = document.getElementById("award-plan-region").value;
       if (!region) { toast("지역단을 선택하세요.", "error"); return; }
       const plan = _apCollect();
-      saveAwardPlan(region, plan);
-      toast(`${region} 시상안 저장 완료`, "success");
+      plan.title = _apGenerateTitle();
+      const key = _apGetCurrentKey();
+      saveAwardPlan(key, plan);
+      toast(`시상안 저장 완료: ${plan.title}`, "success");
       if (state.progressRegion === region) renderProgressPanel();
     });
     document.getElementById("btn-award-plan-reset")?.addEventListener("click", () => {
