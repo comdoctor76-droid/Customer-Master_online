@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.39";
+  const APP_VERSION = "1.40";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4586,43 +4586,81 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const firstCohort = rows[0]?.cohort || "";
     const cohortTitle = firstCohort ? `${firstCohort} ` : "";
 
+
+    // ── 카드1: 기수별 인원 (현재 지역단 내) ──────────────────────────────────
+    const _cohortMap = {};
+    rows.forEach((s) => {
+      const key = s.cohort ? `${s.cohort}기` : "(기수 미지정)";
+      _cohortMap[key] = (_cohortMap[key] || 0) + 1;
+    });
+    const _cohortEntries = Object.entries(_cohortMap).sort(([a], [b]) => {
+      const na = parseInt(a, 10); const nb = parseInt(b, 10);
+      return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb;
+    });
+
+    // ── 카드2: 지역단별 현황 (전체 state.students 기준) ───────────────────────
+    const _rgnMap = {};
+    state.students.forEach((s) => {
+      const r = s.region || "(미지정)";
+      if (!_rgnMap[r]) _rgnMap[r] = [];
+      _rgnMap[r].push(s);
+    });
+    const _rgnEntries = Object.entries(_rgnMap).sort(([a], [b]) => a.localeCompare(b));
+    const _rgnRowsHTML = _rgnEntries.map(([reg, sts]) => {
+      const rSt = sts.map(getProgressStat);
+      const rCnt = rSt.length;
+      const rAvg = rCnt > 0 ? rSt.reduce((a, s) => a + s.rate, 0) / rCnt : 0;
+      const rOver100 = rSt.filter((s) => s.rate >= 100).length;
+      const rOver5   = rSt.filter((s) => s.net >= 50000).length;
+      const isCur = reg === state.progressRegion;
+      return `<tr${isCur ? ' class="pg-rgn-cur"' : ''}><td>${escapeHtml(reg)}</td><td>${rCnt}명</td><td>${rAvg.toFixed(1)}%</td><td>${rOver100}명</td><td>${rOver5}명</td></tr>`;
+    }).join("");
+
+    // ── 카드3: 전체 교육생 통계 (state.students 전체) ─────────────────────────
+    const _allSt = state.students.map(getProgressStat);
+    const _allTotal = _allSt.length;
+    const _allAvg = _allTotal > 0 ? _allSt.reduce((a, s) => a + s.rate, 0) / _allTotal : 0;
+    const _allOver100 = _allSt.filter((s) => s.rate >= 100).length;
+    const _allMid80   = _allSt.filter((s) => s.rate >= 80 && s.rate < 100).length;
+    const _allMid50   = _allSt.filter((s) => s.rate >= 50 && s.rate < 80).length;
+    const _allLow50   = _allSt.filter((s) => s.rate <  50).length;
+    const _allOver5   = _allSt.filter((s) => s.net >= 50000).length;
+
     return `
       <div class="pg-wrap">
-        <!-- [1] 과정 기본 정보 카드 -->
+        <!-- [1] 지역단·기수별 인원 카드 -->
         <div class="pg-info-grid">
           <div class="pg-info-card">
-            <h5>📘 과정 기본 정보</h5>
+            <h5>📘 ${escapeHtml(state.progressRegion)} 기수별 인원</h5>
             <dl>
-              <dt>과정명</dt><dd>${escapeHtml(cohortTitle)}고객마스터</dd>
-              <dt>지역단</dt><dd>${escapeHtml(state.progressRegion)}</dd>
+              ${_cohortEntries.map(([c, n]) => `<dt>${escapeHtml(c)}</dt><dd><strong>${n}명</strong></dd>`).join("")}
+              <dt class="pg-dt-total">합계</dt><dd class="pg-dt-total"><strong>${total}명</strong></dd>
               <dt>기준일</dt><dd>${baseDate}</dd>
-              <dt>총 인원</dt><dd><strong>${total}명</strong></dd>
             </dl>
           </div>
-          <!-- [2] 달성 현황 카드 -->
-          <div class="pg-info-card">
-            <h5>🎯 달성 현황</h5>
-            <dl>
-              <dt>순증 5만원↑</dt><dd class="ok"><strong>${over5}명</strong></dd>
-              <dt>80~100%</dt><dd>${mid80}명</dd>
-              <dt>50~80%</dt><dd>${mid50}명</dd>
-              <dt>50% 미만</dt><dd class="warn">${low50}명</dd>
-              <dt>평균 달성률</dt><dd><strong>${avgR.toFixed(1)}%</strong></dd>
-            </dl>
+          <!-- [2] 지역단별 현황 카드 -->
+          <div class="pg-info-card pg-info-card--wide">
+            <h5>🗺️ 지역단별 현황</h5>
+            <div class="pg-rgn-tbl-wrap">
+              <table class="pg-rgn-tbl">
+                <thead><tr><th>지역단</th><th>인원</th><th>달성률</th><th>100%↑</th><th>5만↑</th></tr></thead>
+                <tbody>${_rgnRowsHTML}</tbody>
+              </table>
+            </div>
           </div>
-          <!-- [3] 시상 현황 카드 -->
+          <!-- [3] 전체 교육생 현황 카드 -->
           <div class="pg-info-card">
-            <h5>🏆 시상 현황</h5>
+            <h5>📊 전체 현황 (${_allTotal}명)</h5>
             <dl>
-              <dt>순증 30만원↑</dt><dd class="ok"><strong>${elig}명</strong></dd>
-              <dt>150% 지급</dt><dd>${a5}명</dd>
-              <dt>120% 지급</dt><dd>${a4}명</dd>
-              <dt>현금 시상</dt><dd>${cash}명</dd>
-              <dt>제외</dt><dd class="warn">${exclude}명</dd>
+              <dt>평균 달성률</dt><dd><strong>${_allAvg.toFixed(1)}%</strong></dd>
+              <dt>100%↑ 달성</dt><dd class="ok"><strong>${_allOver100}명</strong></dd>
+              <dt>80~100%</dt><dd>${_allMid80}명</dd>
+              <dt>50~80%</dt><dd>${_allMid50}명</dd>
+              <dt>50% 미만</dt><dd class="warn">${_allLow50}명</dd>
+              <dt>순증 5만원↑</dt><dd class="ok">${_allOver5}명</dd>
             </dl>
           </div>
         </div>
-
         <!-- [4] 안내 -->
         <div class="pg-admin-note">
           <strong>🔧 ${escapeHtml(state.progressRegion)} 실적 입력</strong>
@@ -6266,7 +6304,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260511c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260511d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

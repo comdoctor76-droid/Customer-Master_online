@@ -3096,6 +3096,28 @@ body {
 .pg-info-card dd.warn { color: var(--danger); }
 .pg-info-card dd strong { font-size: 14px; font-weight: 900; }
 
+/* 지역단별 현황 카드 — 넓게 */
+.pg-info-card--wide { grid-column: span 1; }
+.pg-dt-total { border-top: 1px solid var(--line-soft); padding-top: 4px; font-weight: 700; color: var(--navy) !important; }
+
+/* 지역단별 현황 테이블 */
+.pg-rgn-tbl-wrap { overflow-x: auto; }
+.pg-rgn-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.pg-rgn-tbl th, .pg-rgn-tbl td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+}
+.pg-rgn-tbl th { background: var(--bg-2, #f8f8f8); font-weight: 700; color: var(--ink-3); text-align: center; }
+.pg-rgn-tbl td { color: var(--navy); }
+.pg-rgn-tbl td:not(:first-child) { text-align: right; }
+.pg-rgn-tbl tr.pg-rgn-cur td { background: #fff8e1; font-weight: 700; }
+.pg-rgn-tbl tr.pg-rgn-cur td:first-child::after { content: " ●"; color: var(--orange); font-size: 10px; }
+
 /* 인품 편집 카드 강조 */
 .pg-ipum-card { border-top: 3px solid #B0006A; }
 .pg-ipum-card h4 { color: #B0006A; }
