@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.53";
+  const APP_VERSION = "1.54";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3376,13 +3376,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (ga2.items?.length) return ga2.items;
     return [{ rateThreshold: ga2.rateThreshold ?? 110, payout: ga2.payout ?? 15 }];
   }
+  function _ga1Items(ga1) {
+    if (!ga1?.enabled) return [];
+    if (ga1?.items?.length) return ga1.items;
+    return [{ threshold: ga1?.threshold ?? 5, payout: normPayout(ga1?.payout ?? 5) }];
+  }
 
   function renderGroupTable(groupRanking, plan, hasAnyTeam) {
     const ga1 = plan?.groupAward1;
     const ga2 = plan?.groupAward2;
     const ga1En = !!ga1?.enabled;
     const ga2En = !!ga2?.enabled;
-    const ga1Thr = ga1En ? Number(ga1.threshold || 5) : 5;
+    const ga1ItemList = _ga1Items(ga1);
+    const ga1PrimaryThr = ga1En && ga1ItemList.length ? Number(ga1ItemList[0].threshold || 5) : 5;
 
     const thCells = [
       `<th>#</th>`,
@@ -3391,7 +3397,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       `<th>목표합계<br><small>(천원)</small></th>`,
       `<th>현재합계<br><small>(천원)</small></th>`,
       `<th>달성률</th>`,
-      ...(ga1En ? [`<th>전원${ga1Thr}만↑</th>`, `<th>그룹시상1</th>`] : []),
+      ...(ga1En ? [`<th>전원${ga1PrimaryThr}만↑</th>`, `<th>그룹시상1</th>`] : []),
       ...(ga2En ? [`<th>그룹시상2</th>`] : [])
     ].join("");
 
@@ -3399,16 +3405,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const short = g.members.slice(0, 5).join("·") + (g.members.length > 5 ? "…" : "");
       let ga1Cell = "", ga1AwardCell = "";
       if (ga1En) {
-        const thr = ga1Thr * 10000;
-        const ga1PayObj = normPayout(ga1.payout ?? 5);
-        const payout = ga1PayObj.type === "item" ? 0 : Number(ga1PayObj.val || 5) * 10000;
+        // 첫 번째 항목을 기준으로 달성 인원 표시
+        const primaryIt = ga1ItemList[0] || { threshold: 5, payout: { type: "cash", val: 5 } };
+        const thr = Number(primaryIt.threshold || 5) * 10000;
         const total = (g.memberStats || []).length || g.members.length;
         const achieved = (g.memberStats || []).filter(st => st.net >= thr).length;
         const allAchieved = achieved === total && total > 0;
         const icon = allAchieved ? "✅" : (achieved === 0 ? "✕" : "△");
         const bdg = allAchieved ? "pg-grp-ok" : (achieved > 0 ? "pg-grp-half" : "pg-grp-no");
+        // 달성된 모든 항목의 시상 합산
+        const metItems = ga1ItemList.filter(it => {
+          const itThr = Number(it.threshold || 5) * 10000;
+          return (g.memberStats || []).every(st => (st.net || 0) >= itThr) && total > 0;
+        });
+        const awardLabels = metItems.map(it => escapeHtml(payoutLabel(it.payout))).join("+");
         ga1Cell = `<td><span class="pg-grp-badge ${bdg}">${icon}${achieved}/${total}명</span></td>`;
-        ga1AwardCell = `<td>${allAchieved ? `<span class="pg-grp-award">${escapeHtml(payoutLabel(ga1PayObj))}</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
+        ga1AwardCell = `<td>${metItems.length ? `<span class="pg-grp-award">${awardLabels}</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
       }
       let ga2Cell = "";
       if (ga2En) {
@@ -3437,7 +3449,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga2 = plan?.groupAward2;
     const ga1En = !!ga1?.enabled;
     const ga2En = !!ga2?.enabled;
-    const ga1Thr = ga1En ? Number(ga1.threshold || 5) * 10000 : 0;
+    const ga1PrimaryItem = _ga1Items(ga1)[0];
+    const ga1Thr = ga1En && ga1PrimaryItem ? Number(ga1PrimaryItem.threshold || 5) * 10000 : 0;
 
     return groupRanking.map((g) => {
       const mStats = g.memberStats || [];
@@ -3479,12 +3492,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga2 = plan?.groupAward2;
     const boxes = [];
     if (ga1?.enabled) {
-      const thr = Number(ga1.threshold || 5);
-      boxes.push(`<div class="gai-box">
-        <div class="gai-title">🏅 그룹시상1</div>
-        <div class="gai-desc">팀원 전원 순증 ${thr}만원↑</div>
-        <div class="gai-payout">달성 시 ${escapeHtml(payoutLabel(ga1.payout ?? 5))}/인</div>
-      </div>`);
+      _ga1Items(ga1).forEach(it => {
+        const thr = Number(it.threshold || 5);
+        boxes.push(`<div class="gai-box">
+          <div class="gai-title">🏅 그룹시상1</div>
+          <div class="gai-desc">팀원 전원 순증 ${thr}만원↑</div>
+          <div class="gai-payout">달성 시 ${escapeHtml(payoutLabel(it.payout ?? 5))}/인</div>
+        </div>`);
+      });
     }
     if (ga2?.enabled) {
       const g2items = _ga2Items(ga2);
@@ -3517,7 +3532,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga2 = plan?.groupAward2;
     const ga1En = !!ga1?.enabled;
     const ga2En = !!ga2?.enabled;
-    const ga1Thr = ga1En ? Number(ga1.threshold || 5) * 10000 : 0;
+    const ga1ItemsArr = _ga1Items(ga1);
+    const ga1Thr = ga1En && ga1ItemsArr.length ? Number(ga1ItemsArr[0].threshold || 5) * 10000 : 0;
     const mStats = group.memberStats || [];
     const total = mStats.length || group.members.length;
     const memberRows = mStats.map(st => {
@@ -3539,16 +3555,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga1All = ga1En && ga1Ach === total && total > 0;
     let awardBoxes = "";
     if (ga1En) {
-      const ga1PayObj = normPayout(ga1.payout ?? 5);
-      const missed = mStats.filter(st => (st.net || 0) < ga1Thr);
-      const missedNames = missed.map(st => escapeHtml(st.s?.name || "")).join(", ");
-      const perPerson = payoutLabel(ga1PayObj);
-      const totalLabel = ga1PayObj.type === "item" ? `전원 ${perPerson}` : `팀 합계 ${Number(ga1PayObj.val || 5) * total}만원 지급`;
-      awardBoxes += `<div class="td-award-box ${ga1All ? "td-award-ok" : "td-award-miss"}">
-        <div class="td-award-title">그룹시상1 — 전원 순증 ${Number(ga1.threshold || 5)}만원↑</div>
-        <div class="td-award-detail">${ga1All ? `✅ 전원 달성! 1인당 ${escapeHtml(perPerson)}` : `미달 ${missed.length}명: ${missedNames || "-"}`}</div>
-        <div class="td-award-payout">${ga1All ? escapeHtml(totalLabel) : "시상 미달"}</div>
-      </div>`;
+      ga1ItemsArr.forEach(it => {
+        const itThr = Number(it.threshold || 5) * 10000;
+        const itPayObj = normPayout(it.payout ?? 5);
+        const missed = mStats.filter(st => (st.net || 0) < itThr);
+        const allMet = missed.length === 0 && total > 0;
+        const missedNames = missed.map(st => escapeHtml(st.s?.name || "")).join(", ");
+        const perPerson = payoutLabel(itPayObj);
+        const totalLabel = itPayObj.type === "item" ? `전원 ${perPerson}` : `팀 합계 ${Number(itPayObj.val || 5) * total}만원 지급`;
+        awardBoxes += `<div class="td-award-box ${allMet ? "td-award-ok" : "td-award-miss"}">
+          <div class="td-award-title">그룹시상1 — 전원 순증 ${Number(it.threshold || 5)}만원↑</div>
+          <div class="td-award-detail">${allMet ? `✅ 전원 달성! 1인당 ${escapeHtml(perPerson)}` : `미달 ${missed.length}명: ${missedNames || "-"}`}</div>
+          <div class="td-award-payout">${allMet ? escapeHtml(totalLabel) : "시상 미달"}</div>
+        </div>`;
+      });
     }
     if (ga2En) {
       _ga2Items(ga2).forEach((it) => {
@@ -6362,7 +6382,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512n)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -6475,6 +6495,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function _apRefreshFromSelectors() {
     _apGenerateTitle();
     loadAwardPlanForm(_apGetCurrentKey());
+  }
+
+  function _apRenderGa1(items) {
+    const el = document.getElementById("ap-ga1-list");
+    if (!el) return;
+    el.innerHTML = items.map((it, i) => {
+      const np = normPayout(it.payout ?? 5);
+      const isCash = np.type !== "item";
+      return `
+      <div class="ap-row ap-ga2-row ap-ga1-row" data-i="${i}">
+        <span class="ap-row-prefix">팀원 전원</span>
+        <input type="number" class="pg-input ap-ga1-thr" value="${it.threshold || 5}" min="1" max="500" step="5" style="width:60px;" placeholder="5">
+        <span class="ap-row-suffix">만원↑ 달성 시</span>
+        <button type="button" class="ap-toggle-btn ap-pay-type" data-val="${isCash ? "cash" : "item"}">${isCash ? "만원" : "물품"}</button>
+        <input type="number" class="pg-input ap-pay-cash ap-ga1-pay" value="${isCash ? escapeHtml(String(np.val)) : 5}" min="1" max="500" step="5" style="width:60px;${isCash ? "" : "display:none"}" placeholder="5">
+        <input type="text" class="pg-input ap-pay-item" value="${isCash ? "" : escapeHtml(String(np.val || ""))}" placeholder="물품명" style="width:100px;${isCash ? "display:none" : ""}">
+        <span class="ap-row-suffix">지급/인</span>
+        <button type="button" class="ap-del-btn" title="삭제">✕</button>
+      </div>`;
+    }).join("");
   }
 
   function _apRenderGa2(items) {
@@ -6595,22 +6635,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
     _apRenderElig((plan.eligibility?.conditions?.length ? plan.eligibility.conditions : [{ field: "converted", threshold: 80 }]));
     document.getElementById("ap-ga1-en").checked = !!plan.groupAward1?.enabled;
-    const ga1ThrEl = document.getElementById("ap-ga1-threshold");
-    if (ga1ThrEl) ga1ThrEl.value = plan.groupAward1?.threshold ?? 5;
-    // ga1 payout — 만원/물품 토글
-    const ga1PayObj = normPayout(plan.groupAward1?.payout ?? 5);
-    const ga1PayTypeEl = document.getElementById("ap-ga1-payout-type");
-    const ga1PayCashEl = document.getElementById("ap-ga1-payout");
-    const ga1PayItemEl = document.getElementById("ap-ga1-payout-item");
-    if (ga1PayTypeEl) {
-      const isCash = ga1PayObj.type !== "item";
-      ga1PayTypeEl.dataset.val = ga1PayObj.type;
-      ga1PayTypeEl.textContent = isCash ? "만원" : "물품";
-      if (ga1PayCashEl) { ga1PayCashEl.value = isCash ? ga1PayObj.val : 5; ga1PayCashEl.style.display = isCash ? "" : "none"; }
-      if (ga1PayItemEl) { ga1PayItemEl.value = isCash ? "" : String(ga1PayObj.val || ""); ga1PayItemEl.style.display = isCash ? "none" : ""; }
-    } else if (ga1PayCashEl) {
-      ga1PayCashEl.value = ga1PayObj.type !== "item" ? ga1PayObj.val : 5;
-    }
+    // ga1 items (구형: threshold+payout → items 배열로 변환)
+    const ga1RawItems = plan.groupAward1?.items?.length
+      ? plan.groupAward1.items
+      : [{ threshold: plan.groupAward1?.threshold ?? 5, payout: normPayout(plan.groupAward1?.payout ?? 5) }];
+    _apRenderGa1(ga1RawItems);
     document.getElementById("ap-ga2-en").checked = !!plan.groupAward2?.enabled;
     const ga2Items = plan.groupAward2?.items?.length
       ? plan.groupAward2.items
@@ -6676,12 +6705,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       },
       groupAward1: {
         enabled: document.getElementById("ap-ga1-en")?.checked ?? false,
-        threshold: Number(document.getElementById("ap-ga1-threshold")?.value) || 5,
-        payout: (() => {
-          const typeEl = document.getElementById("ap-ga1-payout-type");
-          const type = typeEl?.dataset.val || "cash";
-          if (type === "item") return { type: "item", val: document.getElementById("ap-ga1-payout-item")?.value.trim() || "" };
-          return { type: "cash", val: Number(document.getElementById("ap-ga1-payout")?.value) || 5 };
+        items: (() => {
+          const arr = [];
+          document.querySelectorAll("#ap-ga1-list .ap-ga1-row").forEach((row) => {
+            const type = row.querySelector(".ap-pay-type")?.dataset.val || "cash";
+            arr.push({
+              threshold: Number(row.querySelector(".ap-ga1-thr")?.value) || 5,
+              payout: type === "item"
+                ? { type: "item", val: row.querySelector(".ap-pay-item")?.value.trim() || "" }
+                : { type: "cash", val: Number(row.querySelector(".ap-pay-cash")?.value) || 5 }
+            });
+          });
+          return arr.length ? arr : [{ threshold: 5, payout: { type: "cash", val: 5 } }];
         })()
       },
       groupAward2: {
@@ -6723,13 +6758,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const newType = tg.dataset.val === "item" ? "cash" : "item";
           tg.dataset.val = newType;
           tg.textContent = newType === "item" ? "물품" : "만원";
-          const container = tg.closest(".ap-row, .ap-ga-row");
-          const cashInp = container
-            ? container.querySelector(".ap-pay-cash")
-            : (tg.id === "ap-ga1-payout-type" ? document.getElementById("ap-ga1-payout") : null);
-          const itemInp = container
-            ? container.querySelector(".ap-pay-item")
-            : (tg.id === "ap-ga1-payout-type" ? document.getElementById("ap-ga1-payout-item") : null);
+          const container = tg.closest(".ap-row, .ap-ga-row, .ap-ga1-row, .ap-ga2-row");
+          const cashInp = container?.querySelector(".ap-pay-cash");
+          const itemInp = container?.querySelector(".ap-pay-item");
           if (cashInp) cashInp.style.display = newType === "item" ? "none" : "";
           if (itemInp) itemInp.style.display = newType === "item" ? "" : "none";
         } else if (tg.classList.contains("ap-pi-type")) {
@@ -6780,9 +6811,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       cur.push({ field: "converted", threshold: 0 });
       _apRenderElig(cur);
     });
+    document.getElementById("ap-ga1-add")?.addEventListener("click", () => {
+      const cur = _apCollect().groupAward1.items || [];
+      cur.push({ threshold: 5, payout: { type: "cash", val: 5 } });
+      _apRenderGa1(cur);
+    });
     document.getElementById("ap-ga2-add")?.addEventListener("click", () => {
       const cur = _apCollect().groupAward2.items || [];
-      cur.push({ rateThreshold: 110, payout: 15 });
+      cur.push({ rateThreshold: 110, payout: { type: "cash", val: 15 } });
       _apRenderGa2(cur);
     });
 
