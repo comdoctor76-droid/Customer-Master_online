@@ -516,39 +516,7 @@ body {
 }
 .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
 .kpi-unit { font-size: 14px; font-weight: 400; margin-left: 2px; vertical-align: baseline; }
-.kpi-stat-bar {
-  display: flex;
-  align-items: stretch;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: var(--shadow-1);
-  overflow: hidden;
-  margin-top: 10px;
-}
-.kpi-stat-item {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 10px 20px;
-  flex: 1;
-  min-width: 0;
-}
-.kpi-stat-label {
-  font-size: 11px;
-  color: var(--ink-3);
-  margin-bottom: 3px;
-  white-space: nowrap;
-}
-.kpi-stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--navy);
-  white-space: nowrap;
-}
-.kpi-stat-unit { font-size: 13px; font-weight: 400; margin-left: 2px; color: var(--ink-2); }
-.kpi-stat-divider { width: 1px; background: var(--border); flex-shrink: 0; margin: 8px 0; }
-.kpi-stat-rate .kpi-stat-value { color: var(--orange); }
+#kpi-inline-stats { margin-top: 0; }
 .kpi-card.highlight {
   background: linear-gradient(135deg, var(--navy), var(--navy-2));
   color: #fff;
