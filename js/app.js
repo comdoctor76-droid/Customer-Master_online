@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.43";
+  const APP_VERSION = "1.44";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -5167,11 +5167,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const center  = p[1] || "";
         const branch  = p[2] || "";
         const empNo   = p[3] || "";
-        const name    = p[4] || "";
-        // 달성률 컬럼 위치로 열 수 자동 감지 (TC/SM 직급코드 등 추가 열 처리)
-        // 표준(16열): p[12] = 달성률(%) | 17열(직급코드 포함): p[13] = 달성률(%)
+        // 달성률 컬럼 위치로 열 수 자동 감지 — 직급유형 등 추가 열이 4번(사원번호 뒤)에 삽입된 경우
+        // 표준(16열): p[12] = 달성률(%) | 17열(추가열 포함): p[13] = 달성률(%)
+        // colShift=1이면 성명(4)·차월(5) 포함 4번 이후 모든 열에 +1 적용
         const colShift = (!p[12]?.includes('%') && p[13]?.includes('%')) ? 1 : 0;
-        const pgMonth = p[5] || "";
+        const name    = p[4 + colShift] || "";
+        const pgMonth = p[5 + colShift] || "";
         const pgLeader= p[6 + colShift] || "";
         const pgPreIns    = parseAmt(p[7 + colShift]);
         const pgPreConv   = parseAmt(p[8 + colShift]);
@@ -6306,7 +6307,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
