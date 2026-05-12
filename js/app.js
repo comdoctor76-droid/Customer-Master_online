@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.47";
+  const APP_VERSION = "1.48";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3854,7 +3854,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (mainKpi) mainKpi.style.display = "";
       if (state._hrankTimer) { clearTimeout(state._hrankTimer); state._hrankTimer = null; }
       const kpiInline = document.getElementById("kpi-inline-stats");
-      if (kpiInline) kpiInline.innerHTML = "";
+      if (kpiInline) { kpiInline.innerHTML = ""; kpiInline.setAttribute("hidden", ""); }
       return;
     }
     section.hidden = false;
@@ -3968,7 +3968,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // KPI를 슬라이드 대신 헤더 desc 줄에 인라인 표시
     const kpiInlineEl = document.getElementById("kpi-inline-stats");
     if (kpiInlineEl) {
-      kpiInlineEl.innerHTML = ` <span class="kpi-sep">|</span> ${kpiTotal}명 <span class="kpi-sep">|</span> A ${kpiBase.toLocaleString()}원 <span class="kpi-sep">|</span> B ${kpiCurrent.toLocaleString()}원 <span class="kpi-sep">|</span> <strong>${kpiRate}%</strong>`;
+      kpiInlineEl.removeAttribute("hidden");
+      kpiInlineEl.innerHTML = `
+        <div class="kpi-stat-item">
+          <span class="kpi-stat-label">전체 교육생</span>
+          <span class="kpi-stat-value">${kpiTotal}<span class="kpi-stat-unit">명</span></span>
+        </div>
+        <div class="kpi-stat-divider"></div>
+        <div class="kpi-stat-item">
+          <span class="kpi-stat-label">기준실적(A) 합계</span>
+          <span class="kpi-stat-value">${kpiBase.toLocaleString()}<span class="kpi-stat-unit">원</span></span>
+        </div>
+        <div class="kpi-stat-divider"></div>
+        <div class="kpi-stat-item">
+          <span class="kpi-stat-label">현재실적(B) 합계</span>
+          <span class="kpi-stat-value">${kpiCurrent.toLocaleString()}<span class="kpi-stat-unit">원</span></span>
+        </div>
+        <div class="kpi-stat-divider"></div>
+        <div class="kpi-stat-item kpi-stat-rate">
+          <span class="kpi-stat-label">달성률</span>
+          <span class="kpi-stat-value">${kpiRate}<span class="kpi-stat-unit">%</span></span>
+        </div>
+      `;
     }
 
     const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: hasAnyTeam ? "팀시상 하위" : "그룹 하위" };
@@ -6312,7 +6333,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
