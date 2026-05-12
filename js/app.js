@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.51";
+  const APP_VERSION = "1.52";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3972,23 +3972,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       kpiInlineEl.innerHTML = `
         <div class="kpi-card">
           <div class="kpi-label">전체 교육생</div>
-          <div class="kpi-value">${kpiTotal}</div>
-          <div class="kpi-sub">명</div>
+          <div class="kpi-value">${kpiTotal}<span class="kpi-unit">명</span></div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">기준실적(A) 합계</div>
-          <div class="kpi-value">${kpiBase.toLocaleString()}</div>
-          <div class="kpi-sub">원</div>
+          <div class="kpi-value">${kpiBase.toLocaleString()}<span class="kpi-unit">원</span></div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">현재실적(B) 합계</div>
-          <div class="kpi-value">${kpiCurrent.toLocaleString()}</div>
-          <div class="kpi-sub">원</div>
+          <div class="kpi-value">${kpiCurrent.toLocaleString()}<span class="kpi-unit">원</span></div>
         </div>
         <div class="kpi-card highlight">
           <div class="kpi-label">달성률</div>
-          <div class="kpi-value">${kpiRate}</div>
-          <div class="kpi-sub">%</div>
+          <div class="kpi-value">${kpiRate}<span class="kpi-unit">%</span></div>
         </div>
       `;
     }
@@ -6334,7 +6330,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
