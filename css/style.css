@@ -515,6 +515,7 @@ body {
   transition: transform 0.15s, box-shadow 0.15s;
 }
 .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.kpi-unit { font-size: 14px; font-weight: 400; margin-left: 2px; vertical-align: baseline; }
 .kpi-card.highlight {
   background: linear-gradient(135deg, var(--navy), var(--navy-2));
   color: #fff;

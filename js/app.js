@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.45";
+  const APP_VERSION = "1.46";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3432,7 +3432,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
       const memberSpans = mStats.map(st => {
         const mNet = st.net || 0;
-        const missed = ga1Thr > 0 ? mNet < ga1Thr : mNet < 0;
+        const missed = mNet < (ga1Thr > 0 ? ga1Thr : 50000);
         const mName = st.s?.name || "";
         const mEmp = st.s?.empNo || "";
         return `<span class="tac-member${missed ? " tac-member-miss" : ""}${mEmp ? " hr-member-click" : ""}" data-emp="${escapeHtml(mEmp)}">${escapeHtml(mName)}</span>`;
@@ -3504,11 +3504,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const rate = st.rate != null ? st.rate.toFixed(1) : "—";
       const ga1Hit = ga1Thr > 0 ? (net >= ga1Thr ? "✅" : `<span class="taf-red">✕</span>`) : "—";
       const netFmt = net >= 0 ? `+${Nf(net)}` : Nf(net);
+      const netMiss = net < (ga1Thr > 0 ? ga1Thr : 50000);
       return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s?.empNo || "")}">
         <td><strong>${escapeHtml(st.s?.name || "")}</strong></td>
         <td class="r">${Nf(st.base || 0)}</td>
         <td class="r">${Nf(st.current || 0)}</td>
-        <td class="r${net < 0 ? " taf-red" : ""}">${netFmt}</td>
+        <td class="r${netMiss ? " taf-red" : ""}">${netFmt}</td>
         <td class="r">${rate}%</td>
         <td class="r">${ga1Hit}</td>
       </tr>`;
@@ -3655,7 +3656,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
         <span class="pg-rb ${i===0?"r1":i===1?"r2":"r3"}">${i+1}</span>
         <div class="pg-pcard-content">
-          <div class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> <span class="pg-pcard-val">${Nf(st.ipumAmt)}원</span></div>
+          <div class="pg-pcard-nm"><strong>${escapeHtml(st.s.name||"")}</strong> <span class="pg-pcard-val">${st.ipumCount ? st.ipumCount + "건 " : ""}${Nf(st.ipumAmt)}원</span></div>
           <span class="pg-pcard-prize pg-b-p">${grade}</span>
         </div>
       </li>`;
@@ -3918,7 +3919,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         valFn: (st) => `${st.net >= 0 ? "+" : ""}${Nf(st.net)}원` },
       { key: "ipum", icon: "✨", title: "인품왕", sub: "신상품 판매액", cls: "hr-ipum",
         arr: byIpum, isGroup: false,
-        valFn: (st) => `${Nf(st.ipumAmt)}원` },
+        valFn: (st) => `${st.ipumCount ? st.ipumCount + "건 " : ""}${Nf(st.ipumAmt)}원` },
       { key: "group", icon: "🏅", title: hasAnyTeam ? "팀시상" : "그룹 순증", sub: hasAnyTeam ? "팀별 달성률" : "팀구분이 없습니다", cls: "hr-group",
         arr: groupRanking, isGroup: true,
         valFn: (g) => `${g.rate.toFixed(1)}%` }
@@ -3963,10 +3964,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }, 0);
     const kpiRate    = kpiBase > 0 ? (kpiCurrent / kpiBase * 100).toFixed(1) : "0.0";
     const kpiSlide = `<div class="hr-slide hr-slide-hidden"><div class="kpi-grid" style="margin-bottom:0">
-      <div class="kpi-card"><div class="kpi-label">전체 교육생</div><div class="kpi-value">${kpiTotal.toLocaleString()}</div><div class="kpi-sub">명</div></div>
-      <div class="kpi-card"><div class="kpi-label">기준실적(A) 합계</div><div class="kpi-value">${kpiBase.toLocaleString()}</div><div class="kpi-sub">원</div></div>
-      <div class="kpi-card"><div class="kpi-label">현재실적(B) 합계</div><div class="kpi-value">${kpiCurrent.toLocaleString()}</div><div class="kpi-sub">원</div></div>
-      <div class="kpi-card highlight"><div class="kpi-label">달성률 (B/A)</div><div class="kpi-value">${kpiRate}</div><div class="kpi-sub">%</div></div>
+      <div class="kpi-card"><div class="kpi-label">전체 교육생</div><div class="kpi-value">${kpiTotal.toLocaleString()}<span class="kpi-unit">명</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">기준실적(A) 합계</div><div class="kpi-value">${kpiBase.toLocaleString()}<span class="kpi-unit">원</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">현재실적(B) 합계</div><div class="kpi-value">${kpiCurrent.toLocaleString()}<span class="kpi-unit">원</span></div></div>
+      <div class="kpi-card highlight"><div class="kpi-label">달성률 (B/A)</div><div class="kpi-value">${kpiRate}<span class="kpi-unit">%</span></div></div>
     </div></div>`;
 
     const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: hasAnyTeam ? "팀시상 하위" : "그룹 하위" };
@@ -4134,7 +4135,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         <tbody>${top.map((st, i) => {
           let value, prize;
           if (kind === "ipum") {
-            value = Nf(st.ipumAmt) + "원";
+            value = (st.ipumCount ? st.ipumCount + "건 " : "") + Nf(st.ipumAmt) + "원";
             const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i];
             prize = grade ? `<span class="pg-bdg pg-b-p">${grade}</span>` : "-";
           } else if (kind === "rate") {
@@ -4483,6 +4484,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         el.addEventListener("click", (e) => { e.stopPropagation(); closePgFullModal(); });
         el.addEventListener("touchend", (e) => { e.stopPropagation(); e.preventDefault(); closePgFullModal(); }, { passive: false });
       });
+      // 팀 카드 클릭 재바인딩 (팀 상세 닫고 팀 목록으로 복원 시)
+      if (modal.querySelector("#pg-full-modal-body .tac-card[data-teamcard]")) bindTacCardClicks();
       return;
     }
     modal.hidden = true;
@@ -6310,7 +6313,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
