@@ -519,7 +519,10 @@ body {
 }
 .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
 .kpi-unit { font-size: 14px; font-weight: 400; margin-left: 2px; vertical-align: baseline; }
-#kpi-inline-stats { margin-top: 0; }
+#kpi-inline-stats { margin-top: 0; gap: 10px; }
+#kpi-inline-stats .kpi-card { padding: 8px 14px; }
+#kpi-inline-stats .kpi-label { margin-bottom: 2px; }
+#kpi-inline-stats .kpi-value { font-size: 22px; margin: 0; letter-spacing: -0.8px; }
 .kpi-card.highlight {
   background: linear-gradient(135deg, var(--navy), var(--navy-2));
   color: #fff;
