@@ -4288,11 +4288,78 @@ body {
   box-shadow: 0 8px 32px rgba(0,0,0,.2);
   text-align: center;
 }
+.ap-save-confirm-plan-title {
+  font-size: 15px; font-weight: 800; color: var(--blue,#2b6fde);
+  margin-bottom: 8px; line-height: 1.4; word-break: keep-all;
+}
 .ap-save-confirm-msg {
   font-size: 14px; font-weight: 700; color: var(--ink-1,#222);
   margin-bottom: 16px; line-height: 1.5;
 }
 .ap-save-confirm-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* 불러오기 팝업 */
+.ap-load-popup {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+}
+.ap-load-popup[hidden] { display: none; }
+.ap-load-popup-box {
+  background: #fff; border-radius: 14px;
+  width: min(420px, 94vw); max-height: 70vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 48px rgba(0,0,0,.25);
+  overflow: hidden;
+}
+.ap-load-popup-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border,#e4e4e4);
+  font-size: 14px;
+}
+.ap-load-popup-close {
+  background: none; border: none; cursor: pointer; font-size: 16px;
+  color: var(--ink-3,#888); padding: 2px 6px; border-radius: 6px;
+}
+.ap-load-popup-close:hover { background: var(--bg-2,#f5f5f5); }
+.ap-load-list { overflow-y: auto; padding: 8px; flex: 1; }
+.ap-load-empty { text-align: center; color: var(--ink-3,#888); font-size: 13px; padding: 24px; }
+.ap-load-item {
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border,#e4e4e4); margin-bottom: 6px;
+  transition: background .15s;
+}
+.ap-load-item:hover { background: var(--bg-2,#f5f5f5); }
+.ap-load-item-lbl { display: block; font-size: 13px; font-weight: 700; color: var(--ink-1,#222); }
+.ap-load-item-title { display: block; font-size: 11px; color: var(--ink-3,#888); margin-top: 2px; }
+/* 미리보기 팝업 */
+.ap-load-preview {
+  position: fixed; inset: 0; z-index: 9100;
+  background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+}
+.ap-load-preview[hidden] { display: none; }
+.ap-load-preview-box {
+  background: #fff; border-radius: 14px;
+  width: min(400px, 94vw); max-height: 70vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 48px rgba(0,0,0,.25);
+  overflow: hidden;
+}
+.ap-load-preview-head {
+  padding: 14px 18px; border-bottom: 1px solid var(--border,#e4e4e4);
+  font-size: 14px;
+}
+.ap-load-preview-body { overflow-y: auto; padding: 14px 18px; flex: 1; font-size: 13px; }
+.ap-load-preview-btns {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  padding: 12px 18px; border-top: 1px solid var(--border,#e4e4e4);
+}
+.ap-psum-title {
+  font-size: 14px; font-weight: 800; color: var(--blue,#2b6fde);
+  margin-bottom: 10px; line-height: 1.4; word-break: keep-all;
+}
+.ap-psum-list { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 5px; }
+.ap-psum-list li { font-size: 12px; color: var(--ink-1,#222); line-height: 1.5; }
 /* 그룹시상2 다항목 행 */
 .ap-ga2-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ap-ga2-row .ap-row-prefix { font-size: 12px; color: var(--ink-3,#888); white-space: nowrap; }

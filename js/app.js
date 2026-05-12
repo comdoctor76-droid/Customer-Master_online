@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.54";
+  const APP_VERSION = "1.55";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6382,7 +6382,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -6439,9 +6439,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // Sync step selector
     const stepSel = document.getElementById("award-plan-step");
     if (stepSel && state.progressStep) stepSel.value = state.progressStep;
+    // 마지막 선택값 복원
+    try {
+      const last = JSON.parse(localStorage.getItem(LS_AP_LAST_SEL) || "null");
+      if (last) {
+        if (last.year && yearSel) yearSel.value = last.year;
+        if (last.region && regions.includes(last.region)) regionSel.value = last.region;
+        if (last.cohort && cohortSel) cohortSel.value = last.cohort;
+        if (last.step && stepSel) stepSel.value = last.step;
+      }
+    } catch {}
     _apRefreshFromSelectors();
     [yearSel, cohortSel, stepSel, regionSel].forEach((sel) => {
-      if (sel) sel.onchange = () => _apMaybeSaveConfirm(_apRefreshFromSelectors);
+      if (sel) sel.onchange = () => { _apSaveLastSel(); _apMaybeSaveConfirm(_apRefreshFromSelectors); };
     });
     openModal("#modal-award-plan");
   }
@@ -6478,18 +6488,111 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   let _apPendingAction = null;
   let _apOriginalJSON = null;
+  let _apDirectSaveMode = false;
+  const LS_AP_LAST_SEL = "cmf.apLastSel";
 
   function _apIsDirty() {
     if (!_apOriginalJSON) return false;
     try { return JSON.stringify(_apCollect()) !== _apOriginalJSON; } catch { return false; }
   }
 
+  function _apSaveLastSel() {
+    try {
+      localStorage.setItem(LS_AP_LAST_SEL, JSON.stringify({
+        year:   document.getElementById("award-plan-year")?.value   || "",
+        region: document.getElementById("award-plan-region")?.value || "",
+        cohort: document.getElementById("award-plan-cohort")?.value || "",
+        step:   document.getElementById("award-plan-step")?.value   || ""
+      }));
+    } catch {}
+  }
+
+  function _apShowSaveConfirm(planTitle, msgText, noLabel) {
+    document.getElementById("ap-save-confirm-plan-title").textContent = `"${planTitle}"`;
+    document.getElementById("ap-save-confirm-msg").textContent = msgText;
+    document.getElementById("ap-save-confirm-no").textContent = noLabel;
+    document.getElementById("ap-save-confirm").hidden = false;
+  }
+
   function _apMaybeSaveConfirm(onProceed) {
     if (!_apIsDirty()) { onProceed(); return; }
     _apPendingAction = onProceed;
     const title = document.getElementById("ap-title-display")?.textContent || "시상안";
-    document.getElementById("ap-save-confirm-msg").textContent = `"${title}"을(를) 저장할까요?`;
-    document.getElementById("ap-save-confirm").hidden = false;
+    _apShowSaveConfirm(title, "변경사항이 있습니다. 저장하시겠습니까?", "저장없이 닫기");
+  }
+
+  function _apRenderPlanSummary(plan) {
+    let html = `<div class="ap-psum-title">${escapeHtml(plan.title || "(제목 없음)")}</div><ul class="ap-psum-list">`;
+    if (plan.personalIncr?.enabled) {
+      const items = plan.personalIncr.items || [];
+      const desc = items.map(it => {
+        const val = it.payType === "item" ? it.payVal : (it.payVal + (it.payType === "pct" ? "%" : "만원"));
+        return `${it.critVal}만↑→${val}`;
+      }).join(" / ");
+      html += `<li>📌 개인순증: ${escapeHtml(desc)}</li>`;
+    }
+    ["topAward1", "topAward2"].forEach(k => {
+      const t = plan[k];
+      if (!t?.enabled) return;
+      const ps = (t.payouts || []).slice(0, 3).map((p, i) => `${i+1}위 ${payoutLabel(p)}`).join(" · ");
+      const more = (t.payouts?.length || 0) > 3 ? ` 외 ${t.payouts.length - 3}개` : "";
+      html += `<li>${k === "topAward1" ? "🥇" : "🥈"} 신장${t.type === "rate" ? "률" : "액"} Top${t.n}: ${escapeHtml(ps + more)}</li>`;
+    });
+    if (plan.groupAward1?.enabled) {
+      const items = _ga1Items(plan.groupAward1);
+      const desc = items.map(it => `${it.threshold}만↑→${payoutLabel(it.payout)}/인`).join(" / ");
+      html += `<li>🏅 그룹시상1: ${escapeHtml(desc)}</li>`;
+    }
+    if (plan.groupAward2?.enabled) {
+      const items = plan.groupAward2?.items?.length ? plan.groupAward2.items
+        : [{ rateThreshold: plan.groupAward2?.rateThreshold ?? 110, payout: plan.groupAward2?.payout ?? 15 }];
+      const desc = items.map(it => `${it.rateThreshold}%↑→${payoutLabel(it.payout)}`).join(" / ");
+      html += `<li>🏅 그룹시상2: ${escapeHtml(desc)}</li>`;
+    }
+    if (plan.notes) html += `<li>📝 ${escapeHtml(plan.notes)}</li>`;
+    html += "</ul>";
+    return html;
+  }
+
+  function _apOpenLoadPopup() {
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
+    const keys = Object.keys(stored);
+    const el = document.getElementById("ap-load-list");
+    if (!keys.length) {
+      el.innerHTML = `<div class="ap-load-empty">저장된 시상안이 없습니다.</div>`;
+    } else {
+      el.innerHTML = keys.map(k => {
+        const plan = stored[k] || {};
+        let label = k;
+        if (k.startsWith("AP:")) {
+          const parts = k.split(":");
+          label = `${parts[2]} ${parts[3]}기 Step${parts[4]} (${parts[1]}년)`;
+        }
+        return `<div class="ap-load-item" data-key="${escapeHtml(k)}">
+          <span class="ap-load-item-lbl">${escapeHtml(label)}</span>
+          <span class="ap-load-item-title">${escapeHtml(plan.title || "")}</span>
+        </div>`;
+      }).join("");
+      el.querySelectorAll(".ap-load-item").forEach(item => {
+        item.addEventListener("click", () => _apShowLoadPreview(item.dataset.key, stored[item.dataset.key]));
+      });
+    }
+    document.getElementById("ap-load-popup").hidden = false;
+  }
+
+  function _apShowLoadPreview(key, plan) {
+    document.getElementById("ap-load-preview-body").innerHTML = _apRenderPlanSummary(plan || {});
+    document.getElementById("ap-load-preview").hidden = false;
+    document.getElementById("ap-load-preview-select").onclick = () => {
+      document.getElementById("ap-load-preview").hidden = true;
+      document.getElementById("ap-load-popup").hidden = true;
+      loadAwardPlanForm(key);
+      toast("시상안을 불러왔습니다.", "success");
+    };
+    document.getElementById("ap-load-preview-cancel").onclick = () => {
+      document.getElementById("ap-load-preview").hidden = true;
+    };
   }
 
   function _apRefreshFromSelectors() {
@@ -6832,14 +6935,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         plan.title = _apGenerateTitle();
         saveAwardPlan(_apGetCurrentKey(), plan);
         _apOriginalJSON = JSON.stringify(_apCollect());
+        _apSaveLastSel();
         toast(`시상안 저장 완료: ${plan.title}`, "success");
         if (state.progressRegion === region) renderProgressPanel();
       }
+      _apDirectSaveMode = false;
       // 저장 후 원래 대기 중이던 액션 실행
       if (_apPendingAction) { const fn = _apPendingAction; _apPendingAction = null; fn(); }
     });
     document.getElementById("ap-save-confirm-no")?.addEventListener("click", () => {
       document.getElementById("ap-save-confirm").hidden = true;
+      if (_apDirectSaveMode) {
+        _apDirectSaveMode = false;
+        return; // 직접 저장 취소 — dirty 유지, 후속 액션 없음
+      }
       _apOriginalJSON = null; // dirty 초기화하여 재질문 방지
       if (_apPendingAction) { const fn = _apPendingAction; _apPendingAction = null; fn(); }
     });
@@ -6847,13 +6956,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-award-plan-save")?.addEventListener("click", () => {
       const region = document.getElementById("award-plan-region").value;
       if (!region) { toast("지역단을 선택하세요.", "error"); return; }
-      const plan = _apCollect();
-      plan.title = _apGenerateTitle();
-      const key = _apGetCurrentKey();
-      saveAwardPlan(key, plan);
-      _apOriginalJSON = JSON.stringify(_apCollect());
-      toast(`시상안 저장 완료: ${plan.title}`, "success");
-      if (state.progressRegion === region) renderProgressPanel();
+      const title = _apGenerateTitle();
+      _apDirectSaveMode = true;
+      _apPendingAction = null;
+      _apShowSaveConfirm(title, "이곳에 저장하는 게 맞습니까?", "취소");
+    });
+    document.getElementById("btn-award-plan-load")?.addEventListener("click", _apOpenLoadPopup);
+    document.querySelector("#ap-load-popup .ap-load-popup-close")?.addEventListener("click", () => {
+      document.getElementById("ap-load-popup").hidden = true;
     });
     document.getElementById("btn-award-plan-reset")?.addEventListener("click", () => {
       if (!confirm("시상안을 기본값으로 초기화합니까?")) return;
