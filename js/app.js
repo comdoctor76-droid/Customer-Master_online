@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.40";
+  const APP_VERSION = "1.41";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4598,37 +4598,40 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb;
     });
 
-    // ── 카드2: 지역단별 현황 (전체 state.students 기준) ───────────────────────
+    // ── 카드2: 지역단별 인원 그리드 (state.students 전체, 단순 카운트) ───────────
     const _rgnMap = {};
     state.students.forEach((s) => {
       const r = s.region || "(미지정)";
-      if (!_rgnMap[r]) _rgnMap[r] = [];
-      _rgnMap[r].push(s);
+      if (!_rgnMap[r]) _rgnMap[r] = 0;
+      _rgnMap[r]++;
     });
-    const _rgnEntries = Object.entries(_rgnMap).sort(([a], [b]) => a.localeCompare(b));
-    const _rgnRowsHTML = _rgnEntries.map(([reg, sts]) => {
-      const rSt = sts.map(getProgressStat);
-      const rCnt = rSt.length;
-      const rAvg = rCnt > 0 ? rSt.reduce((a, s) => a + s.rate, 0) / rCnt : 0;
-      const rOver100 = rSt.filter((s) => s.rate >= 100).length;
-      const rOver5   = rSt.filter((s) => s.net >= 50000).length;
+    const _rgnEntries = Object.entries(_rgnMap)
+      .filter(([r]) => r !== "(미지정)" && !r.includes("|"))
+      .sort(([a], [b]) => a.localeCompare(b));
+    const _rgnGridHTML = _rgnEntries.map(([reg, cnt]) => {
       const isCur = reg === state.progressRegion;
-      return `<tr${isCur ? ' class="pg-rgn-cur"' : ''}><td>${escapeHtml(reg)}</td><td>${rCnt}명</td><td>${rAvg.toFixed(1)}%</td><td>${rOver100}명</td><td>${rOver5}명</td></tr>`;
+      return `<div class="pg-rgn-cell${isCur ? " pg-rgn-cur" : ""}">
+        <div class="pg-rgn-name">${escapeHtml(reg)}</div>
+        <div class="pg-rgn-cnt">${cnt}명</div>
+      </div>`;
     }).join("");
 
-    // ── 카드3: 전체 교육생 통계 (state.students 전체) ─────────────────────────
-    const _allSt = state.students.map(getProgressStat);
-    const _allTotal = _allSt.length;
-    const _allAvg = _allTotal > 0 ? _allSt.reduce((a, s) => a + s.rate, 0) / _allTotal : 0;
-    const _allOver100 = _allSt.filter((s) => s.rate >= 100).length;
-    const _allMid80   = _allSt.filter((s) => s.rate >= 80 && s.rate < 100).length;
-    const _allMid50   = _allSt.filter((s) => s.rate >= 50 && s.rate < 80).length;
-    const _allLow50   = _allSt.filter((s) => s.rate <  50).length;
-    const _allOver5   = _allSt.filter((s) => s.net >= 50000).length;
-
+    // ── 카드3: 전체 교육생 단순 통계 ─────────────────────────────────────────
+    const _allTotal = state.students.length;
+    const _rgnCount = _rgnEntries.length;
+    // 기수별 카운트
+    const _cohortAll = {};
+    state.students.forEach((s) => {
+      const c = s.cohort ? `${s.cohort}기` : "(미지정)";
+      _cohortAll[c] = (_cohortAll[c] || 0) + 1;
+    });
+    const _cohortAllEntries = Object.entries(_cohortAll).sort(([a], [b]) => {
+      const na = parseInt(a, 10); const nb = parseInt(b, 10);
+      return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb;
+    });
     return `
       <div class="pg-wrap">
-        <!-- [1] 지역단·기수별 인원 카드 -->
+        <!-- [1] 기수별 인원 카드 -->
         <div class="pg-info-grid">
           <div class="pg-info-card">
             <h5>📘 ${escapeHtml(state.progressRegion)} 기수별 인원</h5>
@@ -4638,26 +4641,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <dt>기준일</dt><dd>${baseDate}</dd>
             </dl>
           </div>
-          <!-- [2] 지역단별 현황 카드 -->
+          <!-- [2] 지역단 인원 그리드 -->
           <div class="pg-info-card pg-info-card--wide">
-            <h5>🗺️ 지역단별 현황</h5>
-            <div class="pg-rgn-tbl-wrap">
-              <table class="pg-rgn-tbl">
-                <thead><tr><th>지역단</th><th>인원</th><th>달성률</th><th>100%↑</th><th>5만↑</th></tr></thead>
-                <tbody>${_rgnRowsHTML}</tbody>
-              </table>
-            </div>
+            <h5>🗺️ 지역단별 인원 현황</h5>
+            <div class="pg-rgn-grid">${_rgnGridHTML}</div>
           </div>
-          <!-- [3] 전체 교육생 현황 카드 -->
+          <!-- [3] 전체 교육생 현황 -->
           <div class="pg-info-card">
             <h5>📊 전체 현황 (${_allTotal}명)</h5>
             <dl>
-              <dt>평균 달성률</dt><dd><strong>${_allAvg.toFixed(1)}%</strong></dd>
-              <dt>100%↑ 달성</dt><dd class="ok"><strong>${_allOver100}명</strong></dd>
-              <dt>80~100%</dt><dd>${_allMid80}명</dd>
-              <dt>50~80%</dt><dd>${_allMid50}명</dd>
-              <dt>50% 미만</dt><dd class="warn">${_allLow50}명</dd>
-              <dt>순증 5만원↑</dt><dd class="ok">${_allOver5}명</dd>
+              <dt>지역단 수</dt><dd><strong>${_rgnCount}개</strong></dd>
+              ${_cohortAllEntries.map(([c, n]) => `<dt>${escapeHtml(c)}</dt><dd>${n}명</dd>`).join("")}
             </dl>
           </div>
         </div>
@@ -5188,14 +5182,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (!empNo) return;
         // 전체 교육생에서 조회 (필터 범위 제한 없이)
         const existing = state.students.find((x) => x.empNo === empNo);
-        const pgIpumFields = (pgIpumCount > 0 || pgIpumAmt > 0) ? { pgIpumCount, pgIpumAmt } : {};
-        const pgFields = { pgBase, pgCurrent, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader, ...pgIpumFields };
+        // pgIpumCount/pgIpumAmt: 0이어도 항상 포함 — 이전 오염 값 제거용
+        const pgFields = { pgBase, pgCurrent, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader, pgIpumCount, pgIpumAmt };
 
         if (existing) {
           const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
           const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
-          const ipumUpdate = (pgIpumCount > 0 || pgIpumAmt > 0) ? { ipumCount: pgIpumCount, ipumAmt: pgIpumAmt } : {};
-          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate, ...targetUpdate, ...ipumUpdate });
+          // 인품 데이터(ipumCount/ipumAmt)는 실적진도현황 붙여넣기에서 갱신하지 않음
+          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate, ...targetUpdate });
         } else {
           const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
           newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent, target: newTarget, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt });
@@ -6304,7 +6298,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260511d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

@@ -3096,6 +3096,29 @@ body {
 .pg-info-card dd.warn { color: var(--danger); }
 .pg-info-card dd strong { font-size: 14px; font-weight: 900; }
 
+/* 지역단 인원 그리드 */
+.pg-rgn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+.pg-rgn-cell {
+  background: var(--bg-2, #f8f8f8);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.pg-rgn-cell.pg-rgn-cur {
+  background: #fff8e1;
+  border-color: var(--orange);
+  font-weight: 700;
+}
+.pg-rgn-name { font-size: 11px; color: var(--ink-3); margin-bottom: 2px; }
+.pg-rgn-cnt  { font-size: 14px; font-weight: 900; color: var(--navy); }
+.pg-rgn-cell.pg-rgn-cur .pg-rgn-name { color: var(--orange); }
+
 /* 지역단별 현황 카드 — 넓게 */
 .pg-info-card--wide { grid-column: span 1; }
 .pg-dt-total { border-top: 1px solid var(--line-soft); padding-top: 4px; font-weight: 700; color: var(--navy) !important; }
