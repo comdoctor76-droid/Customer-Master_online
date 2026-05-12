@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.44";
+  const APP_VERSION = "1.45";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3957,13 +3957,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 교육생 통계 슬라이드용 KPI 계산
     const kpiTotal   = list.length;
     const kpiBase    = list.reduce((a, s) => a + (Number(s.base)   || 0), 0);
-    const kpiTarget  = list.reduce((a, s) => a + (Number(s.target) || 0), 0);
-    const kpiHonors  = list.reduce((a, s) => a + (Number(s.honors) || 0), 0);
+    const kpiCurrent = list.reduce((a, s) => {
+      const c = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
+      return a + c;
+    }, 0);
+    const kpiRate    = kpiBase > 0 ? (kpiCurrent / kpiBase * 100).toFixed(1) : "0.0";
     const kpiSlide = `<div class="hr-slide hr-slide-hidden"><div class="kpi-grid" style="margin-bottom:0">
       <div class="kpi-card"><div class="kpi-label">전체 교육생</div><div class="kpi-value">${kpiTotal.toLocaleString()}</div><div class="kpi-sub">명</div></div>
-      <div class="kpi-card"><div class="kpi-label">평균실적 합계</div><div class="kpi-value">${kpiBase.toLocaleString()}</div><div class="kpi-sub">건</div></div>
-      <div class="kpi-card"><div class="kpi-label">마스터목표 합계</div><div class="kpi-value">${kpiTarget.toLocaleString()}</div><div class="kpi-sub">건</div></div>
-      <div class="kpi-card highlight"><div class="kpi-label">아너스목표 합계</div><div class="kpi-value">${kpiHonors.toLocaleString()}</div><div class="kpi-sub">건</div></div>
+      <div class="kpi-card"><div class="kpi-label">기준실적(A) 합계</div><div class="kpi-value">${kpiBase.toLocaleString()}</div><div class="kpi-sub">원</div></div>
+      <div class="kpi-card"><div class="kpi-label">현재실적(B) 합계</div><div class="kpi-value">${kpiCurrent.toLocaleString()}</div><div class="kpi-sub">원</div></div>
+      <div class="kpi-card highlight"><div class="kpi-label">달성률 (B/A)</div><div class="kpi-value">${kpiRate}</div><div class="kpi-sub">%</div></div>
     </div></div>`;
 
     const worstTitles = { rate: "최저 신장률", amt: "최저 신장액", ipum: "인품 하위", group: hasAnyTeam ? "팀시상 하위" : "그룹 하위" };
@@ -6307,7 +6310,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
