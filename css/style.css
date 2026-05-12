@@ -516,6 +516,8 @@ body {
 }
 .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
 .kpi-unit { font-size: 14px; font-weight: 400; margin-left: 2px; vertical-align: baseline; }
+.kpi-sep { color: var(--ink-3); margin: 0 4px; }
+#kpi-inline-stats { white-space: nowrap; font-size: 13px; }
 .kpi-card.highlight {
   background: linear-gradient(135deg, var(--navy), var(--navy-2));
   color: #fff;
