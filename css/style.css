@@ -3937,6 +3937,10 @@ body {
 @media (max-width: 1024px) {
   .detail-grid { grid-template-columns: 1fr; }
 }
+@media (max-width: 768px) {
+  .page-title { flex-direction: column; align-items: flex-start; }
+  #kpi-inline-stats { width: 100%; flex: none; }
+}
 @media (max-width: 560px) {
   .kpi-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
