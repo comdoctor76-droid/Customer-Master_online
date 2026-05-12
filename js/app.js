@@ -135,7 +135,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.42";
+  const APP_VERSION = "1.43";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -5191,8 +5191,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (existing) {
           const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
           const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
+          // 이름·지점 등 식별 필드: 엑셀이 비어있으면 기존 값 유지 (빈값 덮어쓰기 방지)
+          const nameUpdate   = name   ? { name }   : {};
+          const regionUpdate = region ? { region } : {};
+          const centerUpdate = center ? { center } : {};
+          const branchUpdate = branch ? { branch } : {};
           // 인품 데이터(ipumCount/ipumAmt)는 실적진도현황 붙여넣기에서 갱신하지 않음
-          updateRecords.push({ ...existing, region, center, branch, name, ...pgFields, ...baseUpdate, ...targetUpdate });
+          updateRecords.push({ ...existing, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
         } else {
           const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
           newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent, target: newTarget, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt });
@@ -6301,7 +6306,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
