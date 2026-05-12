@@ -534,6 +534,7 @@
           <small style="color:var(--ink-3);font-size:11px;">홈 시상안 박스 실시간 반영</small>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn-outline small" id="btn-award-plan-load">📂 불러오기</button>
           <button class="btn-outline small" id="btn-award-plan-reset">🔄 기본값</button>
           <button class="btn-primary small" id="btn-award-plan-save">💾 저장</button>
           <button class="btn-outline small" id="btn-award-plan-close">닫기</button>
@@ -644,10 +645,32 @@
       <!-- 저장 확인 오버레이 -->
       <div id="ap-save-confirm" class="ap-save-confirm" hidden>
         <div class="ap-save-confirm-box">
+          <div id="ap-save-confirm-plan-title" class="ap-save-confirm-plan-title"></div>
           <div id="ap-save-confirm-msg" class="ap-save-confirm-msg"></div>
           <div class="ap-save-confirm-btns">
             <button id="ap-save-confirm-yes" class="btn-primary small">💾 저장</button>
             <button id="ap-save-confirm-no" class="btn-outline small">저장없이 닫기</button>
+          </div>
+        </div>
+      </div>
+      <!-- 불러오기 팝업 -->
+      <div id="ap-load-popup" class="ap-load-popup" hidden>
+        <div class="ap-load-popup-box">
+          <div class="ap-load-popup-head">
+            <strong>📂 저장된 시상안 목록</strong>
+            <button type="button" class="ap-load-popup-close">✕</button>
+          </div>
+          <div id="ap-load-list" class="ap-load-list"></div>
+        </div>
+      </div>
+      <!-- 불러오기 미리보기 팝업 -->
+      <div id="ap-load-preview" class="ap-load-preview" hidden>
+        <div class="ap-load-preview-box">
+          <div class="ap-load-preview-head"><strong>시상안 미리보기</strong></div>
+          <div id="ap-load-preview-body" class="ap-load-preview-body"></div>
+          <div class="ap-load-preview-btns">
+            <button id="ap-load-preview-select" class="btn-primary small">✓ 이 시상 적용</button>
+            <button id="ap-load-preview-cancel" class="btn-outline small">취소</button>
           </div>
         </div>
       </div>
