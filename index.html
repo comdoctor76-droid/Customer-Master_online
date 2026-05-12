@@ -621,9 +621,9 @@
               <option value="5">5만원↑</option><option value="10">10만원↑</option><option value="15">15만원↑</option><option value="20">20만원↑</option><option value="25">25만원↑</option><option value="30">30만원↑</option><option value="35">35만원↑</option><option value="40">40만원↑</option><option value="45">45만원↑</option><option value="50">50만원↑</option>
             </select>
             <span class="ap-ga-lbl">순증 달성 시</span>
-            <select id="ap-ga1-payout" class="pg-input ap-ga-sel">
-              <option value="5">5만원</option><option value="10">10만원</option><option value="15">15만원</option><option value="20">20만원</option><option value="25">25만원</option><option value="30">30만원</option><option value="35">35만원</option><option value="40">40만원</option><option value="45">45만원</option><option value="50">50만원</option>
-            </select>
+            <button type="button" class="ap-toggle-btn ap-pay-type" id="ap-ga1-payout-type" data-val="cash">만원</button>
+            <input type="number" id="ap-ga1-payout" class="pg-input" min="1" max="500" step="5" value="5" style="width:60px;">
+            <input type="text" id="ap-ga1-payout-item" class="pg-input" placeholder="물품명" style="width:100px;display:none;">
             <span class="ap-ga-lbl">지급 (팀원 전원)</span>
           </div>
         </div>

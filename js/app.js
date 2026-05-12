@@ -75,6 +75,18 @@
     } catch (e) { console.error("[AwardPlan] save error:", e); }
   }
 
+  // 시상 payout 정규화: 구형(숫자) → {type:"cash",val:N}, 신형 그대로
+  function normPayout(p) {
+    if (p && typeof p === "object") return p;
+    return { type: "cash", val: Number(p) || 0 };
+  }
+  // 시상 payout 표시 라벨
+  function payoutLabel(p) {
+    const np = normPayout(p);
+    if (np.type === "item") return String(np.val || "물품");
+    return `${np.val}만원`;
+  }
+
   // 기준조건 체크용: 학생 metric 추출 (만원 단위 기준)
   function getStudentMetric(s, field) {
     if (field === "converted") {
@@ -106,6 +118,7 @@
     for (const item of sorted) {
       if (netManwon >= Number(item.critVal)) {
         if (item.payType === "pct") return Math.round(Number(stat.net) * (Number(item.payVal) / 100));
+        if (item.payType === "item") return 0;
         return Math.round(Number(item.payVal) * 10000);
       }
     }
@@ -120,7 +133,9 @@
     const idx = rank - 1;
     const v = payouts[idx];
     if (v === undefined || v === null) return 0;
-    return Math.round(Number(v) * 10000);
+    const np = normPayout(v);
+    if (np.type === "item") return 0;
+    return Math.round(Number(np.val) * 10000);
   }
 
   // 정렬: type "rate" or "amt"
@@ -135,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.52";
+  const APP_VERSION = "1.53";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3385,22 +3400,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       let ga1Cell = "", ga1AwardCell = "";
       if (ga1En) {
         const thr = ga1Thr * 10000;
-        const payout = Number(ga1.payout || 5) * 10000;
+        const ga1PayObj = normPayout(ga1.payout ?? 5);
+        const payout = ga1PayObj.type === "item" ? 0 : Number(ga1PayObj.val || 5) * 10000;
         const total = (g.memberStats || []).length || g.members.length;
         const achieved = (g.memberStats || []).filter(st => st.net >= thr).length;
         const allAchieved = achieved === total && total > 0;
         const icon = allAchieved ? "✅" : (achieved === 0 ? "✕" : "△");
         const bdg = allAchieved ? "pg-grp-ok" : (achieved > 0 ? "pg-grp-half" : "pg-grp-no");
         ga1Cell = `<td><span class="pg-grp-badge ${bdg}">${icon}${achieved}/${total}명</span></td>`;
-        ga1AwardCell = `<td>${allAchieved ? `<span class="pg-grp-award">${Math.round(payout/10000)}만원</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
+        ga1AwardCell = `<td>${allAchieved ? `<span class="pg-grp-award">${escapeHtml(payoutLabel(ga1PayObj))}</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
       }
       let ga2Cell = "";
       if (ga2En) {
         const g2items = _ga2Items(ga2);
         const metItems = g2items.filter(it => g.rate >= Number(it.rateThreshold || 110));
         if (metItems.length > 0) {
-          const maxPay = Math.max(...metItems.map(it => Number(it.payout || 15)));
-          ga2Cell = `<td><span class="pg-grp-award">${maxPay}만원</span></td>`;
+          const bestPay = metItems.reduce((best, it) => {
+            const np = normPayout(it.payout ?? 15);
+            if (np.type === "item") return best || np;
+            return (!best || Number(np.val) > Number(normPayout(best).val)) ? np : best;
+          }, null);
+          ga2Cell = `<td><span class="pg-grp-award">${escapeHtml(payoutLabel(bestPay))}</span></td>`;
         } else {
           const firstThr = g2items[0]?.rateThreshold || 110;
           ga2Cell = `<td><span class="pg-grp-miss">미달(${firstThr}%↑)</span></td>`;
@@ -3460,21 +3480,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const boxes = [];
     if (ga1?.enabled) {
       const thr = Number(ga1.threshold || 5);
-      const payout = Number(ga1.payout || 5);
       boxes.push(`<div class="gai-box">
         <div class="gai-title">🏅 그룹시상1</div>
         <div class="gai-desc">팀원 전원 순증 ${thr}만원↑</div>
-        <div class="gai-payout">달성 시 ${payout}만원/인</div>
+        <div class="gai-payout">달성 시 ${escapeHtml(payoutLabel(ga1.payout ?? 5))}/인</div>
       </div>`);
     }
     if (ga2?.enabled) {
-      const rate = Number(ga2.rateThreshold || 110);
-      const payout = Number(ga2.payout || 15);
-      boxes.push(`<div class="gai-box">
-        <div class="gai-title">🏅 그룹시상2</div>
-        <div class="gai-desc">팀 달성률 ${rate}%↑</div>
-        <div class="gai-payout">달성 시 ${payout}만원/팀</div>
-      </div>`);
+      const g2items = _ga2Items(ga2);
+      g2items.forEach(it => {
+        const rate = Number(it.rateThreshold || 110);
+        boxes.push(`<div class="gai-box">
+          <div class="gai-title">🏅 그룹시상2</div>
+          <div class="gai-desc">팀 달성률 ${rate}%↑</div>
+          <div class="gai-payout">달성 시 ${escapeHtml(payoutLabel(it.payout ?? 15))}/팀</div>
+        </div>`);
+      });
     }
     return boxes.length ? `<div class="gai-boxes">${boxes.join("")}</div>` : "";
   }
@@ -3518,24 +3539,25 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const ga1All = ga1En && ga1Ach === total && total > 0;
     let awardBoxes = "";
     if (ga1En) {
-      const payout = Number(ga1.payout || 5);
+      const ga1PayObj = normPayout(ga1.payout ?? 5);
       const missed = mStats.filter(st => (st.net || 0) < ga1Thr);
       const missedNames = missed.map(st => escapeHtml(st.s?.name || "")).join(", ");
+      const perPerson = payoutLabel(ga1PayObj);
+      const totalLabel = ga1PayObj.type === "item" ? `전원 ${perPerson}` : `팀 합계 ${Number(ga1PayObj.val || 5) * total}만원 지급`;
       awardBoxes += `<div class="td-award-box ${ga1All ? "td-award-ok" : "td-award-miss"}">
         <div class="td-award-title">그룹시상1 — 전원 순증 ${Number(ga1.threshold || 5)}만원↑</div>
-        <div class="td-award-detail">${ga1All ? `✅ 전원 달성! 1인당 ${payout}만원` : `미달 ${missed.length}명: ${missedNames || "-"}`}</div>
-        <div class="td-award-payout">${ga1All ? `팀 합계 ${payout * total}만원 지급` : "시상 미달"}</div>
+        <div class="td-award-detail">${ga1All ? `✅ 전원 달성! 1인당 ${escapeHtml(perPerson)}` : `미달 ${missed.length}명: ${missedNames || "-"}`}</div>
+        <div class="td-award-payout">${ga1All ? escapeHtml(totalLabel) : "시상 미달"}</div>
       </div>`;
     }
     if (ga2En) {
       _ga2Items(ga2).forEach((it) => {
         const rateThr = Number(it.rateThreshold || 110);
-        const payout  = Number(it.payout || 15);
         const met = group.rate >= rateThr;
         awardBoxes += `<div class="td-award-box ${met ? "td-award-ok" : "td-award-miss"}">
           <div class="td-award-title">그룹시상2 — 달성률 ${rateThr}%↑</div>
           <div class="td-award-detail">현재 달성률 ${group.rate.toFixed(1)}% ${met ? "✅ 달성" : "✕ 미달"}</div>
-          <div class="td-award-payout">${met ? `${payout}만원/팀 지급` : "시상 미달"}</div>
+          <div class="td-award-payout">${met ? `${escapeHtml(payoutLabel(it.payout ?? 15))}/팀 지급` : "시상 미달"}</div>
         </div>`;
       });
     }
@@ -3715,7 +3737,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const typeLabel = top.type === "rate" ? "신장률" : "신장액";
       const icon = top.type === "rate" ? "📈" : "💰";
       const payouts = (top.payouts || []).slice(0, Number(top.n));
-      const items = payouts.map((p, i) => `${i + 1}위 ${escapeHtml(String(p))}만원`).join(" / ");
+      const items = payouts.map((p, i) => `${i + 1}위 ${escapeHtml(payoutLabel(p))}`).join(" / ");
       return `<div class="pg-an"><strong>${icon} ${typeLabel} TOP${escapeHtml(String(top.n))}:</strong> ${items}</div>`;
     };
     const _eligText = (() => {
@@ -3996,12 +4018,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const _hrPlan = getAwardPlan(region);
     const _hrGa1Thr = _hrPlan?.groupAward1?.enabled
       ? Number(_hrPlan.groupAward1.threshold || 5) * 10000 : 0;
+    // 카테고리별 시상 payouts 매핑
+    const _hrAwardMap = {};
+    ["topAward1", "topAward2"].forEach(k => {
+      const t = _hrPlan?.[k];
+      if (t?.enabled && t.payouts?.length) _hrAwardMap[t.type] = t.payouts;
+    });
 
     function hrMakeSlide(isWorst) {
       const hidden = isWorst ? " hr-slide-hidden" : "";
       return `<div class="hr-slide${hidden}"><div class="hr-grid">${
         hrCats.map(cat => {
           const dispArr = isWorst ? [...cat.arr].reverse().slice(0, 3) : cat.arr.slice(0, 3);
+          const catAwards = (!isWorst && _hrAwardMap[cat.key]) ? _hrAwardMap[cat.key] : null;
           const title = isWorst ? (worstTitles[cat.key] || cat.title) : cat.title;
           const rows = dispArr.length
             ? dispArr.map((item, i) => {
@@ -4031,10 +4060,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                   const statsLine = `기준 ${cmpFmt(item.base)} · 현재 ${cmpFmt(item.current)} · 순증 ${item.net >= 0 ? '+' : ''}${cmpFmt(item.net)} (${pct}%)`;
                   nameBlock = `<div class="hr-name-wrap"><span class="hr-name">${escapeHtml(name)}</span><span class="hr-row-stats">${statsLine}</span></div>`;
                 }
+                const awardBadge = catAwards?.[i] !== undefined
+                  ? `<span class="hr-award-badge">${escapeHtml(payoutLabel(catAwards[i]))}</span>` : "";
                 return `<li class="hr-row${empNo ? " hr-clickable" : ""}" data-emp="${escapeHtml(empNo || "")}">
                   <span class="pg-rb ${rbCls}">${i + 1}</span>
                   ${nameBlock}
                   <span class="hr-val">${cat.isGroup ? item.rate.toFixed(1) + "%" : escapeHtml(cat.valFn(item))}</span>
+                  ${awardBadge}
                 </li>`;
               }).join("")
             : `<li class="hr-empty">데이터 없음</li>`;
@@ -6330,7 +6362,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260512m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -6448,15 +6480,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function _apRenderGa2(items) {
     const el = document.getElementById("ap-ga2-list");
     if (!el) return;
-    el.innerHTML = items.map((it, i) => `
+    el.innerHTML = items.map((it, i) => {
+      const np = normPayout(it.payout ?? 15);
+      const isCash = np.type !== "item";
+      return `
       <div class="ap-row ap-ga2-row" data-i="${i}">
         <span class="ap-row-prefix">팀달성률</span>
         <input type="number" class="pg-input ap-ga2-rate" value="${it.rateThreshold || 110}" min="100" max="300" step="5" style="width:70px;" placeholder="110">
-        <span class="ap-row-suffix">%↑ 달성 시 전원</span>
-        <input type="number" class="pg-input ap-ga2-pay" value="${it.payout || 15}" min="1" max="500" step="5" style="width:60px;" placeholder="15">
-        <span class="ap-row-suffix">만원 지급</span>
+        <span class="ap-row-suffix">%↑ 달성 시</span>
+        <button type="button" class="ap-toggle-btn ap-pay-type" data-val="${isCash ? "cash" : "item"}">${isCash ? "만원" : "물품"}</button>
+        <input type="number" class="pg-input ap-pay-cash ap-ga2-pay" value="${isCash ? escapeHtml(String(np.val)) : 15}" min="1" max="500" step="5" style="width:60px;${isCash ? "" : "display:none"}" placeholder="15">
+        <input type="text" class="pg-input ap-pay-item" value="${isCash ? "" : escapeHtml(String(np.val || ""))}" placeholder="물품명" style="width:80px;${isCash ? "display:none" : ""}">
+        <span class="ap-row-suffix">지급</span>
         <button type="button" class="ap-del-btn" title="삭제">✕</button>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   }
 
   function _apRenderPi(items) {
@@ -6468,7 +6506,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       { v: "none", t: "부지급" }
     ];
     el.innerHTML = sorted.map((it, i) => {
+      const typ = it.payType || "fixed";
+      const isItem = typ === "item";
       const rate = it.payRate || "full";
+      const typeLabel = typ === "pct" ? "%" : (isItem ? "물품" : "만");
       const optHtml = rateOpts.map((o) => `<option value="${o.v}"${rate === o.v ? " selected" : ""}>${o.t}</option>`).join("");
       return `<div class="ap-pi-card" data-i="${i}">
         <div class="ap-pi-row">
@@ -6478,11 +6519,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
         <div class="ap-pi-row">
           <span class="ap-pi-lbl">시상</span>
-          <input type="number" class="pg-input ap-pi-pay" value="${escapeHtml(String(it.payVal))}" min="0" step="1" style="flex:1;min-width:0;">
-          <button type="button" class="ap-toggle-btn ap-pi-type ap-pi-type-sm" data-val="${escapeHtml(it.payType)}">${it.payType === "pct" ? "%" : "만"}</button>
+          <input type="number" class="pg-input ap-pi-pay" value="${isItem ? 0 : escapeHtml(String(it.payVal))}" min="0" step="1" style="flex:1;min-width:0;${isItem ? "display:none" : ""}">
+          <input type="text" class="pg-input ap-pi-pay-item" value="${isItem ? escapeHtml(String(it.payVal || "")) : ""}" placeholder="물품명" style="flex:1;min-width:0;${isItem ? "" : "display:none"}">
+          <button type="button" class="ap-toggle-btn ap-pi-type ap-pi-type-sm" data-val="${escapeHtml(typ)}">${typeLabel}</button>
         </div>
         <div class="ap-pi-footer">
-          <select class="pg-input ap-pi-payrate">${optHtml}</select>
+          <select class="pg-input ap-pi-payrate"${isItem ? ' style="display:none"' : ""}>${optHtml}</select>
           <button type="button" class="ap-del-btn" title="삭제">✕</button>
         </div>
       </div>`;
@@ -6491,13 +6533,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function _apRenderTop(slot, payouts) {
     const el = document.getElementById(`ap-${slot}-list`);
-    el.innerHTML = payouts.map((amt, i) => `
+    el.innerHTML = payouts.map((p, i) => {
+      const np = normPayout(p);
+      const isCash = np.type !== "item";
+      return `
       <div class="ap-row ap-row-compact" data-i="${i}">
         <span class="ap-row-prefix">${i + 1}위</span>
-        <input type="number" class="pg-input ap-top-pay" value="${escapeHtml(String(amt))}" min="0" step="1" style="width:52px;">
-        <span class="ap-row-suffix">만원</span>
+        <button type="button" class="ap-toggle-btn ap-pay-type" data-val="${isCash ? "cash" : "item"}">${isCash ? "만원" : "물품"}</button>
+        <input type="number" class="pg-input ap-pay-cash" value="${isCash ? escapeHtml(String(np.val)) : 0}" min="0" step="1" style="width:52px;${isCash ? "" : "display:none"}">
+        <input type="text" class="pg-input ap-pay-item" value="${isCash ? "" : escapeHtml(String(np.val || ""))}" placeholder="물품명" style="width:80px;${isCash ? "display:none" : ""}">
         <button type="button" class="ap-del-btn" title="삭제">✕</button>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   }
 
   function _apRenderElig(conds) {
@@ -6550,8 +6597,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("ap-ga1-en").checked = !!plan.groupAward1?.enabled;
     const ga1ThrEl = document.getElementById("ap-ga1-threshold");
     if (ga1ThrEl) ga1ThrEl.value = plan.groupAward1?.threshold ?? 5;
-    const ga1PayEl = document.getElementById("ap-ga1-payout");
-    if (ga1PayEl) ga1PayEl.value = plan.groupAward1?.payout ?? 5;
+    // ga1 payout — 만원/물품 토글
+    const ga1PayObj = normPayout(plan.groupAward1?.payout ?? 5);
+    const ga1PayTypeEl = document.getElementById("ap-ga1-payout-type");
+    const ga1PayCashEl = document.getElementById("ap-ga1-payout");
+    const ga1PayItemEl = document.getElementById("ap-ga1-payout-item");
+    if (ga1PayTypeEl) {
+      const isCash = ga1PayObj.type !== "item";
+      ga1PayTypeEl.dataset.val = ga1PayObj.type;
+      ga1PayTypeEl.textContent = isCash ? "만원" : "물품";
+      if (ga1PayCashEl) { ga1PayCashEl.value = isCash ? ga1PayObj.val : 5; ga1PayCashEl.style.display = isCash ? "" : "none"; }
+      if (ga1PayItemEl) { ga1PayItemEl.value = isCash ? "" : String(ga1PayObj.val || ""); ga1PayItemEl.style.display = isCash ? "none" : ""; }
+    } else if (ga1PayCashEl) {
+      ga1PayCashEl.value = ga1PayObj.type !== "item" ? ga1PayObj.val : 5;
+    }
     document.getElementById("ap-ga2-en").checked = !!plan.groupAward2?.enabled;
     const ga2Items = plan.groupAward2?.items?.length
       ? plan.groupAward2.items
@@ -6566,15 +6625,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const piItems = [];
     document.querySelectorAll("#ap-pi-list .ap-pi-card").forEach((card) => {
       const crit = Number(card.querySelector(".ap-pi-crit").value) || 0;
-      const pay  = Number(card.querySelector(".ap-pi-pay").value)  || 0;
       const typ  = card.querySelector(".ap-pi-type").dataset.val;
       const rate = card.querySelector(".ap-pi-payrate")?.value || "full";
+      const pay  = typ === "item"
+        ? (card.querySelector(".ap-pi-pay-item")?.value.trim() || "")
+        : (Number(card.querySelector(".ap-pi-pay")?.value) || 0);
       piItems.push({ critVal: crit, payType: typ, payVal: pay, payRate: rate });
     });
     const topPayouts = (slot) => {
       const arr = [];
       document.querySelectorAll(`#ap-${slot}-list .ap-row`).forEach((row) => {
-        arr.push(Number(row.querySelector(".ap-top-pay").value) || 0);
+        const type = row.querySelector(".ap-pay-type")?.dataset.val || "cash";
+        if (type === "item") {
+          arr.push({ type: "item", val: row.querySelector(".ap-pay-item")?.value.trim() || "" });
+        } else {
+          arr.push({ type: "cash", val: Number(row.querySelector(".ap-pay-cash")?.value) || 0 });
+        }
       });
       return arr;
     };
@@ -6611,19 +6677,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       groupAward1: {
         enabled: document.getElementById("ap-ga1-en")?.checked ?? false,
         threshold: Number(document.getElementById("ap-ga1-threshold")?.value) || 5,
-        payout: Number(document.getElementById("ap-ga1-payout")?.value) || 5
+        payout: (() => {
+          const typeEl = document.getElementById("ap-ga1-payout-type");
+          const type = typeEl?.dataset.val || "cash";
+          if (type === "item") return { type: "item", val: document.getElementById("ap-ga1-payout-item")?.value.trim() || "" };
+          return { type: "cash", val: Number(document.getElementById("ap-ga1-payout")?.value) || 5 };
+        })()
       },
       groupAward2: {
         enabled: document.getElementById("ap-ga2-en")?.checked ?? false,
         items: (() => {
           const arr = [];
           document.querySelectorAll("#ap-ga2-list .ap-ga2-row").forEach((row) => {
+            const type = row.querySelector(".ap-pay-type")?.dataset.val || "cash";
             arr.push({
               rateThreshold: Number(row.querySelector(".ap-ga2-rate")?.value) || 110,
-              payout: Number(row.querySelector(".ap-ga2-pay")?.value) || 15
+              payout: type === "item"
+                ? { type: "item", val: row.querySelector(".ap-pay-item")?.value.trim() || "" }
+                : { type: "cash", val: Number(row.querySelector(".ap-pay-cash")?.value) || 15 }
             });
           });
-          return arr.length ? arr : [{ rateThreshold: 110, payout: 15 }];
+          return arr.length ? arr : [{ rateThreshold: 110, payout: { type: "cash", val: 15 } }];
         })()
       },
       notes: document.getElementById("ap-notes").value.trim()
@@ -6644,10 +6718,36 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         } else if (tg.id === "ap-elig-op") {
           const next = tg.dataset.val === "and" ? "or" : "and";
           _apSetToggle(tg, next, [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
+        } else if (tg.classList.contains("ap-pay-type")) {
+          // 만원 ↔ 물품 토글
+          const newType = tg.dataset.val === "item" ? "cash" : "item";
+          tg.dataset.val = newType;
+          tg.textContent = newType === "item" ? "물품" : "만원";
+          const container = tg.closest(".ap-row, .ap-ga-row");
+          const cashInp = container
+            ? container.querySelector(".ap-pay-cash")
+            : (tg.id === "ap-ga1-payout-type" ? document.getElementById("ap-ga1-payout") : null);
+          const itemInp = container
+            ? container.querySelector(".ap-pay-item")
+            : (tg.id === "ap-ga1-payout-type" ? document.getElementById("ap-ga1-payout-item") : null);
+          if (cashInp) cashInp.style.display = newType === "item" ? "none" : "";
+          if (itemInp) itemInp.style.display = newType === "item" ? "" : "none";
         } else if (tg.classList.contains("ap-pi-type")) {
-          const next = tg.dataset.val === "fixed" ? "pct" : "fixed";
+          // 3-way 순환: pct → fixed → item → pct
+          const cur = tg.dataset.val;
+          const next = cur === "pct" ? "fixed" : (cur === "fixed" ? "item" : "pct");
+          const nextLabel = next === "pct" ? "%" : (next === "item" ? "물품" : "만");
           tg.dataset.val = next;
-          tg.textContent = next === "pct" ? "%" : "만원";
+          tg.textContent = nextLabel;
+          const card = tg.closest(".ap-pi-card");
+          if (card) {
+            const numInp = card.querySelector(".ap-pi-pay");
+            const txtInp = card.querySelector(".ap-pi-pay-item");
+            const rateEl = card.querySelector(".ap-pi-payrate");
+            if (numInp) numInp.style.display = next === "item" ? "none" : "";
+            if (txtInp) txtInp.style.display = next === "item" ? "" : "none";
+            if (rateEl) rateEl.style.display = next === "item" ? "none" : "";
+          }
         }
         return;
       }
