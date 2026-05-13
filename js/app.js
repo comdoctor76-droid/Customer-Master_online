@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.57";
+  const APP_VERSION = "1.58";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4769,7 +4769,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
             <!-- 실적진도현황 -->
             <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
-              <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품실적·인품건수 (탭 구분, 금액단위: 원)</div>
+              <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)</div>
               <textarea id="pg-progress-paste" rows="6" placeholder="엑셀에서 복사 후 붙여넣기"></textarea>
               <div class="pg-actions">
                 <button class="btn-primary" id="btn-pg-progress-paste-apply">📥 실적진도현황 저장</button>
@@ -5231,7 +5231,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       // 컬럼: 지역단(0)|비전센터(1)|지점(2)|사원번호(3)|성명(4)|차월(5)|육성리더(6)
       //        직전6개월인보험(7)|직전6개월환산(8)|직전6개월육성소득(9)
-      //        기준실적(10)|현재실적(11)|달성률(12-무시)|순증실적(13)|인품실적(14)|인품건수(15)
+      //        기준실적(10)|현재실적(11)|달성률(12-무시)|순증실적(13)|인품건수(14)|인품실적(15)
       const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
       const updateRecords = [];
       const newRecords    = [];  // 미매칭: 신규 등록 대상
@@ -5256,8 +5256,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const pgBase      = parseAmt(p[10 + colShift]);
         const pgCurrent   = parseAmt(p[11 + colShift]);
         // p[12+colShift] = 달성률 (무시 — 앱 내부 계산), p[13+colShift] = 순증실적 (무시)
-        const pgIpumAmt   = p.length > 14 + colShift ? parseAmt(p[14 + colShift]) : 0;  // 인품실적(금액)
-        const pgIpumCount = p.length > 15 + colShift ? parseAmt(p[15 + colShift]) : 0;  // 인품건수
+        const pgIpumCount = p.length > 14 + colShift ? parseAmt(p[14 + colShift]) : 0;  // 인품건수
+        const pgIpumAmt   = p.length > 15 + colShift ? parseAmt(p[15 + colShift]) : 0;  // 인품실적(금액)
 
         if (!empNo) return;
         // 전체 교육생에서 조회 (필터 범위 제한 없이)
@@ -6383,7 +6383,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
