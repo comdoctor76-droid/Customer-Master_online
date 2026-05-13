@@ -131,13 +131,16 @@ window.DataAPI = {
       record.tenureMonths = Number(student.tenureMonths) || 0;
     }
     // 실적진도용 확장 필드
-    if (student.current !== undefined)   record.current   = Number(student.current)   || 0;
-    if (student.ipumCount !== undefined) record.ipumCount = Number(student.ipumCount) || 0;
-    if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
-    if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
-    if (student.curAct !== undefined)    record.curAct    = Number(student.curAct)    || 0;
+    if (student.current !== undefined)      record.current      = Number(student.current)      || 0;
+    if (student.ipumCount !== undefined)    record.ipumCount    = Number(student.ipumCount)    || 0;
+    if (student.ipumAmt !== undefined)      record.ipumAmt      = Number(student.ipumAmt)      || 0;
+    if (student.insAvg !== undefined)       record.insAvg       = Number(student.insAvg)       || 0;
+    if (student.curAct !== undefined)       record.curAct       = Number(student.curAct)       || 0;
+    // 실적진도현황 붙여넣기 인품 필드 (인품왕 표시에 사용)
+    if (student.pgIpumCount !== undefined)  record.pgIpumCount  = Number(student.pgIpumCount)  || 0;
+    if (student.pgIpumAmt   !== undefined)  record.pgIpumAmt    = Number(student.pgIpumAmt)    || 0;
     // 팀 배정
-    if (student.team !== undefined)      record.team      = String(student.team || "");
+    if (student.team !== undefined)         record.team         = String(student.team || "");
     await setDoc(doc(db, "students", empNo), record, { merge: true });
   },
 
@@ -165,13 +168,16 @@ window.DataAPI = {
       if (student.tenureMonths !== undefined && student.tenureMonths !== "") {
         record.tenureMonths = Number(student.tenureMonths) || 0;
       }
-      if (student.current !== undefined)   record.current   = Number(student.current)   || 0;
-      if (student.hiCap !== undefined)     record.hiCap     = Number(student.hiCap)     || 0;
-      if (student.ipumCount !== undefined) record.ipumCount = Number(student.ipumCount) || 0;
-      if (student.ipumAmt !== undefined)   record.ipumAmt   = Number(student.ipumAmt)   || 0;
-      if (student.insAvg !== undefined)    record.insAvg    = Number(student.insAvg)    || 0;
-      if (student.curAct !== undefined)    record.curAct    = Number(student.curAct)    || 0;
-      if (student.team !== undefined)      record.team      = String(student.team || "");
+      if (student.current !== undefined)      record.current      = Number(student.current)      || 0;
+      if (student.hiCap !== undefined)        record.hiCap        = Number(student.hiCap)        || 0;
+      if (student.ipumCount !== undefined)    record.ipumCount    = Number(student.ipumCount)    || 0;
+      if (student.ipumAmt !== undefined)      record.ipumAmt      = Number(student.ipumAmt)      || 0;
+      if (student.insAvg !== undefined)       record.insAvg       = Number(student.insAvg)       || 0;
+      if (student.curAct !== undefined)       record.curAct       = Number(student.curAct)       || 0;
+      // 실적진도현황 붙여넣기 인품 필드 (인품왕 표시에 사용)
+      if (student.pgIpumCount !== undefined)  record.pgIpumCount  = Number(student.pgIpumCount)  || 0;
+      if (student.pgIpumAmt   !== undefined)  record.pgIpumAmt    = Number(student.pgIpumAmt)    || 0;
+      if (student.team !== undefined)         record.team         = String(student.team || "");
       valid.push({ empNo, record });
     });
 
