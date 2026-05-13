@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.56";
+  const APP_VERSION = "1.57";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3296,8 +3296,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const base    = s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0);
     const current = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
     const hiCap   = Number(s.hiCap || 0);
-    const ipumCount = Number(s.pgIpumCount) > 0 ? Number(s.pgIpumCount) : Number(s.ipumCount || 0);
-    const ipumAmt   = Number(s.pgIpumAmt)   > 0 ? Number(s.pgIpumAmt)   : Number(s.ipumAmt   || 0);
+    // 인품 데이터는 실적진도현황 붙여넣기(pgIpumAmt/pgIpumCount)만 사용
+    const ipumCount = Number(s.pgIpumCount || 0);
+    const ipumAmt   = Number(s.pgIpumAmt   || 0);
     const net  = current - base;
     const rate = base > 0 ? (current / base) * 100 : 0;
     return { s, base, current, hiCap, net, rate, ipumCount, ipumAmt };
@@ -6382,7 +6383,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
