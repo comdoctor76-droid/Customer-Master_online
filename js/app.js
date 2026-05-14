@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.64";
+  const APP_VERSION = "1.65";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6106,6 +6106,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const records = [];
     const parseErrors = [];
     const parseAmt = (v) => parseInt((v || "").replace(/[,%\s]/g, ""), 10) || 0;
+    // 비전센터 자동 완성 — 지역단+지점이 동일한 기존 학생에서 비전센터 추출
+    const inferCenter = (region, rawCenter, branch) => {
+      if (rawCenter) return rawCenter;
+      const hint = state.students.find((s) => s.region === region && s.branch === branch && s.center);
+      return hint ? hint.center : "";
+    };
     lines.forEach((line, i) => {
       const cols = line.includes("\t") ? line.split("\t") : line.split(",");
       const cl = cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
@@ -6116,7 +6122,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         // colShift: 사번(3) 뒤에 직급유형 등 추가 열이 삽입된 경우 감지
         const colShift = (!cl[18]?.includes('%') && cl[19]?.includes('%')) ? 1 : 0;
         const region   = cl[0];
-        const center   = cl[1];
+        const center   = inferCenter(cl[0], cl[1], cl[2]);
         const branch   = cl[2];
         const empNo    = cl[3].replace(/[\s\/\\]/g, "");
         const name     = cl[4 + colShift];
@@ -6147,9 +6153,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         });
       } else {
         // 기본 11열 형식: 지역단|비전센터|지점|기수|사번|이름|연락처|평균실적|마스터목표|아너스목표|차월
-        let [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
+        let [region, rawCenter, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
+        const center = inferCenter(region, rawCenter, branch);
         if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
-        if (region === "지역단" && center === "비전센터" && branch === "지점") return;
+        if (region === "지역단" && rawCenter === "비전센터" && branch === "지점") return;
         if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
         const rec = {
           region, center, branch, cohort,
@@ -6493,7 +6500,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
