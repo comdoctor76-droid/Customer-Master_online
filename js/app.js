@@ -186,7 +186,7 @@
   ];
 
   function loadFilter() {
-    const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
+    const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", step: "1", q: "" };
     try {
       const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
       if (saved && typeof saved === "object") {
@@ -197,9 +197,9 @@
   }
 
   function persistFilter() {
-    const { region, center, branch, cohort } = state.filter;
+    const { region, center, branch, cohort, step } = state.filter;
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ region, center, branch, cohort }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ region, center, branch, cohort, step }));
     } catch (e) {}
   }
 
@@ -3288,6 +3288,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       body.innerHTML = renderProgressHome(list);
       bindProgressHomeEvents(list);
     }
+  }
+
+  function _pgStepSfx() {
+    const s = String(state.progressStep || state.filter.step || "1");
+    return s === "1" ? "" : s;
   }
 
   // 학생 데이터에서 계산된 지표 얻기
