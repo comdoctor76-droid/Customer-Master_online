@@ -3025,6 +3025,40 @@ body {
   border-radius: var(--radius-s);
   padding: 12px;
 }
+.pg-progress-paste-step-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: #eef3fb;
+  border: 1px solid #c8d8f0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.pg-progress-paste-step-row label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.pg-paste-confirm {
+  margin: 10px 0;
+  padding: 14px 16px;
+  background: #fffbea;
+  border: 2px solid #f0b429;
+  border-radius: 8px;
+}
+.pg-paste-confirm[hidden] { display: none; }
+.pg-paste-confirm-msg {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.pg-paste-confirm-btns { display: flex; gap: 10px; }
 .pg-admin-paste strong { font-size: 13px; color: var(--navy); display: block; margin-bottom: 6px; }
 .pg-admin-paste textarea {
   width: 100%;
