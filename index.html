@@ -377,6 +377,7 @@
           </div>
           <textarea id="form-bulk" rows="10" placeholder="예) 강북지역단		강북수유지점	069563	권명숙	340		393058	1123673	7201277	290930	1017160	255040	251660	244100	299460	274273	50000	18.2%	-224273	0	0"></textarea>
           <p class="form-hint">동일 사번은 업데이트, 신규 사번은 신규 등록됩니다. ※ 금액은 모두 <strong>원(₩) 단위</strong>로 입력하세요.</p>
+          <button type="button" class="btn-outline bulk-preview-btn" id="btn-bulk-preview">📋 미리보기 확인 후 저장</button>
           <div id="bulk-progress" class="bulk-progress" hidden></div>
         </div>
       </div>
@@ -734,6 +735,25 @@
 
   <!-- Firebase (사용 시 주석 해제 및 firebase-config.js 설정) -->
   <script type="module" src="js/firebase-config.js?v=20260422a"></script>
+  <!-- 일괄입력 미리보기 오버레이 -->
+  <div id="bulk-preview-overlay" class="bulk-preview-overlay" hidden>
+    <div class="bulk-preview-box">
+      <div class="bulk-preview-head">
+        <span class="bulk-preview-title">📋 저장 전 미리보기</span>
+        <span id="bulk-preview-count" class="bulk-preview-count"></span>
+        <button class="btn-outline small" id="btn-bulk-preview-close">✕ 닫기</button>
+      </div>
+      <div class="bulk-remap-bar" id="bulk-remap-bar" hidden>
+        <span class="bulk-remap-bar-lbl">⚙️ 열 매핑 수정 (클릭하여 변경)</span>
+        <div class="bulk-remap-fields" id="bulk-remap-fields"></div>
+      </div>
+      <div class="bulk-preview-tbl-wrap" id="bulk-preview-tbl-wrap"></div>
+      <div class="bulk-preview-foot">
+        <button class="btn-primary" id="btn-bulk-preview-save">✅ 이대로 저장</button>
+        <button class="btn-outline" id="btn-bulk-preview-cancel">취소</button>
+      </div>
+    </div>
+  </div>
   <script src="js/data.js?v=20260422a"></script>
   <script src="js/app.js?v=20260422a"></script>
   <!-- PNG 저장용 (출력 서브탭에서만 실제 사용) -->
