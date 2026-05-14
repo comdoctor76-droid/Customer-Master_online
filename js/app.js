@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.61";
+  const APP_VERSION = "1.62";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -4778,8 +4778,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
             <!-- 실적진도현황 -->
             <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
+              <div class="pg-progress-paste-step-row">
+                <strong>저장할 스텝:</strong>
+                <label><input type="radio" name="pg-progress-paste-step" value="1" checked> Step 1</label>
+                <label><input type="radio" name="pg-progress-paste-step" value="2"> Step 2</label>
+              </div>
               <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)</div>
               <textarea id="pg-progress-paste" rows="6" placeholder="엑셀에서 복사 후 붙여넣기"></textarea>
+              <div id="pg-progress-paste-confirm" class="pg-paste-confirm" hidden>
+                <div class="pg-paste-confirm-msg" id="pg-progress-paste-confirm-msg"></div>
+                <div class="pg-paste-confirm-btns">
+                  <button class="btn-primary small" id="btn-pg-progress-paste-yes">✅ 예, 저장</button>
+                  <button class="btn-outline small" id="btn-pg-progress-paste-no">❌ 아니오</button>
+                </div>
+              </div>
               <div class="pg-actions">
                 <button class="btn-primary" id="btn-pg-progress-paste-apply">📥 실적진도현황 저장</button>
                 <span id="pg-progress-paste-msg" class="pg-msg"></span>
@@ -5245,6 +5257,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const m = $("#pg-progress-paste-msg");
       if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
 
+      // 선택된 스텝 (글로벌 필터 무시, UI 라디오 버튼 기준)
+      const pasteStepVal = (root.querySelector('input[name="pg-progress-paste-step"]:checked') || {}).value || "1";
+      const sfxOverride  = pasteStepVal === "1" ? "" : pasteStepVal;
+
       // 컬럼: 지역단(0)|비전센터(1)|지점(2)|사원번호(3)|성명(4)|차월(5)|육성리더(6)
       //        직전6개월인보험(7)|직전6개월환산(8)|직전6개월육성소득(9)
       //        기준실적(10)|현재실적(11)|달성률(12-무시)|순증실적(13)|인품건수(14)|인품실적(15)
@@ -5278,7 +5294,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (!empNo) return;
         // 전체 교육생에서 조회 (필터 범위 제한 없이)
         const existing = state.students.find((x) => x.empNo === empNo);
-        const sfx = _pgStepSfx();
+        const sfx = sfxOverride;
         // pgIpumCount/pgIpumAmt: 0이어도 항상 포함 — 이전 오염 값 제거용
         const pgFields = {
           [`pgBase${sfx}`]:      pgBase,
@@ -5307,6 +5323,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (m) { m.textContent = "❌ 파싱된 행이 없습니다. 탭 구분 및 열 수(12+)를 확인하세요."; m.className = "pg-msg err"; }
         return;
       }
+
+      // ── 저장 전 확인 다이얼로그 ──────────────────────────────────
+      const _cohort = state.filter.cohort || "?";
+      const _region = state.filter.region || "?";
+      const _stepLabel = `Step ${pasteStepVal}`;
+      const _confirmText = `${_region} ${_cohort}기 ${_stepLabel}에 ${updateRecords.length}명 데이터를 저장하시는 게 맞습니까?`;
+      const confirmed = await new Promise((resolve) => {
+        const confirmEl = document.getElementById("pg-progress-paste-confirm");
+        const confirmMsgEl = document.getElementById("pg-progress-paste-confirm-msg");
+        const yesBtn = document.getElementById("btn-pg-progress-paste-yes");
+        const noBtn  = document.getElementById("btn-pg-progress-paste-no");
+        if (!confirmEl || !yesBtn || !noBtn) { resolve(true); return; }
+        confirmMsgEl.textContent = _confirmText;
+        confirmEl.hidden = false;
+        progressPasteApply.disabled = true;
+        const cleanup = () => { confirmEl.hidden = true; progressPasteApply.disabled = false; };
+        yesBtn.addEventListener("click", () => { cleanup(); resolve(true); }, { once: true });
+        noBtn.addEventListener("click",  () => { cleanup(); resolve(false); }, { once: true });
+      });
+      if (!confirmed) return;
 
       // 기존 학생 업데이트
       if (updateRecords.length > 0) {
@@ -6419,7 +6455,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
