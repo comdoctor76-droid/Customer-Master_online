@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.70";
+  const APP_VERSION = "1.71";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -534,10 +534,16 @@
         const unassigned = list.filter((s) => !s.center);
         if (!unassigned.length) { toast("미지정 교육생이 없습니다.", ""); return; }
         const region = state.filter.region;
-        const centers = [...new Set(
-          state.students.filter((s) => (!region || s.region === region) && s.center).map((s) => s.center)
+        // 같은 지역단 센터 우선, 나머지 다른 지역단 센터는 뒤에 추가
+        const regionSet = new Set(
+          state.students.filter((s) => s.region === region && s.center).map((s) => s.center)
+        );
+        const regionCenters = [...regionSet].sort();
+        const otherCenters = [...new Set(
+          state.students.filter((s) => s.center && !regionSet.has(s.center)).map((s) => s.center)
         )].sort();
-        if (!centers.length) { toast("이 지역단에 등록된 비전센터가 없습니다.", "error"); return; }
+        const centers = [...regionCenters, ...otherCenters];
+        if (!centers.length) { toast("등록된 비전센터 정보가 없습니다.", "error"); return; }
         openPickerModal(
           `비전센터 선택 — ${unassigned.length}명 일괄 지정`,
           centers,
@@ -6710,7 +6716,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
