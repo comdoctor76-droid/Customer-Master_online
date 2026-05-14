@@ -139,6 +139,11 @@ window.DataAPI = {
     // 실적진도현황 붙여넣기 인품 필드 (인품왕 표시에 사용)
     if (student.pgIpumCount !== undefined)  record.pgIpumCount  = Number(student.pgIpumCount)  || 0;
     if (student.pgIpumAmt   !== undefined)  record.pgIpumAmt    = Number(student.pgIpumAmt)    || 0;
+    // 실적진도 사전데이터
+    if (student.pgPreIns    !== undefined)  record.pgPreIns     = Number(student.pgPreIns)     || 0;
+    if (student.pgPreConv   !== undefined)  record.pgPreConv    = Number(student.pgPreConv)    || 0;
+    if (student.pgPreIncome !== undefined)  record.pgPreIncome  = Number(student.pgPreIncome)  || 0;
+    if (student.pgLeader    !== undefined)  record.pgLeader     = student.pgLeader || "";
     // Step 2 전용 필드
     if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
     if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
@@ -183,6 +188,11 @@ window.DataAPI = {
       // 실적진도현황 붙여넣기 인품 필드 (인품왕 표시에 사용)
       if (student.pgIpumCount !== undefined)  record.pgIpumCount  = Number(student.pgIpumCount)  || 0;
       if (student.pgIpumAmt   !== undefined)  record.pgIpumAmt    = Number(student.pgIpumAmt)    || 0;
+      // 실적진도 사전데이터
+      if (student.pgPreIns    !== undefined)  record.pgPreIns     = Number(student.pgPreIns)     || 0;
+      if (student.pgPreConv   !== undefined)  record.pgPreConv    = Number(student.pgPreConv)    || 0;
+      if (student.pgPreIncome !== undefined)  record.pgPreIncome  = Number(student.pgPreIncome)  || 0;
+      if (student.pgLeader    !== undefined)  record.pgLeader     = student.pgLeader || "";
       // Step 2 전용 필드
       if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
       if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
