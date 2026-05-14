@@ -139,6 +139,12 @@ window.DataAPI = {
     // 실적진도현황 붙여넣기 인품 필드 (인품왕 표시에 사용)
     if (student.pgIpumCount !== undefined)  record.pgIpumCount  = Number(student.pgIpumCount)  || 0;
     if (student.pgIpumAmt   !== undefined)  record.pgIpumAmt    = Number(student.pgIpumAmt)    || 0;
+    // Step 2 전용 필드
+    if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
+    if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
+    if (student.pgIpumCount2 !== undefined) record.pgIpumCount2 = Number(student.pgIpumCount2) || 0;
+    if (student.pgIpumAmt2 !== undefined)   record.pgIpumAmt2   = Number(student.pgIpumAmt2)   || 0;
+    if (student.hiCap2 !== undefined)       record.hiCap2       = Number(student.hiCap2)       || 0;
     // 팀 배정
     if (student.team !== undefined)         record.team         = String(student.team || "");
     await setDoc(doc(db, "students", empNo), record, { merge: true });
@@ -177,6 +183,12 @@ window.DataAPI = {
       // 실적진도현황 붙여넣기 인품 필드 (인품왕 표시에 사용)
       if (student.pgIpumCount !== undefined)  record.pgIpumCount  = Number(student.pgIpumCount)  || 0;
       if (student.pgIpumAmt   !== undefined)  record.pgIpumAmt    = Number(student.pgIpumAmt)    || 0;
+      // Step 2 전용 필드
+      if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
+      if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
+      if (student.pgIpumCount2 !== undefined) record.pgIpumCount2 = Number(student.pgIpumCount2) || 0;
+      if (student.pgIpumAmt2 !== undefined)   record.pgIpumAmt2   = Number(student.pgIpumAmt2)   || 0;
+      if (student.hiCap2 !== undefined)       record.hiCap2       = Number(student.hiCap2)       || 0;
       if (student.team !== undefined)         record.team         = String(student.team || "");
       valid.push({ empNo, record });
     });
