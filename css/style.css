@@ -1044,6 +1044,12 @@ body {
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 8px;
+  line-height: 1.7;
+}
+.bulk-header-note {
+  font-weight: 400;
+  font-size: 11px;
+  color: #777;
 }
 #form-bulk {
   width: 100%;

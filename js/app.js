@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.63";
+  const APP_VERSION = "1.64";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6105,23 +6105,61 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const lines = raw.split(/\r?\n/).filter((l) => l.trim());
     const records = [];
     const parseErrors = [];
+    const parseAmt = (v) => parseInt((v || "").replace(/[,%\s]/g, ""), 10) || 0;
     lines.forEach((line, i) => {
       const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-      let [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] =
-        cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
-      // "2" → "2기" 자동 정규화 (드롭다운 옵션과 일치시키기 위해)
-      if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
-      // 헤더 행 자동 스킵
-      if (region === "지역단" && center === "비전센터" && branch === "지점") return;
-      if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
-      const rec = {
-        region, center, branch, cohort,
-        empNo: empNo.replace(/[\s\/\\]/g, ""),
-        name, phone,
-        base: toNum(base), target: toNum(target), honors: toNum(honors)
-      };
-      if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
-      records.push(rec);
+      const cl = cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
+      // 형식 자동 감지: ≥16열 → 실적진도현황 22열 형식
+      if (cl.length >= 16) {
+        // 헤더 행 자동 스킵 (지역단 or 사원번호 행)
+        if (cl[0] === "지역단" || cl[3] === "사원번호" || cl[3] === "사번") return;
+        // colShift: 사번(3) 뒤에 직급유형 등 추가 열이 삽입된 경우 감지
+        const colShift = (!cl[18]?.includes('%') && cl[19]?.includes('%')) ? 1 : 0;
+        const region   = cl[0];
+        const center   = cl[1];
+        const branch   = cl[2];
+        const empNo    = cl[3].replace(/[\s\/\\]/g, "");
+        const name     = cl[4 + colShift];
+        const tenureM  = cl[5 + colShift];  // 위촉차월
+        const pgLeader = cl[6 + colShift];
+        const pgPreIns    = parseAmt(cl[7 + colShift]);
+        const pgPreConv   = parseAmt(cl[8 + colShift]);
+        const pgPreIncome = parseAmt(cl[9 + colShift]);
+        // cl[10~15+colShift]: 월별 실적 — 무시
+        const base        = parseAmt(cl[16 + colShift]);
+        const current     = parseAmt(cl[17 + colShift]);
+        // cl[18+colShift]: 달성률, cl[19+colShift]: 순증 — 무시
+        const pgIpumCount = cl.length > 20 + colShift ? parseAmt(cl[20 + colShift]) : 0;
+        const pgIpumAmt   = cl.length > 21 + colShift ? parseAmt(cl[21 + colShift]) : 0;
+        if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
+        // 기존 학생에서 연락처·아너스목표 보존 (덮어쓰기 방지)
+        const cohort   = state.filter.cohort || "";
+        const existSt  = state.students.find((s) => s.empNo === empNo);
+        const phone    = (existSt || {}).phone   || "";
+        const honors   = existSt != null ? (existSt.honors ?? 0) : 0;
+        const target   = existSt?.target ?? (region !== "호남지역단" && base > 0 ? base + 50000 : 0);
+        records.push({
+          region, center, branch, cohort, empNo, name, phone, honors,
+          base, target, current,
+          tenureMonths: toNum(tenureM),
+          pgLeader, pgPreIns, pgPreConv, pgPreIncome,
+          pgIpumCount, pgIpumAmt,
+        });
+      } else {
+        // 기본 11열 형식: 지역단|비전센터|지점|기수|사번|이름|연락처|평균실적|마스터목표|아너스목표|차월
+        let [region, center, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
+        if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
+        if (region === "지역단" && center === "비전센터" && branch === "지점") return;
+        if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
+        const rec = {
+          region, center, branch, cohort,
+          empNo: empNo.replace(/[\s\/\\]/g, ""),
+          name, phone,
+          base: toNum(base), target: toNum(target), honors: toNum(honors)
+        };
+        if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
+        records.push(rec);
+      }
     });
 
     if (records.length === 0) {
@@ -6455,7 +6493,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
