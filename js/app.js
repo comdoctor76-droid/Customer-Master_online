@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.66";
+  const APP_VERSION = "1.67";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6093,7 +6093,186 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return Number.isFinite(n) ? n : 0;
   }
 
-  async function saveBulk() {
+  // ── 일괄입력 공통 헬퍼 ──────────────────────────────────────────
+  const _bulkParseAmt = (v) => parseInt((v || "").replace(/[,%\s]/g, ""), 10) || 0;
+  const _bulkInferCenter = (region, rawCenter, branch) => {
+    if (rawCenter) return rawCenter;
+    const hint = state.students.find((s) => s.region === region && s.branch === branch && s.center);
+    return hint ? hint.center : "";
+  };
+
+  // 파싱 전용 함수 — preview와 saveBulk 공용
+  // colOverride: { base, current, pgIpumCount, pgIpumAmt } → 열 인덱스 재지정
+  function parseBulkRecords(raw, colOverride = {}) {
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
+    const records = [];
+    const parseErrors = [];
+    let isFormatA = false;
+    let sampleCols = [];   // 첫 번째 데이터 행의 원본 열 배열 (열 매핑 UI용)
+    let detectedColShift = 0;
+
+    lines.forEach((line, i) => {
+      const cols = line.includes("\t") ? line.split("\t") : line.split(",");
+      const cl = cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
+      if (cl.length >= 16) {
+        if (cl[0] === "지역단" || cl[3] === "사원번호" || cl[3] === "사번") return;
+        const colShift = (!cl[18]?.includes('%') && cl[19]?.includes('%')) ? 1 : 0;
+        if (!isFormatA) { isFormatA = true; detectedColShift = colShift; sampleCols = cl; }
+
+        const baseIdx        = colOverride.base        ?? (16 + colShift);
+        const currentIdx     = colOverride.current     ?? (17 + colShift);
+        const pgIpumCountIdx = colOverride.pgIpumCount ?? (20 + colShift);
+        const pgIpumAmtIdx   = colOverride.pgIpumAmt   ?? (21 + colShift);
+
+        const region   = cl[0];
+        const rawCtr   = cl[1];
+        const branch   = cl[2];
+        const empNo    = cl[3].replace(/[\s\/\\]/g, "");
+        const name     = cl[4 + colShift];
+        const tenureM  = cl[5 + colShift];
+        const pgLeader = cl[6 + colShift];
+        const pgPreIns    = _bulkParseAmt(cl[7 + colShift]);
+        const pgPreConv   = _bulkParseAmt(cl[8 + colShift]);
+        const pgPreIncome = _bulkParseAmt(cl[9 + colShift]);
+        const base        = _bulkParseAmt(cl[baseIdx]);
+        const current     = _bulkParseAmt(cl[currentIdx]);
+        const pgIpumCount = _bulkParseAmt(cl[pgIpumCountIdx] || "0");
+        const pgIpumAmt   = _bulkParseAmt(cl[pgIpumAmtIdx]   || "0");
+        if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
+        const cohort  = state.filter.cohort || "";
+        const existSt = state.students.find((s) => s.empNo === empNo);
+        const center  = rawCtr || existSt?.center || _bulkInferCenter(region, "", branch);
+        const phone   = existSt?.phone  || "";
+        const honors  = existSt?.honors ?? 0;
+        const target  = existSt?.target ?? (region !== "호남지역단" && base > 0 ? base + 50000 : 0);
+        records.push({
+          region, center, branch, cohort, empNo, name, phone, honors,
+          base, target, current,
+          tenureMonths: toNum(tenureM),
+          pgLeader, pgPreIns, pgPreConv, pgPreIncome,
+          pgIpumCount, pgIpumAmt,
+          _isNew: !existSt,
+        });
+      } else {
+        let [region, rawCenter, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
+        if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
+        if (region === "지역단" && rawCenter === "비전센터" && branch === "지점") return;
+        if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
+        const existSt = state.students.find((s) => s.empNo === empNo.replace(/[\s\/\\]/g, ""));
+        const center  = rawCenter || existSt?.center || _bulkInferCenter(region, "", branch);
+        const rec = {
+          region, center, branch, cohort,
+          empNo: empNo.replace(/[\s\/\\]/g, ""),
+          name, phone,
+          base: toNum(base), target: toNum(target), honors: toNum(honors),
+          _isNew: !existSt,
+        };
+        if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
+        records.push(rec);
+      }
+    });
+
+    return { records, parseErrors, isFormatA, sampleCols, colShift: detectedColShift };
+  }
+
+  // ── 미리보기 오버레이 ──────────────────────────────────────────
+  function openBulkPreview() {
+    const raw = $("#form-bulk").value.trim();
+    if (!raw) { toast("미리보기할 내용이 없습니다.", "error"); return; }
+    if (!state._bulkColOverride) state._bulkColOverride = {};
+    _renderBulkPreview(raw);
+    document.getElementById("bulk-preview-overlay").hidden = false;
+  }
+
+  function _renderBulkPreview(raw) {
+    const colOverride = state._bulkColOverride || {};
+    const { records, parseErrors, isFormatA, sampleCols, colShift } = parseBulkRecords(raw, colOverride);
+
+    // 열 매핑 컨트롤
+    const remapBar = document.getElementById("bulk-remap-bar");
+    const remapFields = document.getElementById("bulk-remap-fields");
+    if (isFormatA && sampleCols.length > 0) {
+      remapBar.hidden = false;
+      const REMAP_DEFS = [
+        { key: "base",        label: "기준실적", def: 16 + colShift },
+        { key: "current",     label: "현재실적", def: 17 + colShift },
+        { key: "pgIpumCount", label: "인품건수", def: 20 + colShift },
+        { key: "pgIpumAmt",   label: "인품실적", def: 21 + colShift },
+      ];
+      // 선택 가능한 열: 인덱스 7 ~ min(sampleCols.length-1, 24)
+      const optCols = [];
+      for (let idx = 7; idx < Math.min(sampleCols.length, 25); idx++) {
+        optCols.push({ idx, label: `열${idx}: ${sampleCols[idx] || "—"}` });
+      }
+      remapFields.innerHTML = REMAP_DEFS.map(({ key, label, def }) => {
+        const curIdx = colOverride[key] ?? def;
+        const opts = optCols.map((c) => `<option value="${c.idx}"${c.idx === curIdx ? " selected" : ""}>${c.label}</option>`).join("");
+        return `<label class="bulk-remap-item">${label}<select class="bulk-remap-sel" data-field="${key}">${opts}</select></label>`;
+      }).join("");
+      // 변경 이벤트
+      remapFields.querySelectorAll(".bulk-remap-sel").forEach((sel) => {
+        sel.addEventListener("change", () => {
+          remapFields.querySelectorAll(".bulk-remap-sel").forEach((s) => {
+            state._bulkColOverride[s.dataset.field] = Number(s.value);
+          });
+          _renderBulkPreview(raw);
+        });
+      });
+    } else {
+      remapBar.hidden = true;
+    }
+
+    // 테이블
+    const tblWrap = document.getElementById("bulk-preview-tbl-wrap");
+    if (!records.length) {
+      const err = parseErrors[0] || "데이터 없음";
+      tblWrap.innerHTML = `<div class="pg-empty">파싱된 행이 없습니다. ${escapeHtml(err)}</div>`;
+    } else {
+      const rows = records.map((r, i) => {
+        const badge = r._isNew
+          ? `<span class="bulk-badge-new">신규</span>`
+          : `<span class="bulk-badge-exist">기존</span>`;
+        const ctrCell = r.center
+          ? escapeHtml(r.center)
+          : `<span class="bulk-warn-center">⚠ 미확인</span>`;
+        return `<tr>
+          <td style="text-align:center">${i + 1}</td>
+          <td>${badge}</td>
+          <td>${escapeHtml(r.region || "")}</td>
+          <td>${ctrCell}</td>
+          <td>${escapeHtml(r.branch || "")}</td>
+          <td>${escapeHtml(r.empNo || "")}</td>
+          <td>${escapeHtml(r.name || "")}</td>
+          <td style="text-align:center">${escapeHtml(r.cohort || "—")}</td>
+          <td class="r">${r.base ? Nf(r.base) : "—"}</td>
+          <td class="r">${r.current ? Nf(r.current) : "—"}</td>
+          <td class="r">${r.pgIpumCount != null ? r.pgIpumCount : "—"}</td>
+          <td class="r">${r.pgIpumAmt ? Nf(r.pgIpumAmt) : "—"}</td>
+        </tr>`;
+      }).join("");
+      const errRows = parseErrors.map((e) =>
+        `<tr class="bulk-row-err"><td colspan="12">⚠️ ${escapeHtml(e)}</td></tr>`
+      ).join("");
+      tblWrap.innerHTML = `<table class="bulk-preview-tbl">
+        <thead><tr>
+          <th>#</th><th>상태</th><th>지역단</th><th>비전센터</th><th>지점</th>
+          <th>사번</th><th>성명</th><th>기수</th>
+          <th>기준실적</th><th>현재실적</th><th>인품건수</th><th>인품실적</th>
+        </tr></thead>
+        <tbody>${rows}${errRows}</tbody>
+      </table>`;
+    }
+
+    // 카운트
+    const countEl = document.getElementById("bulk-preview-count");
+    if (countEl) countEl.textContent = `${records.length}명 파싱${parseErrors.length ? ` · 오류 ${parseErrors.length}건` : ""}`;
+
+    // 저장 버튼에 colOverride 전달용 데이터 저장
+    const saveBtn = document.getElementById("btn-bulk-preview-save");
+    if (saveBtn) saveBtn.dataset.ready = "1";
+  }
+
+  async function saveBulk(colOverride = {}) {
     const raw = $("#form-bulk").value.trim();
     if (!raw) {
       toast("붙여넣을 데이터가 없습니다.", "error");
@@ -6102,76 +6281,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
 
     // 1. 파싱
-    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
-    const records = [];
-    const parseErrors = [];
-    const parseAmt = (v) => parseInt((v || "").replace(/[,%\s]/g, ""), 10) || 0;
-    // 비전센터 자동 완성 — 지역단+지점이 동일한 기존 학생에서 비전센터 추출
-    const inferCenter = (region, rawCenter, branch) => {
-      if (rawCenter) return rawCenter;
-      const hint = state.students.find((s) => s.region === region && s.branch === branch && s.center);
-      return hint ? hint.center : "";
-    };
-    lines.forEach((line, i) => {
-      const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-      const cl = cols.map((c) => (c || "").trim().replace(/^"(.*)"$/, "$1"));
-      // 형식 자동 감지: ≥16열 → 실적진도현황 22열 형식
-      if (cl.length >= 16) {
-        // 헤더 행 자동 스킵 (지역단 or 사원번호 행)
-        if (cl[0] === "지역단" || cl[3] === "사원번호" || cl[3] === "사번") return;
-        // colShift: 사번(3) 뒤에 직급유형 등 추가 열이 삽입된 경우 감지
-        const colShift = (!cl[18]?.includes('%') && cl[19]?.includes('%')) ? 1 : 0;
-        const region   = cl[0];
-        const rawCenter= cl[1];
-        const branch   = cl[2];
-        const empNo    = cl[3].replace(/[\s\/\\]/g, "");
-        const name     = cl[4 + colShift];
-        const tenureM  = cl[5 + colShift];  // 위촉차월
-        const pgLeader = cl[6 + colShift];
-        const pgPreIns    = parseAmt(cl[7 + colShift]);
-        const pgPreConv   = parseAmt(cl[8 + colShift]);
-        const pgPreIncome = parseAmt(cl[9 + colShift]);
-        // cl[10~15+colShift]: 월별 실적 — 무시
-        const base        = parseAmt(cl[16 + colShift]);
-        const current     = parseAmt(cl[17 + colShift]);
-        // cl[18+colShift]: 달성률, cl[19+colShift]: 순증 — 무시
-        const pgIpumCount = cl.length > 20 + colShift ? parseAmt(cl[20 + colShift]) : 0;
-        const pgIpumAmt   = cl.length > 21 + colShift ? parseAmt(cl[21 + colShift]) : 0;
-        if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
-        // 사번으로 기존 학생 조회 → 비전센터·연락처·아너스목표·마스터목표 보존
-        const cohort   = state.filter.cohort || "";
-        const existSt  = state.students.find((s) => s.empNo === empNo);
-        // 비전센터: 붙여넣기 값 → 기존 학생 레코드 → 지역단+지점 역추적 순
-        const center   = rawCenter || existSt?.center || inferCenter(region, "", branch);
-        const phone    = existSt?.phone  || "";
-        const honors   = existSt?.honors ?? 0;
-        const target   = existSt?.target ?? (region !== "호남지역단" && base > 0 ? base + 50000 : 0);
-        records.push({
-          region, center, branch, cohort, empNo, name, phone, honors,
-          base, target, current,
-          tenureMonths: toNum(tenureM),
-          pgLeader, pgPreIns, pgPreConv, pgPreIncome,
-          pgIpumCount, pgIpumAmt,
-        });
-      } else {
-        // 기본 11열 형식: 지역단|비전센터|지점|기수|사번|이름|연락처|평균실적|마스터목표|아너스목표|차월
-        let [region, rawCenter, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
-        if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
-        if (region === "지역단" && rawCenter === "비전센터" && branch === "지점") return;
-        if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
-        // 사번으로 기존 학생 조회 → 비전센터 보존
-        const existSt = state.students.find((s) => s.empNo === empNo.replace(/[\s\/\\]/g, ""));
-        const center  = rawCenter || existSt?.center || inferCenter(region, "", branch);
-        const rec = {
-          region, center, branch, cohort,
-          empNo: empNo.replace(/[\s\/\\]/g, ""),
-          name, phone,
-          base: toNum(base), target: toNum(target), honors: toNum(honors)
-        };
-        if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
-        records.push(rec);
-      }
-    });
+    const { records, parseErrors } = parseBulkRecords(raw, colOverride);
 
     if (records.length === 0) {
       const msg = `저장할 행이 없습니다. (${parseErrors[0] || "데이터 없음"})`;
@@ -6461,6 +6571,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 시드 파일 불러오기
     $("#btn-load-seed").addEventListener("click", openSeedPicker);
 
+    // 일괄입력 미리보기
+    document.getElementById("btn-bulk-preview")?.addEventListener("click", openBulkPreview);
+    document.getElementById("btn-bulk-preview-close")?.addEventListener("click", () => {
+      document.getElementById("bulk-preview-overlay").hidden = true;
+    });
+    document.getElementById("btn-bulk-preview-cancel")?.addEventListener("click", () => {
+      document.getElementById("bulk-preview-overlay").hidden = true;
+    });
+    document.getElementById("btn-bulk-preview-save")?.addEventListener("click", async () => {
+      document.getElementById("bulk-preview-overlay").hidden = true;
+      try {
+        const { ok, fail } = await saveBulk(state._bulkColOverride || {});
+        if (ok > 0 && fail === 0) closeModal("#modal-add");
+      } catch (err) {
+        console.error(err);
+        toast("저장 실패: " + err.message, "error");
+        setBulkProgress("저장 실패: " + err.message, "error");
+      }
+    });
+
     // 저장
     $("#btn-save").addEventListener("click", async () => {
       const activeTab = document.querySelector(".tab.active").dataset.tab;
@@ -6504,7 +6634,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
