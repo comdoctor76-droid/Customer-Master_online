@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.69";
+  const APP_VERSION = "1.70";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -492,10 +492,12 @@
           </details>
         `;
       }).join("");
+      const isUnassigned = center === "(비전센터 미지정)";
       return `
         <details class="center-mini" data-center="${escapeHtml(center)}"${centerOpen ? " open" : ""}>
           <summary class="center-mini-head">
             <span class="center-name">🏢 ${escapeHtml(center)}</span>
+            ${isUnassigned ? `<button class="center-assign-btn" title="비전센터 일괄 지정">📌 지정</button>` : ""}
             <span class="center-cnt" title="교육생 / 면담된 교육생">${centerTotal}/<em>${centerInterviewed}</em></span>
             <span class="center-chev">▾</span>
           </summary>
@@ -521,6 +523,37 @@
         if (!name) return;
         if (d.open) state.openCenters.add(name);
         else state.openCenters.delete(name);
+      });
+    });
+
+    // "(비전센터 미지정)" 일괄 지정 버튼
+    container.querySelectorAll(".center-assign-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const unassigned = list.filter((s) => !s.center);
+        if (!unassigned.length) { toast("미지정 교육생이 없습니다.", ""); return; }
+        const region = state.filter.region;
+        const centers = [...new Set(
+          state.students.filter((s) => (!region || s.region === region) && s.center).map((s) => s.center)
+        )].sort();
+        if (!centers.length) { toast("이 지역단에 등록된 비전센터가 없습니다.", "error"); return; }
+        openPickerModal(
+          `비전센터 선택 — ${unassigned.length}명 일괄 지정`,
+          centers,
+          async (picked) => {
+            const ok = await openConfirmModal(`"${picked}"으로\n${unassigned.length}명을 일괄 저장하시겠습니까?`);
+            if (!ok) return;
+            const records = unassigned.map((s) => ({ ...s, center: picked }));
+            try {
+              if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
+              else for (const r of records) await window.DataAPI.save(r);
+              toast(`✅ ${unassigned.length}명의 비전센터를 "${picked}"으로 저장했습니다.`, "");
+            } catch (err) {
+              toast("저장 오류: " + err.message, "error");
+            }
+          }
+        );
       });
     });
   }
@@ -3248,6 +3281,42 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     renderSpList("");
     modal.hidden = false;
     setTimeout(() => modal.querySelector("#sp-search").focus(), 50);
+  }
+
+  // 재사용 가능한 Yes/No 확인 모달 (Promise 반환)
+  function openConfirmModal(msg) {
+    return new Promise((resolve) => {
+      let modal = document.getElementById("modal-confirm");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "modal-confirm";
+        modal.className = "modal";
+        modal.hidden = true;
+        modal.innerHTML = `
+          <div class="modal-backdrop"></div>
+          <div class="modal-panel" style="max-width:360px">
+            <div class="modal-body" style="padding:28px 24px 20px">
+              <p id="confirm-msg" style="margin:0 0 22px;font-size:14px;line-height:1.6;text-align:center;white-space:pre-wrap"></p>
+              <div style="display:flex;gap:10px;justify-content:center">
+                <button class="btn-primary small" id="confirm-yes">✅ 예, 저장</button>
+                <button class="btn-outline small" id="confirm-no">❌ 아니오</button>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+      modal.querySelector("#confirm-msg").textContent = msg;
+      const yesEl = modal.querySelector("#confirm-yes");
+      const noEl  = modal.querySelector("#confirm-no");
+      const yes = yesEl.cloneNode(true); yesEl.replaceWith(yes);
+      const no  = noEl.cloneNode(true);  noEl.replaceWith(no);
+      const hide = (val) => { modal.hidden = true; modal.querySelector(".modal-backdrop").onclick = null; resolve(val); };
+      yes.addEventListener("click", () => hide(true));
+      no.addEventListener("click",  () => hide(false));
+      modal.querySelector(".modal-backdrop").onclick = () => hide(false);
+      modal.hidden = false;
+    });
   }
 
   function openProgressAdminOverlay() {
@@ -6641,7 +6710,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

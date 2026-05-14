@@ -370,6 +370,19 @@ body {
 .center-mini-head .center-cnt em { font-style: normal; color: #FFD580; font-weight: 800; }
 .center-mini-head .center-chev { font-size: 12px; transition: transform 0.2s ease; }
 .center-mini[open] .center-mini-head .center-chev { transform: rotate(180deg); }
+.center-assign-btn {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.45);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.center-assign-btn:hover { background: rgba(255,255,255,0.32); }
 .center-branches { padding-left: 0; }
 .branch-mini-head {
   display: flex;
