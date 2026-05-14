@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.65";
+  const APP_VERSION = "1.66";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6122,7 +6122,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         // colShift: 사번(3) 뒤에 직급유형 등 추가 열이 삽입된 경우 감지
         const colShift = (!cl[18]?.includes('%') && cl[19]?.includes('%')) ? 1 : 0;
         const region   = cl[0];
-        const center   = inferCenter(cl[0], cl[1], cl[2]);
+        const rawCenter= cl[1];
         const branch   = cl[2];
         const empNo    = cl[3].replace(/[\s\/\\]/g, "");
         const name     = cl[4 + colShift];
@@ -6138,11 +6138,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const pgIpumCount = cl.length > 20 + colShift ? parseAmt(cl[20 + colShift]) : 0;
         const pgIpumAmt   = cl.length > 21 + colShift ? parseAmt(cl[21 + colShift]) : 0;
         if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
-        // 기존 학생에서 연락처·아너스목표 보존 (덮어쓰기 방지)
+        // 사번으로 기존 학생 조회 → 비전센터·연락처·아너스목표·마스터목표 보존
         const cohort   = state.filter.cohort || "";
         const existSt  = state.students.find((s) => s.empNo === empNo);
-        const phone    = (existSt || {}).phone   || "";
-        const honors   = existSt != null ? (existSt.honors ?? 0) : 0;
+        // 비전센터: 붙여넣기 값 → 기존 학생 레코드 → 지역단+지점 역추적 순
+        const center   = rawCenter || existSt?.center || inferCenter(region, "", branch);
+        const phone    = existSt?.phone  || "";
+        const honors   = existSt?.honors ?? 0;
         const target   = existSt?.target ?? (region !== "호남지역단" && base > 0 ? base + 50000 : 0);
         records.push({
           region, center, branch, cohort, empNo, name, phone, honors,
@@ -6154,10 +6156,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       } else {
         // 기본 11열 형식: 지역단|비전센터|지점|기수|사번|이름|연락처|평균실적|마스터목표|아너스목표|차월
         let [region, rawCenter, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
-        const center = inferCenter(region, rawCenter, branch);
         if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
         if (region === "지역단" && rawCenter === "비전센터" && branch === "지점") return;
         if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
+        // 사번으로 기존 학생 조회 → 비전센터 보존
+        const existSt = state.students.find((s) => s.empNo === empNo.replace(/[\s\/\\]/g, ""));
+        const center  = rawCenter || existSt?.center || inferCenter(region, "", branch);
         const rec = {
           region, center, branch, cohort,
           empNo: empNo.replace(/[\s\/\\]/g, ""),
@@ -6500,7 +6504,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
