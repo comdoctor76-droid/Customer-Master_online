@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.68";
+  const APP_VERSION = "1.69";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6187,6 +6187,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const raw = $("#form-bulk").value.trim();
     if (!raw) { toast("미리보기할 내용이 없습니다.", "error"); return; }
     if (!state._bulkColOverride) state._bulkColOverride = {};
+    state._bulkPreviewRaw = raw;  // 헤더 select 변경 시 재렌더에 사용
     _renderBulkPreview(raw);
     document.getElementById("bulk-preview-overlay").hidden = false;
   }
@@ -6195,39 +6196,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const colOverride = state._bulkColOverride || {};
     const { records, parseErrors, isFormatA, sampleCols, colShift } = parseBulkRecords(raw, colOverride);
 
-    // 열 매핑 컨트롤
+    // 상단 열 매핑 바 숨김 — 표 헤더에 직접 통합
     const remapBar = document.getElementById("bulk-remap-bar");
-    const remapFields = document.getElementById("bulk-remap-fields");
-    if (isFormatA && sampleCols.length > 0) {
-      remapBar.hidden = false;
-      const REMAP_DEFS = [
-        { key: "base",        label: "기준실적", def: 16 + colShift },
-        { key: "current",     label: "현재실적", def: 17 + colShift },
-        { key: "pgIpumCount", label: "인품건수", def: 20 + colShift },
-        { key: "pgIpumAmt",   label: "인품실적", def: 21 + colShift },
-      ];
-      // 선택 가능한 열: 인덱스 7 ~ min(sampleCols.length-1, 24)
-      const optCols = [];
-      for (let idx = 7; idx < Math.min(sampleCols.length, 25); idx++) {
-        optCols.push({ idx, label: `열${idx}: ${sampleCols[idx] || "—"}` });
-      }
-      remapFields.innerHTML = REMAP_DEFS.map(({ key, label, def }) => {
-        const curIdx = colOverride[key] ?? def;
-        const opts = optCols.map((c) => `<option value="${c.idx}"${c.idx === curIdx ? " selected" : ""}>${c.label}</option>`).join("");
-        return `<label class="bulk-remap-item">${label}<select class="bulk-remap-sel" data-field="${key}">${opts}</select></label>`;
-      }).join("");
-      // 변경 이벤트
-      remapFields.querySelectorAll(".bulk-remap-sel").forEach((sel) => {
-        sel.addEventListener("change", () => {
-          remapFields.querySelectorAll(".bulk-remap-sel").forEach((s) => {
-            state._bulkColOverride[s.dataset.field] = Number(s.value);
-          });
-          _renderBulkPreview(raw);
-        });
-      });
-    } else {
-      remapBar.hidden = true;
+    if (remapBar) remapBar.hidden = true;
+
+    // 헤더에 삽입할 remappable select 생성 함수
+    const REMAP_DEFS = [
+      { key: "base",        label: "기준실적", def: 16 + colShift },
+      { key: "current",     label: "현재실적", def: 17 + colShift },
+      { key: "pgIpumCount", label: "인품건수", def: 20 + colShift },
+      { key: "pgIpumAmt",   label: "인품실적", def: 21 + colShift },
+    ];
+    const optCols = [];
+    for (let idx = 7; idx < Math.min(sampleCols.length, 25); idx++) {
+      optCols.push({ idx, label: `열${idx}: ${sampleCols[idx] || "—"}` });
     }
+    const remapTh = (key, label, def) => {
+      if (!isFormatA || !optCols.length) return `<th>${label}</th>`;
+      const curIdx = colOverride[key] ?? def;
+      const opts = optCols.map((c) => `<option value="${c.idx}"${c.idx === curIdx ? " selected" : ""}>${c.label}</option>`).join("");
+      return `<th class="bulk-remap-th">${label}<select class="bulk-remap-sel" data-field="${key}">${opts}</select></th>`;
+    };
 
     // 테이블
     const tblWrap = document.getElementById("bulk-preview-tbl-wrap");
@@ -6264,17 +6253,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         <thead><tr>
           <th>#</th><th>상태</th><th>지역단</th><th>비전센터</th><th>지점</th>
           <th>사번</th><th>성명</th><th>기수</th>
-          <th>기준실적</th><th>현재실적</th><th>인품건수</th><th>인품실적</th>
+          ${remapTh("base",        "기준실적", 16 + colShift)}
+          ${remapTh("current",     "현재실적", 17 + colShift)}
+          ${remapTh("pgIpumCount", "인품건수", 20 + colShift)}
+          ${remapTh("pgIpumAmt",   "인품실적", 21 + colShift)}
         </tr></thead>
         <tbody>${rows}${errRows}</tbody>
       </table>`;
+
+      // 헤더 select 변경 이벤트
+      tblWrap.querySelectorAll(".bulk-remap-sel").forEach((sel) => {
+        sel.addEventListener("change", () => {
+          tblWrap.querySelectorAll(".bulk-remap-sel").forEach((s) => {
+            state._bulkColOverride[s.dataset.field] = Number(s.value);
+          });
+          _renderBulkPreview(state._bulkPreviewRaw);
+        });
+      });
     }
 
     // 카운트
     const countEl = document.getElementById("bulk-preview-count");
     if (countEl) countEl.textContent = `${records.length}명 파싱${parseErrors.length ? ` · 오류 ${parseErrors.length}건` : ""}`;
-
-    // 저장 버튼에 colOverride 전달용 데이터 저장
     const saveBtn = document.getElementById("btn-bulk-preview-save");
     if (saveBtn) saveBtn.dataset.ready = "1";
   }
@@ -6641,7 +6641,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
