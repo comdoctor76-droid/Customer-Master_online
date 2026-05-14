@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.60";
+  const APP_VERSION = "1.61";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -393,7 +393,9 @@
     if (ptRegion) {
       const r = state.filter.region;
       const c = state.filter.cohort;
-      ptRegion.textContent = r ? ` — ${r} ${c || "전체"}` : "";
+      const st = state.filter.step || "1";
+      const stepSuffix = st !== "1" ? ` (Step ${st})` : "";
+      ptRegion.textContent = r ? ` — ${r} ${c || "전체"}${stepSuffix}` : "";
     }
   }
 
@@ -3299,7 +3301,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function getProgressStat(s) {
     const sfx = _pgStepSfx();
     const base    = sfx
-      ? Number(s[`pgBase${sfx}`]    || 0)
+      ? (Number(s[`pgBase${sfx}`]) || Number(s.pgBase) || Number(s.base) || 0)
       : (s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0));
     const current = sfx
       ? Number(s[`pgCurrent${sfx}`] || 0)
@@ -3912,12 +3914,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (mainKpi) mainKpi.style.display = "none";
 
     const cohort = state.filter.cohort || "";
+    const step = state.filter.step || "1";
 
-    // 같은 지역단+기수로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
-    if (state._hrankTimer && section.dataset.hrRegion === region && section.dataset.hrCohort === cohort && section.querySelector(".hr-slide")) return;
+    // 같은 지역단+기수+스텝으로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
+    if (state._hrankTimer && section.dataset.hrRegion === region && section.dataset.hrCohort === cohort && section.dataset.hrStep === step && section.querySelector(".hr-slide")) return;
     if (state._hrankTimer) { clearTimeout(state._hrankTimer); state._hrankTimer = null; }
     section.dataset.hrRegion = region;
     section.dataset.hrCohort = cohort;
+    section.dataset.hrStep = step;
 
     const list = state.students.filter((s) => s.region === region && (!cohort || s.cohort === cohort));
     if (!list.length) { section.innerHTML = ""; return; }
@@ -4008,13 +4012,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
     });
 
-    // 교육생 통계 슬라이드용 KPI 계산
-    const kpiTotal   = list.length;
-    const kpiBase    = list.reduce((a, s) => a + (Number(s.base)   || 0), 0);
-    const kpiCurrent = list.reduce((a, s) => {
-      const c = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
-      return a + c;
-    }, 0);
+    // 교육생 통계 슬라이드용 KPI 계산 — stats는 getProgressStat() 통과, 선택된 스텝 기준
+    const kpiTotal   = stats.length;
+    const kpiBase    = stats.reduce((a, st) => a + st.base, 0);
+    const kpiCurrent = stats.reduce((a, st) => a + st.current, 0);
     const kpiRate    = kpiBase > 0 ? (kpiCurrent / kpiBase * 100).toFixed(1) : "0.0";
     // KPI를 슬라이드 대신 헤더 desc 줄에 인라인 표시
     const kpiInlineEl = document.getElementById("kpi-inline-stats");
@@ -6418,7 +6419,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
