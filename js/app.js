@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.59";
+  const APP_VERSION = "1.60";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -186,7 +186,7 @@
   ];
 
   function loadFilter() {
-    const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
+    const base = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", step: "1", q: "" };
     try {
       const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
       if (saved && typeof saved === "object") {
@@ -197,9 +197,9 @@
   }
 
   function persistFilter() {
-    const { region, center, branch, cohort } = state.filter;
+    const { region, center, branch, cohort, step } = state.filter;
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ region, center, branch, cohort }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ region, center, branch, cohort, step }));
     } catch (e) {}
   }
 
@@ -3290,15 +3290,23 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
   }
 
+  function _pgStepSfx() {
+    const s = String(state.progressStep || state.filter.step || "1");
+    return s === "1" ? "" : s;
+  }
+
   // 학생 데이터에서 계산된 지표 얻기
   function getProgressStat(s) {
-    // pg* 필드(원 단위, 실적진도현황 붙여넣기)가 있으면 우선 사용; 없으면 천원→원 변환
-    const base    = s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0);
-    const current = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
-    const hiCap   = Number(s.hiCap || 0);
-    // 인품 데이터는 실적진도현황 붙여넣기(pgIpumAmt/pgIpumCount)만 사용
-    const ipumCount = Number(s.pgIpumCount || 0);
-    const ipumAmt   = Number(s.pgIpumAmt   || 0);
+    const sfx = _pgStepSfx();
+    const base    = sfx
+      ? Number(s[`pgBase${sfx}`]    || 0)
+      : (s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0));
+    const current = sfx
+      ? Number(s[`pgCurrent${sfx}`] || 0)
+      : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
+    const hiCap     = Number(s[`hiCap${sfx}`]        || 0);
+    const ipumCount = Number(s[`pgIpumCount${sfx}`]  || 0);
+    const ipumAmt   = Number(s[`pgIpumAmt${sfx}`]    || 0);
     const net  = current - base;
     const rate = base > 0 ? (current / base) * 100 : 0;
     return { s, base, current, hiCap, net, rate, ipumCount, ipumAmt };
@@ -4818,22 +4826,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 <th>인품건</th><th>인품실적(원)</th>
               </tr></thead>
               <tbody>${rows.map((s, i) => {
-                const base  = s.pgBase !== undefined ? Number(s.pgBase) : Number(s.base || 0);  // 원
-                const hiCap = Number(s.hiCap   || 0);
-                const cur   = Number(s.current  || 0);         // 원
-                const net   = cur - base;                       // 원
+                const sfx   = _pgStepSfx();
+                const base  = sfx ? Number(s[`pgBase${sfx}`] || 0)
+                                  : (s.pgBase !== undefined ? Number(s.pgBase) : Number(s.base || 0));
+                const hiCap = Number(s[`hiCap${sfx}`] || 0);
+                const cur   = sfx ? Number(s[`pgCurrent${sfx}`] || 0)
+                                  : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
+                const iCnt  = Number(s[`pgIpumCount${sfx}`] || 0);
+                const iAmt  = Number(s[`pgIpumAmt${sfx}`]   || 0);
+                const net   = cur - base;
                 const rate  = base > 0 ? (cur / base) * 100 : 0;
                 return `<tr>
                   <td>${i + 1}</td>
                   <td>${escapeHtml(s.branch || "")}</td>
                   <td><strong>${escapeHtml(s.name || "")}</strong></td>
                   <td class="r">${Nf(base)}</td>
-                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="hiCap" value="${hiCap}" min="0" step="1"></td>
-                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="current" value="${cur}" min="0" step="1"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="${sfx ? `hiCap${sfx}` : 'hiCap'}" value="${hiCap}" min="0" step="1"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="${sfx ? `pgCurrent${sfx}` : 'current'}" data-pg-role="current" value="${cur}" min="0" step="1"></td>
                   <td class="r" data-calc="rate-${escapeHtml(s.empNo)}">${rate.toFixed(1)}%</td>
                   <td class="r" data-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
-                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
-                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="${sfx ? `pgIpumCount${sfx}` : 'pgIpumCount'}" value="${iCnt}" min="0"></td>
+                  <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f="${sfx ? `pgIpumAmt${sfx}` : 'pgIpumAmt'}" value="${iAmt}" min="0"></td>
                 </tr>`;
               }).join("")}</tbody>
             </table></div>
@@ -5009,13 +5022,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const root = document.getElementById(rootId);
     if (!root) return;
     // 실시간 계산 (현재실적 변경 시 달성률/순증 재계산)
-    root.querySelectorAll(".pg-input[data-f='current']").forEach((inp) => {
+    root.querySelectorAll(".pg-input[data-pg-role='current']").forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
-        const base = (s?.pgBase !== undefined) ? Number(s.pgBase) : Number(s?.base || 0);   // 원
-        const cur  = parseFloat(e.target.value) || 0; // 원
-        const net  = cur - base;                       // 원
+        const sfx = _pgStepSfx();
+        const base = sfx ? Number(s?.[`pgBase${sfx}`] || 0)
+                         : ((s?.pgBase !== undefined) ? Number(s.pgBase) : Number(s?.base || 0));
+        const cur  = parseFloat(e.target.value) || 0;
+        const net  = cur - base;
         const rate = base > 0 ? (cur / base) * 100 : 0;
         const rateEl = document.querySelector(`[data-calc="rate-${emp}"]`);
         const netEl  = document.querySelector(`[data-calc="net-${emp}"]`);
@@ -5262,18 +5277,24 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (!empNo) return;
         // 전체 교육생에서 조회 (필터 범위 제한 없이)
         const existing = state.students.find((x) => x.empNo === empNo);
+        const sfx = _pgStepSfx();
         // pgIpumCount/pgIpumAmt: 0이어도 항상 포함 — 이전 오염 값 제거용
-        const pgFields = { pgBase, pgCurrent, pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader, pgIpumCount, pgIpumAmt };
+        const pgFields = {
+          [`pgBase${sfx}`]:      pgBase,
+          [`pgCurrent${sfx}`]:   pgCurrent,
+          [`pgIpumCount${sfx}`]: pgIpumCount,
+          [`pgIpumAmt${sfx}`]:   pgIpumAmt,
+          pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader,
+        };
 
         if (existing) {
-          const baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
+          const baseUpdate = (sfx === "" && pgBase > 0) ? { base: pgBase, current: pgCurrent } : {};
           const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
           // 이름·지점 등 식별 필드: 엑셀이 비어있으면 기존 값 유지 (빈값 덮어쓰기 방지)
           const nameUpdate   = name   ? { name }   : {};
           const regionUpdate = region ? { region } : {};
           const centerUpdate = center ? { center } : {};
           const branchUpdate = branch ? { branch } : {};
-          // pgIpumCount/pgIpumAmt는 firebase-config saveMany 에서 Firestore 에 저장됨
           updateRecords.push({ ...existing, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
         } else {
           const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
@@ -6258,9 +6279,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       render();
     });
     $("#btn-reset-filter").addEventListener("click", () => {
-      state.filter = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", q: "" };
+      state.filter = { region: DEFAULT_REGION, center: "", branch: "", cohort: "", step: "1", q: "" };
       $("#filter-cohort").value = "";
       $("#search-box-side").value = "";
+      state.progressStep = "1";
+      const filterStep = document.getElementById("filter-step");
+      if (filterStep) filterStep.value = "1";
+      const pgStepSel = document.getElementById("pg-step-sel");
+      if (pgStepSel) pgStepSel.value = "1";
       syncOrgLabels();
       persistFilter();
       render();
@@ -6268,6 +6294,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     $("#filter-cohort").addEventListener("change", (e) => {
       state.filter.cohort = e.target.value;
       persistFilter();
+      render();
+    });
+    document.getElementById("filter-step")?.addEventListener("change", (e) => {
+      state.filter.step = e.target.value;
+      state.progressStep = e.target.value;
+      persistFilter();
+      const pgStepSel = document.getElementById("pg-step-sel");
+      if (pgStepSel) pgStepSel.value = e.target.value;
+      if (isPanelVisible("progress-panel")) renderProgressPanel();
       render();
     });
     $("#search-box-side").addEventListener("input", (e) => {
@@ -6383,7 +6418,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260513e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -6395,6 +6430,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
     document.getElementById("pg-step-sel")?.addEventListener("change", (e) => {
       state.progressStep = e.target.value;
+      state.filter.step = e.target.value;
+      persistFilter();
+      const filterStep = document.getElementById("filter-step");
+      if (filterStep) filterStep.value = e.target.value;
       if (isPanelVisible("progress-panel")) renderProgressPanel();
     });
     $("#btn-import-json").addEventListener("click", () => $("#file-import-json").click());
@@ -7412,6 +7451,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     switchView("#students");
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
+    const fsEl = document.getElementById("filter-step"); if (fsEl) fsEl.value = state.filter.step || "1";
     syncOrgLabels();
     // 첫 응답 5초 안에 안 오면 사용자에게 안내
     const slowTimer = setTimeout(() => {
