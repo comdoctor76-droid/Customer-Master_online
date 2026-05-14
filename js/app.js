@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.67";
+  const APP_VERSION = "1.68";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6097,7 +6097,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   const _bulkParseAmt = (v) => parseInt((v || "").replace(/[,%\s]/g, ""), 10) || 0;
   const _bulkInferCenter = (region, rawCenter, branch) => {
     if (rawCenter) return rawCenter;
-    const hint = state.students.find((s) => s.region === region && s.branch === branch && s.center);
+    const nb = (b) => (b || "").replace(/\s/g, "");  // 공백 제거 후 비교
+    const branchNorm = nb(branch);
+    if (!branchNorm) return "";
+    // 1순위: 같은 지역단 + 지점명 일치 (공백 무시)
+    let hint = state.students.find((s) => nb(s.branch) === branchNorm && s.region === region && s.center);
+    if (hint) return hint.center;
+    // 2순위: 지점명만으로 전체 학생에서 역추적 (지역단 무관 — 지점명은 회사 내 고유)
+    hint = state.students.find((s) => nb(s.branch) === branchNorm && s.center);
     return hint ? hint.center : "";
   };
 
@@ -6634,7 +6641,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
