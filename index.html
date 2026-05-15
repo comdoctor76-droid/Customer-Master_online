@@ -368,6 +368,21 @@
             <button type="button" class="btn-outline" id="btn-load-seed">저장된 시드 파일 불러오기</button>
             <span class="form-hint">또는 직접 붙여넣기</span>
           </div>
+          <div class="bulk-cohort-row">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px">
+              📋 기수 선택 <span class="req">*</span>
+              <select id="bulk-cohort-sel" style="font-size:13px;padding:4px 8px;border:2px solid var(--orange);border-radius:6px">
+                <option value="">-- 기수를 선택하세요 (필수) --</option>
+                <option value="1기">1기</option>
+                <option value="2기">2기</option>
+                <option value="3기">3기</option>
+                <option value="4기">4기</option>
+                <option value="5기">5기</option>
+                <option value="6기">6기</option>
+              </select>
+            </label>
+            <span class="form-hint" style="color:#c0392b">형식 A(22열)는 기수가 데이터에 없으므로 반드시 선택하세요. 형식 B(11열)는 데이터에서 자동 인식.</span>
+          </div>
           <div class="bulk-header">
             <strong>형식 A — 실적진도현황 (22열, 권장)</strong><br>
             지역단 | 비전센터 | 지점 | 사원번호 | 성명 | 위촉차월 | 육성리더 | 인보험 | 환산 | 육성소득 | [월별6개] | 기준실적 | 현재실적 | 달성률 | 순증 | 인품건수 | 인품실적<br>
