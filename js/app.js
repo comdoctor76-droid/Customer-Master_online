@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.77";
+  const APP_VERSION = "1.78";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6750,7 +6750,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -6776,6 +6776,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
     $("#file-import-json").addEventListener("change", onImportJSONFile);
     $("#btn-delete-filtered").addEventListener("click", onDeleteFiltered);
+    $("#btn-set-cohort-1")?.addEventListener("click", onSetCohort1);
     const openSdBtn = $("#btn-open-student-delete");
     if (openSdBtn) openSdBtn.addEventListener("click", openStudentDeleteModal);
     const sdSearch = $("#sd-search");
@@ -7509,6 +7510,36 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     await confirmAndDeleteStudents(list, {
       label: `현재 필터(${[state.filter.region, state.filter.center, state.filter.branch, state.filter.cohort].filter(Boolean).join(" · ") || "전체"})`
     });
+  }
+
+  async function onSetCohort1() {
+    const targets = state.students.filter((s) => !s.cohort);
+    if (!targets.length) {
+      toast("기수 미설정 교육생이 없습니다.", "");
+      return;
+    }
+    // 지역단별 현황 요약
+    const byRegion = {};
+    targets.forEach((s) => { byRegion[s.region || "(미지정)"] = (byRegion[s.region || "(미지정)"] || 0) + 1; });
+    const summary = Object.entries(byRegion).sort().map(([r, n]) => `${r} ${n}명`).join("\n");
+    const ok = await openConfirmModal(`기수 미설정 교육생 총 ${targets.length}명을 "1기"로 저장합니다.\n\n${summary}\n\n진행하시겠습니까?`);
+    if (!ok) return;
+
+    const btn = document.getElementById("btn-set-cohort-1");
+    if (btn) { btn.disabled = true; btn.textContent = "저장 중..."; }
+    try {
+      const records = targets.map((s) => ({ ...s, cohort: "1기" }));
+      if (typeof window.DataAPI.saveMany === "function") {
+        await window.DataAPI.saveMany(records);
+      } else {
+        for (const r of records) await window.DataAPI.save(r);
+      }
+      toast(`✅ ${targets.length}명의 기수를 "1기"로 저장했습니다.`, "");
+    } catch (err) {
+      toast("저장 오류: " + err.message, "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "📌 기수 미설정 → 1기 일괄 저장"; }
+    }
   }
 
   // 공통: 2단계 확인 후 학생 + 면담 원자적 삭제
