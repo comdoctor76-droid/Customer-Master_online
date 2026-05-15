@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.76";
+  const APP_VERSION = "1.77";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -373,7 +373,7 @@
       if (f.region && s.region !== f.region) return false;
       if (f.center && s.center !== f.center) return false;
       if (f.branch && s.branch !== f.branch) return false;
-      if (f.cohort && s.cohort !== f.cohort) return false;
+      if (f.cohort && s.cohort && s.cohort !== f.cohort) return false;
       if (q) {
         const hay = [s.empNo, s.name, s.branch, s.center, s.region].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -3163,7 +3163,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     let students = state.students.filter((s) => s.region === f.region);
     if (f.center) students = students.filter((s) => s.center === f.center);
     if (f.branch) students = students.filter((s) => s.branch === f.branch);
-    if (f.cohort) students = students.filter((s) => s.cohort === f.cohort);
+    if (f.cohort) students = students.filter((s) => !s.cohort || s.cohort === f.cohort);
     if (!students.length) { toast("현재 필터 범위에 교육생이 없습니다.", "error"); return; }
     if (students.length > 50 && !confirm(`${students.length}명의 시상안을 일괄 출력합니다. 진행할까요?`)) return;
 
@@ -3355,7 +3355,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const pgCohort = state.progressCohort;
     const list = state.students.filter((s) => {
       if (s.region !== region) return false;
-      if (pgCohort && String(s.cohort || "").replace("기", "") !== String(pgCohort)) return false;
+      if (pgCohort && s.cohort && String(s.cohort).replace("기", "") !== String(pgCohort)) return false;
       return true;
     });
     if (!list.length) {
@@ -4006,7 +4006,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     section.dataset.hrCohort = cohort;
     section.dataset.hrStep = step;
 
-    const list = state.students.filter((s) => s.region === region && (!cohort || s.cohort === cohort));
+    const list = state.students.filter((s) => s.region === region && (!cohort || !s.cohort || s.cohort === cohort));
     if (!list.length) { section.innerHTML = ""; return; }
 
     const stats = list.map(getProgressStat);
@@ -6750,7 +6750,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
