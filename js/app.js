@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.73";
+  const APP_VERSION = "1.74";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3389,11 +3389,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   // 지역단별 시상안 → PROGRESS_AWARDS 호환 객체 생성
-  function getProgressAwardConfig(region) {
+  // cohortOverride/stepOverride 를 전달하면 state.progressCohort/Step 대신 사용
+  function getProgressAwardConfig(region, cohortOverride, stepOverride) {
+    const _cohort = cohortOverride || state.progressCohort;
+    const _step   = stepOverride   || state.progressStep;
     let _planKey = region;
-    if (state.progressCohort && state.progressStep) {
+    if (_cohort && _step) {
       const _y = state.progressYear || String(new Date().getFullYear());
-      const _ck = makeAwardPlanKey(_y, region, state.progressCohort, state.progressStep);
+      const _ck = makeAwardPlanKey(_y, region, _cohort, _step);
       try {
         const _st = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
         if (_st[_ck]) _planKey = _ck;
@@ -4006,7 +4009,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
     // 중복시상 정책: 양쪽 대상 중 더 큰 시상만 지급
     const byRate = byRateRaw;
-    const _hrankPa = getProgressAwardConfig(region);
+    // 홈 필터의 cohort/step 으로 시상안 조회 (state.progressCohort/Step 과 다를 수 있음)
+    const _hrankPa = getProgressAwardConfig(region, cohort, step);
+    const _hrAwardPlan = (() => {
+      const _y = state.progressYear || String(new Date().getFullYear());
+      const _ck = makeAwardPlanKey(_y, region, cohort, step);
+      try {
+        const _st = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+        if (_st[_ck]) return getAwardPlan(_ck);
+      } catch { /**/ }
+      return getAwardPlan(region);
+    })();
 
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
     const groupKeyFn = hasAnyTeam
@@ -4066,7 +4079,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         state._hrankFullData[cat.key] = {
           title: `🏅 ${hasAnyTeam ? "팀시상" : "그룹 순증"} (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
           subtitle: cat.sub,
-          bodyHTML: _closeBtnBar + renderTeamAwardFull(groupRanking, getAwardPlan(region), hasAnyTeam)
+          bodyHTML: _closeBtnBar + renderTeamAwardFull(groupRanking, _hrAwardPlan, hasAnyTeam)
         };
       } else {
         const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
@@ -4119,7 +4132,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const cmpFmt = v => { const n = Number(v) || 0; return Math.abs(n) >= 10000 ? (n / 10000).toFixed(1) + '만' : String(n); };
 
-    const _hrPlan = getAwardPlan(region);
+    const _hrPlan = _hrAwardPlan;
     const _hrGa1Thr = _hrPlan?.groupAward1?.enabled
       ? Number(_hrPlan.groupAward1.threshold || 5) * 10000 : 0;
     // 카테고리별 시상 payouts 매핑
@@ -6715,7 +6728,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260514m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
