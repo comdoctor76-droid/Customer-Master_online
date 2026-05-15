@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.75";
+  const APP_VERSION = "1.76";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -6050,6 +6050,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
     $("#form-cohort").value = "";
     $("#form-bulk").value = "";
+    const _bulkCohortSel = document.getElementById("bulk-cohort-sel");
+    if (_bulkCohortSel) _bulkCohortSel.value = "";
+    state._bulkCohort = "";
     editingEmpNo = null;
     state.formTgtAddAmount = null;
     syncOrgLabels();
@@ -6239,7 +6242,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const pgIpumCount = _bulkParseAmt(cl[pgIpumCountIdx] || "0");
         const pgIpumAmt   = _bulkParseAmt(cl[pgIpumAmtIdx]   || "0");
         if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
-        const cohort  = state.filter.cohort || "";
+        // 기수: 일괄등록 폼 선택값 우선, 없으면 사이드바 필터 기준
+        const cohort  = state._bulkCohort || state.filter.cohort || "";
         const existSt = state.students.find((s) => s.empNo === empNo);
         const center  = rawCtr || existSt?.center || _bulkInferCenter(region, "", branch);
         const phone   = existSt?.phone  || "";
@@ -6381,7 +6385,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
 
     // 1. 파싱
-    const { records, parseErrors } = parseBulkRecords(raw, colOverride);
+    const { records, parseErrors, isFormatA } = parseBulkRecords(raw, colOverride);
+
+    // Format A 에서 기수 미선택 경고
+    if (isFormatA && !state._bulkCohort && !state.filter.cohort) {
+      toast("기수를 선택하세요! (형식 A는 기수가 데이터에 없어 반드시 선택 필요)", "error");
+      setBulkProgress("기수를 선택 후 다시 시도하세요.", "error");
+      return { ok: 0, fail: 0, total: 0 };
+    }
 
     if (records.length === 0) {
       const msg = `저장할 행이 없습니다. (${parseErrors[0] || "데이터 없음"})`;
@@ -6668,6 +6679,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 탭 전환
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
+    // 일괄등록 기수 선택
+    document.getElementById("bulk-cohort-sel")?.addEventListener("change", (e) => {
+      state._bulkCohort = e.target.value;
+    });
+
     // 시드 파일 불러오기
     $("#btn-load-seed").addEventListener("click", openSeedPicker);
 
@@ -6734,7 +6750,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
