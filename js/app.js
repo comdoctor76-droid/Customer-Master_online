@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.74";
+  const APP_VERSION = "1.75";
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3351,9 +3351,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       body.innerHTML = `<div class="empty-state">좌측 필터에서 <strong>지역단</strong>을 선택하면 해당 지역단의 실적진도가 표시됩니다.</div>`;
       return;
     }
-    const list = state.students.filter((s) => s.region === region);
+    // progressCohort: "1","2",... (기 없음) / s.cohort: "1기","2기",... — 정규화 후 비교
+    const pgCohort = state.progressCohort;
+    const list = state.students.filter((s) => {
+      if (s.region !== region) return false;
+      if (pgCohort && String(s.cohort || "").replace("기", "") !== String(pgCohort)) return false;
+      return true;
+    });
     if (!list.length) {
-      body.innerHTML = `<div class="empty-state">${escapeHtml(region)} 에 등록된 교육생이 없습니다.</div>`;
+      body.innerHTML = `<div class="empty-state">${escapeHtml(region)}${pgCohort ? ` ${pgCohort}기` : ""} 에 등록된 교육생이 없습니다.</div>`;
       return;
     }
 
@@ -6728,7 +6734,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
