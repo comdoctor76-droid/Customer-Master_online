@@ -3200,6 +3200,39 @@ body {
   cursor: pointer;
   font-weight: 600;
 }
+.pg-paste-save-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--navy);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pg-paste-region-badge {
+  font-weight: 700;
+  color: #ffd700;
+  letter-spacing: -.3px;
+}
+.pg-paste-cohort-sel {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+  min-width: 80px;
+}
+.pg-paste-cohort-sel:focus { outline: 2px solid #ffd700; }
+.pg-paste-step-sep {
+  color: #bbb;
+  font-size: 16px;
+  line-height: 1;
+}
 .pg-paste-confirm {
   margin: 10px 0;
   padding: 14px 16px;
