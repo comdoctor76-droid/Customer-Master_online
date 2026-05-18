@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.79";
+  const APP_VERSION = "1.80";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4970,6 +4970,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <!-- 실적진도현황 -->
             <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
               <div class="pg-progress-paste-step-row">
+                <span class="pg-paste-save-target">
+                  📌 <strong>저장 대상:</strong>
+                  <span id="pg-paste-region-disp" class="pg-paste-region-badge">─</span>
+                  <select id="pg-paste-cohort-sel" class="pg-paste-cohort-sel">
+                    <option value="">기수 선택 ▾</option>
+                    <option value="1기">1기</option>
+                    <option value="2기">2기</option>
+                    <option value="3기">3기</option>
+                    <option value="4기">4기</option>
+                    <option value="5기">5기</option>
+                  </select>
+                </span>
+                <span class="pg-paste-step-sep">│</span>
                 <strong>저장할 스텝:</strong>
                 <label><input type="radio" name="pg-progress-paste-step" value="1" checked> Step 1</label>
                 <label><input type="radio" name="pg-progress-paste-step" value="2"> Step 2</label>
@@ -5225,6 +5238,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function bindProgressAdminEvents(list, rootId = "progress-body") {
     const root = document.getElementById(rootId);
     if (!root) return;
+    // 붙여넣기 저장 대상 초기화 (지역단·기수)
+    const _rdDisp = root.querySelector("#pg-paste-region-disp");
+    const _cSel   = root.querySelector("#pg-paste-cohort-sel");
+    if (_rdDisp) _rdDisp.textContent = state.filter.region || "─";
+    if (_cSel && state.filter.cohort) _cSel.value = state.filter.cohort;
     // 실시간 계산 (현재실적 변경 시 달성률/순증 재계산)
     root.querySelectorAll(".pg-input[data-pg-role='current']").forEach((inp) => {
       inp.addEventListener("input", (e) => {
@@ -5533,8 +5551,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
 
       // ── 최종 저장 확인 ────────────────────────────────────────────
-      const _cohort = state.filter.cohort || "?";
+      const _cohort = $("#pg-paste-cohort-sel")?.value || "";
       const _region = state.filter.region || "?";
+      if (!_cohort) {
+        if (m) { m.textContent = "❌ 기수를 선택하세요."; m.className = "pg-msg err"; }
+        toast("기수를 선택한 뒤 저장하세요.", "error");
+        return;
+      }
       const _confirmText = `${_region} ${_cohort} Step ${pasteStepVal}\n\n기존 교육생 업데이트: ${updateRecords.length}명\n신규 등록 대상: ${newRecords.length}명\n\n저장하시겠습니까?`;
       if (!await openConfirmModal(_confirmText)) return;
 
@@ -6848,7 +6871,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260518a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260518b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
