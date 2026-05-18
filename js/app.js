@@ -150,7 +150,40 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.78";
+  const APP_VERSION = "1.79";
+
+  // 실적진도현황 열 매핑 — 저장 필드 선택지
+  const PG_FIELD_OPTIONS = [
+    { value: "empNo",       label: "사원번호" },
+    { value: "region",      label: "지역단" },
+    { value: "center",      label: "비전센터" },
+    { value: "branch",      label: "지점" },
+    { value: "name",        label: "성명" },
+    { value: "pgMonth",     label: "차월" },
+    { value: "pgLeader",    label: "육성리더" },
+    { value: "pgPreIns",    label: "직전6개월인보험" },
+    { value: "pgPreConv",   label: "직전6개월환산" },
+    { value: "pgPreIncome", label: "직전6개월육성소득" },
+    { value: "pgBase",      label: "기준실적" },
+    { value: "pgCurrent",   label: "현재실적" },
+    { value: "pgIpumCount", label: "인품건수" },
+    { value: "pgIpumAmt",   label: "인품실적" },
+    { value: "ignore",      label: "— 무시 (저장 안 함) —" },
+  ];
+  // 헤더 텍스트 → 필드 자동 매핑
+  const PG_HEADER_AUTOMAP = {
+    "지역단": "region", "비전센터": "center", "지점": "branch",
+    "사원번호": "empNo", "성명": "name", "차월": "pgMonth", "육성리더": "pgLeader",
+    "직전6개월인보험": "pgPreIns", "직전6개월환산": "pgPreConv", "직전6개월육성소득": "pgPreIncome",
+    "기준실적": "pgBase", "현재실적": "pgCurrent",
+    "달성률": "ignore", "달성율": "ignore", "순증실적": "ignore",
+    "인품건수": "pgIpumCount", "인품실적": "pgIpumAmt",
+  };
+  // 헤더 없을 때 기본 열 순서 (표준 16열 기준)
+  const PG_DEFAULT_COLS = [
+    "region","center","branch","empNo","name","pgMonth","pgLeader",
+    "pgPreIns","pgPreConv","pgPreIncome","pgBase","pgCurrent","ignore","ignore","pgIpumCount","pgIpumAmt",
+  ];
 
   // 상담고객 태그 선택지
   const CT = ["신규", "기존", "DB", "개척", "소개"];         // 고객유형 (단일)
@@ -3324,6 +3357,71 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
   }
 
+  function openPgColMapModal(colDefs, sampleRows) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById("modal-pg-col-map");
+      if (!modal) { resolve(null); return; }
+      const wrap       = document.getElementById("pg-col-map-wrap");
+      const confirmBtn = modal.querySelector("#btn-pg-col-map-confirm");
+      const cancelBtn  = modal.querySelector("#btn-pg-col-map-cancel");
+      const backdrop   = modal.querySelector(".modal-backdrop");
+
+      const colStates = colDefs.map((c) => ({ label: c.label, field: c.field, deleted: false }));
+
+      function buildTable() {
+        const sc = Math.min(sampleRows.length, 3);
+        let html = `<table class="pg-col-map-tbl"><thead><tr>
+          <th>#</th><th>원본 제목</th><th>저장 필드</th>`;
+        for (let r = 0; r < sc; r++) html += `<th>예시 ${r + 1}행</th>`;
+        html += `<th></th></tr></thead><tbody>`;
+
+        colStates.forEach((col, i) => {
+          const del = col.deleted;
+          html += `<tr class="${del ? "pg-col-del" : ""}" data-ci="${i}">
+            <td class="pg-col-num">${i + 1}</td>
+            <td class="pg-col-lbl">${col.label}</td>
+            <td class="pg-col-sel"><select class="col-field-sel" data-ci="${i}" ${del ? "disabled" : ""}>`;
+          PG_FIELD_OPTIONS.forEach((o) => {
+            html += `<option value="${o.value}"${(del ? "ignore" : col.field) === o.value ? " selected" : ""}>${o.label}</option>`;
+          });
+          html += `</select></td>`;
+          for (let r = 0; r < sc; r++) {
+            html += `<td class="pg-col-sample">${(sampleRows[r] || [])[i] ?? ""}</td>`;
+          }
+          html += `<td class="pg-col-act"><button class="btn-outline small col-del-btn" data-ci="${i}">${del ? "↩ 복원" : "✕ 삭제"}</button></td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+        wrap.innerHTML = html;
+
+        wrap.querySelectorAll(".col-field-sel").forEach((sel, i) => {
+          sel.addEventListener("change", (e) => { colStates[i].field = e.target.value; });
+        });
+        wrap.querySelectorAll(".col-del-btn").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            colStates[+e.currentTarget.dataset.ci].deleted = !colStates[+e.currentTarget.dataset.ci].deleted;
+            buildTable();
+          });
+        });
+      }
+
+      buildTable();
+
+      const done = (result) => { modal.hidden = true; backdrop.onclick = null; resolve(result); };
+      confirmBtn.onclick = () => {
+        const mapping = colStates.map((c) => (c.deleted ? "ignore" : c.field));
+        if (!mapping.includes("empNo")) {
+          toast("사원번호 열이 지정되지 않아 저장할 수 없습니다.", "error");
+          return;
+        }
+        done(mapping);
+      };
+      cancelBtn.onclick = () => done(null);
+      backdrop.onclick  = () => done(null);
+      modal.hidden = false;
+    });
+  }
+
   function openProgressAdminOverlay() {
     const region = state.filter.region || "";
     if (!region) { toast("좌측 필터에서 지역단을 먼저 선택하세요.", "error"); return; }
@@ -5343,52 +5441,70 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       ipumGlobalApply.disabled = false;
     });
 
-    // ── 실적진도현황 붙여넣기 핸들러 ──────────────────────────────
+    // ── 실적진도현황 붙여넣기 핸들러 (열 매핑 확인 팝업 포함) ────────
     const progressPasteApply = $("#btn-pg-progress-paste-apply");
     if (progressPasteApply) progressPasteApply.addEventListener("click", async () => {
       const txt = $("#pg-progress-paste").value.trim();
       const m = $("#pg-progress-paste-msg");
       if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
 
-      // 선택된 스텝 (글로벌 필터 무시, UI 라디오 버튼 기준)
       const pasteStepVal = (root.querySelector('input[name="pg-progress-paste-step"]:checked') || {}).value || "1";
       const sfxOverride  = pasteStepVal === "1" ? "" : pasteStepVal;
 
-      // 컬럼: 지역단(0)|비전센터(1)|지점(2)|사원번호(3)|성명(4)|차월(5)|육성리더(6)
-      //        직전6개월인보험(7)|직전6개월환산(8)|직전6개월육성소득(9)
-      //        기준실적(10)|현재실적(11)|달성률(12-무시)|순증실적(13)|인품건수(14)|인품실적(15)
+      const lines = txt.split(/\r?\n/).filter((l) => l.trim());
+      if (!lines.length) return;
+
+      // 첫 행 헤더 자동 감지
+      const firstRow = lines[0].split(/\t/).map((c) => c.trim());
+      const isHeader = firstRow.some((h) => Object.prototype.hasOwnProperty.call(PG_HEADER_AUTOMAP, h));
+
+      let dataLines, colDefs;
+      if (isHeader) {
+        dataLines = lines.slice(1);
+        colDefs = firstRow.map((h) => ({ label: h, field: PG_HEADER_AUTOMAP[h] ?? "ignore" }));
+      } else {
+        dataLines = lines;
+        colDefs = firstRow.map((_, i) => ({
+          label: PG_FIELD_OPTIONS.find((o) => o.value === (PG_DEFAULT_COLS[i] || "ignore"))?.label ?? `열 ${i + 1}`,
+          field: PG_DEFAULT_COLS[i] || "ignore",
+        }));
+      }
+
+      const sampleRows = dataLines.slice(0, 3).map((l) => l.split(/\t/).map((c) => c.trim()));
+
+      // ── 열 매핑 확인 팝업 ─────────────────────────────────────────
+      const fieldMapping = await openPgColMapModal(colDefs, sampleRows);
+      if (!fieldMapping) return;
+
+      // 데이터 파싱 (열 이름 기준)
       const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
+      const getCol = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? (p[i] || "") : ""; };
+      const getAmt = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? parseAmt(p[i]) : 0; };
+
       const updateRecords = [];
-      const newRecords    = [];  // 미매칭: 신규 등록 대상
+      const newRecords    = [];
 
-      txt.split(/\r?\n/).forEach((line) => {
-        const p = line.split(/\t/).map((c) => c.replace(/,/g, "").replace(/[ ​﻿]/g, "").trim());
-        if (p.length < 12) return;
-        const region  = p[0] || "";
-        const center  = p[1] || "";
-        const branch  = p[2] || "";
-        const empNo   = p[3] || "";
-        // 달성률 컬럼 위치로 열 수 자동 감지 — 직급유형 등 추가 열이 4번(사원번호 뒤)에 삽입된 경우
-        // 표준(16열): p[12] = 달성률(%) | 17열(추가열 포함): p[13] = 달성률(%)
-        // colShift=1이면 성명(4)·차월(5) 포함 4번 이후 모든 열에 +1 적용
-        const colShift = (!p[12]?.includes('%') && p[13]?.includes('%')) ? 1 : 0;
-        const name    = p[4 + colShift] || "";
-        const pgMonth = p[5 + colShift] || "";
-        const pgLeader= p[6 + colShift] || "";
-        const pgPreIns    = parseAmt(p[7 + colShift]);
-        const pgPreConv   = parseAmt(p[8 + colShift]);
-        const pgPreIncome = parseAmt(p[9 + colShift]);
-        const pgBase      = parseAmt(p[10 + colShift]);
-        const pgCurrent   = parseAmt(p[11 + colShift]);
-        // p[12+colShift] = 달성률 (무시 — 앱 내부 계산), p[13+colShift] = 순증실적 (무시)
-        const pgIpumCount = p.length > 14 + colShift ? parseAmt(p[14 + colShift]) : 0;  // 인품건수
-        const pgIpumAmt   = p.length > 15 + colShift ? parseAmt(p[15 + colShift]) : 0;  // 인품실적(금액)
-
+      dataLines.forEach((line) => {
+        const p = line.split(/\t/).map((c) => c.replace(/,/g, "").trim());
+        const empNo = getCol(p, "empNo");
         if (!empNo) return;
-        // 전체 교육생에서 조회 (필터 범위 제한 없이)
+
+        const region      = getCol(p, "region");
+        const center      = getCol(p, "center");
+        const branch      = getCol(p, "branch");
+        const name        = getCol(p, "name");
+        const pgMonth     = getCol(p, "pgMonth");
+        const pgLeader    = getCol(p, "pgLeader");
+        const pgPreIns    = getAmt(p, "pgPreIns");
+        const pgPreConv   = getAmt(p, "pgPreConv");
+        const pgPreIncome = getAmt(p, "pgPreIncome");
+        const pgBase      = getAmt(p, "pgBase");
+        const pgCurrent   = getAmt(p, "pgCurrent");
+        const pgIpumCount = getAmt(p, "pgIpumCount");
+        const pgIpumAmt   = getAmt(p, "pgIpumAmt");
+
         const existing = state.students.find((x) => x.empNo === empNo);
         const sfx = sfxOverride;
-        // pgIpumCount/pgIpumAmt: 0이어도 항상 포함 — 이전 오염 값 제거용
         const pgFields = {
           [`pgBase${sfx}`]:      pgBase,
           [`pgCurrent${sfx}`]:   pgCurrent,
@@ -5398,9 +5514,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         };
 
         if (existing) {
-          const baseUpdate = (sfx === "" && pgBase > 0) ? { base: pgBase, current: pgCurrent } : {};
+          const baseUpdate   = (sfx === "" && pgBase > 0) ? { base: pgBase, current: pgCurrent } : {};
           const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
-          // 이름·지점 등 식별 필드: 엑셀이 비어있으면 기존 값 유지 (빈값 덮어쓰기 방지)
           const nameUpdate   = name   ? { name }   : {};
           const regionUpdate = region ? { region } : {};
           const centerUpdate = center ? { center } : {};
@@ -5413,31 +5528,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
 
       if (updateRecords.length === 0 && newRecords.length === 0) {
-        if (m) { m.textContent = "❌ 파싱된 행이 없습니다. 탭 구분 및 열 수(12+)를 확인하세요."; m.className = "pg-msg err"; }
+        if (m) { m.textContent = "❌ 파싱된 행이 없습니다. 사원번호 열 매핑을 확인하세요."; m.className = "pg-msg err"; }
         return;
       }
 
-      // ── 저장 전 확인 다이얼로그 ──────────────────────────────────
+      // ── 최종 저장 확인 ────────────────────────────────────────────
       const _cohort = state.filter.cohort || "?";
       const _region = state.filter.region || "?";
-      const _stepLabel = `Step ${pasteStepVal}`;
-      const _confirmText = `${_region} ${_cohort}기 ${_stepLabel}에 ${updateRecords.length}명 데이터를 저장하시는 게 맞습니까?`;
-      const confirmed = await new Promise((resolve) => {
-        const confirmEl = document.getElementById("pg-progress-paste-confirm");
-        const confirmMsgEl = document.getElementById("pg-progress-paste-confirm-msg");
-        const yesBtn = document.getElementById("btn-pg-progress-paste-yes");
-        const noBtn  = document.getElementById("btn-pg-progress-paste-no");
-        if (!confirmEl || !yesBtn || !noBtn) { resolve(true); return; }
-        confirmMsgEl.textContent = _confirmText;
-        confirmEl.hidden = false;
-        progressPasteApply.disabled = true;
-        const cleanup = () => { confirmEl.hidden = true; progressPasteApply.disabled = false; };
-        yesBtn.addEventListener("click", () => { cleanup(); resolve(true); }, { once: true });
-        noBtn.addEventListener("click",  () => { cleanup(); resolve(false); }, { once: true });
-      });
-      if (!confirmed) return;
+      const _confirmText = `${_region} ${_cohort} Step ${pasteStepVal}\n\n기존 교육생 업데이트: ${updateRecords.length}명\n신규 등록 대상: ${newRecords.length}명\n\n저장하시겠습니까?`;
+      if (!await openConfirmModal(_confirmText)) return;
 
-      // 기존 학생 업데이트
+      // 저장
       if (updateRecords.length > 0) {
         progressPasteApply.disabled = true;
         if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
@@ -5447,9 +5548,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           } else {
             for (const r of updateRecords) await window.DataAPI.save(r);
           }
-          let msg = `✅ ${updateRecords.length}명 저장 완료`;
-          if (newRecords.length) msg += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
-          if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 8000); }
+          let msgTxt = `✅ ${updateRecords.length}명 저장 완료`;
+          if (newRecords.length) msgTxt += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
+          if (m) { m.textContent = msgTxt; m.className = "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 8000); }
           toast(`${updateRecords.length}명 실적진도현황 저장`, "success");
         } catch (e) {
           console.error(e);
@@ -5461,10 +5562,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         progressPasteApply.disabled = false;
       }
 
-      // 신규 등록 대상 팝업
-      if (newRecords.length > 0) {
-        openPgNewStudentModal(newRecords);
-      }
+      if (newRecords.length > 0) openPgNewStudentModal(newRecords);
     });
 
     // 인품 테이블 ↔ 메인 테이블 동기화 (같은 empNo 의 두 입력을 동시 반영)
@@ -6750,7 +6848,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260515e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260518a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

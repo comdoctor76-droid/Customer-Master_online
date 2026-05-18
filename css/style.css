@@ -3227,6 +3227,51 @@ body {
   resize: vertical;
 }
 .pg-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+
+/* 실적진도현황 열 매핑 테이블 */
+.pg-col-map-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pg-col-map-tbl thead tr {
+  background: var(--navy);
+  color: #fff;
+}
+.pg-col-map-tbl th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pg-col-map-tbl td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.pg-col-map-tbl tbody tr:nth-child(even) { background: #f8f9fb; }
+.pg-col-map-tbl tbody tr:hover { background: #eef2ff; }
+.pg-col-map-tbl tr.pg-col-del td { opacity: .45; text-decoration: line-through; }
+.pg-col-map-tbl .pg-col-num { width: 36px; text-align: center; color: #888; font-size: 12px; }
+.pg-col-map-tbl .pg-col-lbl { font-weight: 600; min-width: 120px; }
+.pg-col-map-tbl .pg-col-sel select {
+  width: 100%;
+  min-width: 155px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  background: #fff;
+}
+.pg-col-map-tbl .pg-col-sample {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+  font-size: 12px;
+}
+.pg-col-map-tbl .pg-col-act { width: 70px; text-align: center; }
 .pg-msg { font-size: 12px; font-weight: 700; }
 .pg-msg.ok { color: var(--success); }
 .pg-msg.err { color: var(--danger); }
