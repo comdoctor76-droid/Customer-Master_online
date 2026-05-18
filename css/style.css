@@ -4398,6 +4398,9 @@ body {
 }
 
 /* ── 실적관리 풀스크린 오버레이 ──────────────────────────── */
+/* 열 매핑 모달은 admin overlay(10001) 위에 표시 */
+#modal-pg-col-map { z-index: 10002; }
+
 #pg-admin-overlay {
   position: fixed;
   inset: 0;
