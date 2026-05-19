@@ -4036,7 +4036,7 @@ body {
   border-radius: 9px;
   font-size: 14px;
   font-weight: 600;
-  z-index: 9999;
+  z-index: 10003;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
@@ -4400,6 +4400,8 @@ body {
 /* ── 실적관리 풀스크린 오버레이 ──────────────────────────── */
 /* 열 매핑 모달은 admin overlay(10001) 위에 표시 */
 #modal-pg-col-map { z-index: 10002; }
+/* 확인 팝업도 admin overlay 위에 표시 */
+#modal-confirm { z-index: 10002; }
 
 #pg-admin-overlay {
   position: fixed;
