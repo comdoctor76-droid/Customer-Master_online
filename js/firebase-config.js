@@ -144,6 +144,7 @@ window.DataAPI = {
     if (student.pgPreConv   !== undefined)  record.pgPreConv    = Number(student.pgPreConv)    || 0;
     if (student.pgPreIncome !== undefined)  record.pgPreIncome  = Number(student.pgPreIncome)  || 0;
     if (student.pgLeader    !== undefined)  record.pgLeader     = student.pgLeader || "";
+    if (student.pgMonth     !== undefined)  record.pgMonth      = student.pgMonth  || "";
     // Step 2 전용 필드
     if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
     if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
@@ -193,6 +194,7 @@ window.DataAPI = {
       if (student.pgPreConv   !== undefined)  record.pgPreConv    = Number(student.pgPreConv)    || 0;
       if (student.pgPreIncome !== undefined)  record.pgPreIncome  = Number(student.pgPreIncome)  || 0;
       if (student.pgLeader    !== undefined)  record.pgLeader     = student.pgLeader || "";
+      if (student.pgMonth     !== undefined)  record.pgMonth      = student.pgMonth  || "";
       // Step 2 전용 필드
       if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
       if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;

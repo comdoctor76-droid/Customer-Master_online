@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.82";
+  const APP_VERSION = "1.83";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5482,9 +5482,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         colDefs = firstRow.map((h) => ({ label: h, field: PG_HEADER_AUTOMAP[h] ?? "ignore" }));
       } else {
         dataLines = lines;
+        // 13열 이하면 직전6개월 없는 단축 형식 (기준실적이 8번째 열)으로 간주
+        const PG_SHORT_COLS = [
+          "region","center","branch","empNo","name","pgMonth","pgLeader",
+          "pgBase","pgCurrent","ignore","ignore","pgIpumCount","pgIpumAmt",
+        ];
+        const effectiveCols = firstRow.length <= 13 ? PG_SHORT_COLS : PG_DEFAULT_COLS;
         colDefs = firstRow.map((_, i) => ({
-          label: PG_FIELD_OPTIONS.find((o) => o.value === (PG_DEFAULT_COLS[i] || "ignore"))?.label ?? `열 ${i + 1}`,
-          field: PG_DEFAULT_COLS[i] || "ignore",
+          label: PG_FIELD_OPTIONS.find((o) => o.value === (effectiveCols[i] || "ignore"))?.label ?? `열 ${i + 1}`,
+          field: effectiveCols[i] || "ignore",
         }));
       }
 
@@ -5528,8 +5534,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           [`pgCurrent${sfx}`]:   pgCurrent,
           [`pgIpumCount${sfx}`]: pgIpumCount,
           [`pgIpumAmt${sfx}`]:   pgIpumAmt,
-          pgPreIns, pgPreConv, pgPreIncome, pgMonth, pgLeader,
         };
+        // 매핑에 포함된 열만 저장 (삭제된 열이 기존 값을 0으로 덮어쓰지 않도록)
+        if (fieldMapping.includes("pgPreIns"))    pgFields.pgPreIns    = pgPreIns;
+        if (fieldMapping.includes("pgPreConv"))   pgFields.pgPreConv   = pgPreConv;
+        if (fieldMapping.includes("pgPreIncome")) pgFields.pgPreIncome = pgPreIncome;
+        if (fieldMapping.includes("pgMonth"))     pgFields.pgMonth     = pgMonth;
+        if (fieldMapping.includes("pgLeader"))    pgFields.pgLeader    = pgLeader;
 
         if (existing) {
           const baseUpdate   = (sfx === "" && pgBase > 0) ? { base: pgBase, current: pgCurrent } : {};
@@ -6871,7 +6882,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260519a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260519b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
