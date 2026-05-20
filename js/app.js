@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.84";
+  const APP_VERSION = "1.85";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -191,12 +191,13 @@
     "region","center","branch","empNo","name","pgMonth","pgLeader",
     "pgPreIns","pgPreConv","pgPreIncome","pgBase","pgCurrent","ignore","ignore","pgIpumCount","pgIpumAmt",
   ];
-  // Step2 복합 형식: 기준실적(A) + Step1현재실적(B) + Step2현재실적(C) 가 모두 포함된 21열 기준
-  // 순서: 지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적·Step1현재·달성률·순증·Step1인품건수·Step1인품실적
-  //       Step2현재·달성률·순증·Step1대비달성률·Step1대비순증·Step2인품건수·Step2인품실적·시상금
+  // Step2 복합 형식: 기준실적(A) + Step2현재실적(C) · Step2인품 저장 / step1 데이터는 무시
+  // 순서: 지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적
+  //       step1현재실적~step1인품실적(5열 무시)·step2현재실적·step2달성률·step2순증(무시)
+  //       step1대비달성률·step1대비순증(무시)·step2인품건수·step2인품실적·시상금(무시)
   const PG_STEP2_COMBINED_COLS = [
     "region","center","branch","empNo","ignore","name","pgMonth",
-    "pgBase","pgCurrent","ignore","ignore","pgIpumCount","pgIpumAmt",
+    "pgBase","ignore","ignore","ignore","ignore","ignore",
     "pgCurrent2","ignore","ignore","ignore","ignore","pgIpumCount2","pgIpumAmt2","ignore",
   ];
 
@@ -5559,19 +5560,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         let pgFields, baseUpdate;
         if (isCombinedFormat) {
-          // Step2 복합 형식: step1·step2 실적 동시 저장
+          // Step2 복합 형식: step2 실적만 저장 (step1 데이터는 무시)
           pgFields = {
             pgBase2:      pgBase,                       // 기준실적(A) → step2 기준
-            pgCurrent2:   getAmt(p, "pgCurrent2"),      // step2현재실적(C)
-            pgIpumCount2: getAmt(p, "pgIpumCount2"),    // step2인품건수
-            pgIpumAmt2:   getAmt(p, "pgIpumAmt2"),      // step2인품실적
-            pgIpumCount,                                // step1인품건수
-            pgIpumAmt,                                  // step1인품실적
+            pgCurrent2:   getAmt(p, "pgCurrent2"),      // step2현재실적 → pgCurrent2
+            pgIpumCount2: getAmt(p, "pgIpumCount2"),    // step2인품건수 → pgIpumCount2
+            pgIpumAmt2:   getAmt(p, "pgIpumAmt2"),      // step2인품실적 → pgIpumAmt2
           };
           if (fieldMapping.includes("pgMonth"))  pgFields.pgMonth  = pgMonth;
           if (fieldMapping.includes("pgLeader")) pgFields.pgLeader = pgLeader;
-          // step1 현재실적(B)·기준실적(A)을 base/current 에도 반영
-          baseUpdate = pgBase > 0 ? { base: pgBase, current: pgCurrent } : {};
+          // 기준실적(A)은 base에도 반영 (step1 current는 건드리지 않음)
+          baseUpdate = pgBase > 0 ? { base: pgBase } : {};
         } else {
           // 기존 단일 스텝 형식
           const sfx = sfxOverride;
@@ -5599,7 +5598,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           updateRecords.push({ ...existing, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
         } else {
           const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
-          newRecords.push({ region, center, branch, empNo, name, ...pgFields, base: pgBase, current: pgCurrent, target: newTarget, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt });
+          const baseFields = isCombinedFormat
+            ? { base: pgBase }
+            : { base: pgBase, current: pgCurrent, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt };
+          newRecords.push({ region, center, branch, empNo, name, ...pgFields, ...baseFields, target: newTarget });
         }
       });
 
@@ -6929,7 +6931,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260519c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
