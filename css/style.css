@@ -2877,6 +2877,97 @@ body {
 .nt-max { margin-top: 10px; padding: 10px; background: var(--success-bg); color: var(--success); border-radius: var(--radius-s); font-weight: 700; text-align: center; }
 
 /* 시상인쇄 버튼 */
+/* ── 활성화 시상안 요약 (시상계산기 하단) ── */
+.aps-wrap {
+  margin-top: 12px;
+  border: 1px solid #d0e4f7;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+.aps-header {
+  background: #1565c0;
+  color: #fff;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.aps-badge {
+  background: rgba(255,255,255,.22);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.aps-block {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e8f0fe;
+}
+.aps-block:last-child { border-bottom: none; }
+.aps-blk-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 5px;
+}
+.aps-tier-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.aps-tier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px solid #dde1e7;
+  border-radius: 6px;
+  padding: 4px 8px;
+  min-width: 56px;
+  gap: 2px;
+}
+.aps-tier.aps-met {
+  background: #e3f2fd;
+  border-color: #1565c0;
+  color: #0d47a1;
+}
+.aps-crit { font-size: 10px; font-weight: 700; color: inherit; }
+.aps-prz  { font-size: 11px; font-weight: 600; color: inherit; }
+.aps-tier.aps-met .aps-crit { color: #1565c0; }
+.aps-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.aps-top-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f3f4f6;
+  border: 1px solid #dde1e7;
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.aps-rank {
+  font-size: 10px;
+  font-weight: 700;
+  color: #888;
+  min-width: 20px;
+}
+.aps-top-item:first-child .aps-rank { color: #c8931a; }
+.aps-top-item:nth-child(2) .aps-rank { color: #888; }
+.aps-top-item:nth-child(3) .aps-rank { color: #b07040; }
+.aps-notes {
+  padding: 6px 12px;
+  font-size: 10px;
+  color: #888;
+  background: #fafafa;
+  border-top: 1px solid #eee;
+  line-height: 1.5;
+}
 .award-print-row { margin-top: 14px; text-align: center; }
 .btn-award-print {
   display: inline-flex;

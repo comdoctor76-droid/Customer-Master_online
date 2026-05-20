@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.99";
+  const APP_VERSION = "2.00";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1682,6 +1682,70 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               </div>
             </div>`
           : `<div class="nt-max">🏆 최상위 단계 달성!</div>`}
+
+        ${(() => {
+          // 현재 교육생의 기수·스텝으로 활성화 시상안 조회
+          const _region  = _calcS?.region || state.filter.region || state.progressRegion || DEFAULT_REGION;
+          const _cohort  = (_calcS?.cohort || state.filter.cohort || "").replace(/기$/, "");
+          const _step    = state.filter.step || state.progressStep || "1";
+          const _pa      = getProgressAwardConfig(_region, _cohort, _step);
+          const _plan    = _pa.plan;
+          const _cohortLabel = _cohort ? `${_cohort}기` : "";
+          const _stepLabel   = `Step ${_step}`;
+
+          // 학생 현재 순증 (진도 데이터 기준, 현황 칩 강조용)
+          const _statNet = _calcS ? getProgressStat(_calcS).net : 0;
+
+          // ── 개인순증시상 ──
+          const piItems = (_plan.personalIncr?.enabled && _plan.personalIncr.items?.length)
+            ? [..._plan.personalIncr.items].sort((a, b) => Number(a.critVal) - Number(b.critVal))
+            : [];
+          const piHtml = piItems.length
+            ? `<div class="aps-block">
+                <div class="aps-blk-title">개인순증시상</div>
+                <div class="aps-tier-row">
+                  ${piItems.map((it) => {
+                    const minNet = Number(it.critVal) * 10000;
+                    const met = _statNet >= minNet;
+                    const prz = it.payType === "item"  ? (it.payVal || "물품")
+                               : it.payType === "pct"  ? `순증×${it.payVal}%`
+                               : `${it.payVal}만원`;
+                    return `<div class="aps-tier${met ? " aps-met" : ""}">
+                      <span class="aps-crit">${it.critVal}만↑</span>
+                      <span class="aps-prz">${escapeHtml(prz)}</span>
+                    </div>`;
+                  }).join("")}
+                </div>
+              </div>`
+            : "";
+
+          // ── Top 시상 렌더 헬퍼 ──
+          const topHtml = (cfg, icon, label) => {
+            if (!cfg?.enabled || !cfg.payouts?.length) return "";
+            const rows = cfg.payouts.slice(0, Number(cfg.n) || cfg.payouts.length);
+            return `<div class="aps-block">
+              <div class="aps-blk-title">${icon} ${label} Top ${rows.length}</div>
+              <div class="aps-top-row">
+                ${rows.map((p, i) => `<div class="aps-top-item">
+                  <span class="aps-rank">${i + 1}위</span>
+                  <span class="aps-prz">${escapeHtml(payoutLabel(p))}</span>
+                </div>`).join("")}
+              </div>
+            </div>`;
+          };
+
+          const rateTop = topHtml((_plan.topAward1?.type === "rate" ? _plan.topAward1 : _plan.topAward2?.type === "rate" ? _plan.topAward2 : null), "📈", "신장률");
+          const amtTop  = topHtml((_plan.topAward1?.type === "amt"  ? _plan.topAward1 : _plan.topAward2?.type === "amt"  ? _plan.topAward2 : null), "💰", "신장액");
+
+          if (!piHtml && !rateTop && !amtTop) return "";
+          return `
+            <div class="aps-wrap">
+              <div class="aps-header">④ 활성화 시상안 <span class="aps-badge">${escapeHtml(_cohortLabel)} ${escapeHtml(_stepLabel)}</span></div>
+              ${piHtml}${rateTop}${amtTop}
+              ${_plan.notes ? `<div class="aps-notes">${escapeHtml(_plan.notes)}</div>` : ""}
+            </div>`;
+        })()}
+
         <div class="award-print-row">
           <button id="btn-award-print" class="btn-award-print" type="button">🖨️ 시상인쇄</button>
         </div>
@@ -7202,7 +7266,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520p)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520q)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
