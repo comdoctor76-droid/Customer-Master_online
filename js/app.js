@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.93";
+  const APP_VERSION = "1.94";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -597,10 +597,41 @@
         const orgRegion = window.ORG_DATA?.regions?.find((r) => r.name === region);
         const centers = orgRegion ? orgRegion.centers.map((c) => c.name) : [];
         if (!centers.length) { toast("이 지역단에 등록된 비전센터 정보가 없습니다.", "error"); return; }
+
+        // 지점 → 비전센터 역방향 맵
+        const branchCenterMap = {};
+        if (orgRegion) {
+          for (const c of orgRegion.centers)
+            for (const b of c.branches) branchCenterMap[b] = c.name;
+        }
+        const autoMatchable = unassigned.filter((s) => s.branch && branchCenterMap[s.branch]);
+        const AUTO_OPT = autoMatchable.length
+          ? `🔄 지점 기준 자동 매칭 (${autoMatchable.length}명)`
+          : null;
+
         openPickerModal(
           `비전센터 선택 — ${unassigned.length}명 일괄 지정`,
-          centers,
+          AUTO_OPT ? [AUTO_OPT, ...centers] : centers,
           async (picked) => {
+            if (picked === AUTO_OPT) {
+              const groups = {};
+              for (const s of autoMatchable) {
+                const c = branchCenterMap[s.branch];
+                (groups[c] = groups[c] || []).push(s.name);
+              }
+              const summary = Object.entries(groups)
+                .map(([c, names]) => `• ${c}: ${names.length}명`)
+                .join("\n");
+              const ok = await openConfirmModal(`지점 기준 자동 배정:\n${summary}\n\n총 ${autoMatchable.length}명을 배정하시겠습니까?`);
+              if (!ok) return;
+              const records = autoMatchable.map((s) => ({ ...s, center: branchCenterMap[s.branch] }));
+              try {
+                if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
+                else for (const r of records) await window.DataAPI.save(r);
+                toast(`✅ ${autoMatchable.length}명을 지점 기준으로 자동 배정했습니다.`, "");
+              } catch (err) { toast("저장 오류: " + err.message, "error"); }
+              return;
+            }
             const ok = await openConfirmModal(`"${picked}"으로\n${unassigned.length}명을 일괄 저장하시겠습니까?`);
             if (!ok) return;
             const records = unassigned.map((s) => ({ ...s, center: picked }));
@@ -608,9 +639,7 @@
               if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
               else for (const r of records) await window.DataAPI.save(r);
               toast(`✅ ${unassigned.length}명의 비전센터를 "${picked}"으로 저장했습니다.`, "");
-            } catch (err) {
-              toast("저장 오류: " + err.message, "error");
-            }
+            } catch (err) { toast("저장 오류: " + err.message, "error"); }
           }
         );
       });
@@ -7140,7 +7169,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
