@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.89";
+  const APP_VERSION = "1.90";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -593,16 +593,15 @@
         e.stopPropagation();
         const unassigned = list.filter((s) => !s.center);
         if (!unassigned.length) { toast("미지정 교육생이 없습니다.", ""); return; }
-        const region = state.filter.region;
         // 유효한 센터명: 2자 이상이고 순수 숫자가 아닌 것만 허용
         const isValidCenter = (c) => c && c.trim().length >= 2 && !/^\d+$/.test(c.trim());
-        // 현재 지역단 내 센터만 표시 (지역단 미선택 시 전체)
+        // 전체 학생 중 유효한 비전센터를 모두 표시 (지역단 제한 없음 — 센터 미지정으로 등록된 경우 대비)
         const centers = [...new Set(
           state.students
-            .filter((s) => (!region || s.region === region) && isValidCenter(s.center))
+            .filter((s) => isValidCenter(s.center))
             .map((s) => s.center.trim())
         )].sort();
-        if (!centers.length) { toast("이 지역단에 등록된 비전센터 정보가 없습니다.\n먼저 교육생에게 비전센터를 개별 입력해주세요.", "error"); return; }
+        if (!centers.length) { toast("등록된 비전센터 정보가 없습니다.\n먼저 교육생에게 비전센터를 개별 입력해주세요.", "error"); return; }
         openPickerModal(
           `비전센터 선택 — ${unassigned.length}명 일괄 지정`,
           centers,
@@ -3348,6 +3347,140 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     setTimeout(() => modal.querySelector("#sp-search").focus(), 50);
   }
 
+  // 미지정 교육생 알림 버튼 표시/숨김 업데이트
+  function updateUnassignedAlert() {
+    const wrap = document.getElementById("unassigned-alert-wrap");
+    if (!wrap) return;
+    const count = state.students.filter((s) => !s.region || !s.center).length;
+    wrap.hidden = count === 0;
+    const btn = wrap.querySelector("#btn-unassigned-alert");
+    if (btn) btn.textContent = `⚠️ 미지정 교육생 확인 (${count}명)`;
+  }
+
+  // 미지정 교육생(지역단·비전센터 없음) 지정 모달
+  function openUnassignedModal() {
+    const students = state.students.filter((s) => !s.region || !s.center);
+    if (!students.length) { toast("미지정 교육생이 없습니다.", ""); return; }
+
+    const isVC = (c) => c && c.trim().length >= 2 && !/^\d+$/.test(c.trim());
+    const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+    const allCenters = [...new Set(state.students.filter((s) => isVC(s.center)).map((s) => s.center.trim()))].sort();
+    const centersByRegion = {};
+    state.students.forEach((s) => {
+      if (s.region && isVC(s.center)) {
+        if (!centersByRegion[s.region]) centersByRegion[s.region] = new Set();
+        centersByRegion[s.region].add(s.center.trim());
+      }
+    });
+
+    let modal = document.getElementById("modal-unassigned");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-unassigned";
+      modal.className = "modal";
+      modal.style.cssText = "z-index:10003";
+      document.body.appendChild(modal);
+    }
+
+    const regionOpts = regions.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
+    const mkCenterOpts = (reg, cur) => {
+      const cs = reg ? [...(centersByRegion[reg] || [])].sort() : allCenters;
+      return `<option value="">-- 선택 --</option>` + cs.map((c) => `<option value="${escapeHtml(c)}"${c === cur ? " selected" : ""}>${escapeHtml(c)}</option>`).join("");
+    };
+
+    modal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel xwide" style="max-height:85vh;display:flex;flex-direction:column">
+        <div class="modal-head">
+          <h3 style="font-size:15px">미지정 교육생 — ${students.length}명</h3>
+          <button class="modal-close" id="ua-close">&times;</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:12px 16px">
+          <p style="font-size:12px;color:#888;margin:0 0 10px">지역단·비전센터가 없는 교육생을 지정한 뒤 저장하세요.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#f0f2f5;font-size:12px">
+                <th style="padding:6px 8px;text-align:left;font-weight:600">이름</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:600">사번</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:600">지점</th>
+                <th style="padding:6px 8px;font-weight:600">지역단</th>
+                <th style="padding:6px 8px;font-weight:600">비전센터</th>
+              </tr>
+            </thead>
+            <tbody id="ua-tbody">
+              ${students.map((s, i) => `
+                <tr data-idx="${i}" style="border-bottom:1px solid #eee">
+                  <td style="padding:5px 8px">${escapeHtml(s.name || "(이름없음)")}</td>
+                  <td style="padding:5px 8px;font-size:11px;color:#888">${escapeHtml(s.empNo)}</td>
+                  <td style="padding:5px 8px;font-size:11px">${escapeHtml(s.branch || "")}</td>
+                  <td style="padding:4px">
+                    <select class="ua-region side-input" data-idx="${i}" style="width:110px;font-size:12px">
+                      <option value="">-- 선택 --</option>
+                      ${regions.map((r) => `<option value="${escapeHtml(r)}"${r === (s.region || "") ? " selected" : ""}>${escapeHtml(r)}</option>`).join("")}
+                    </select>
+                  </td>
+                  <td style="padding:4px">
+                    <select class="ua-center side-input" data-idx="${i}" style="width:130px;font-size:12px">
+                      ${mkCenterOpts(s.region || "", s.center || "")}
+                    </select>
+                  </td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:10px 16px;border-top:1px solid #e0e0e0;display:flex;gap:10px;justify-content:flex-end;align-items:center">
+          <span id="ua-msg" style="font-size:13px;flex:1"></span>
+          <button class="btn-outline small" id="ua-cancel">취소</button>
+          <button class="btn-primary small" id="ua-save">💾 저장</button>
+        </div>
+      </div>
+    `;
+
+    const hide = () => { modal.hidden = true; };
+    modal.querySelector("#ua-close").onclick   = hide;
+    modal.querySelector("#ua-cancel").onclick  = hide;
+    modal.querySelector(".modal-backdrop").onclick = hide;
+
+    // 지역단 변경 → 비전센터 옵션 갱신
+    modal.querySelectorAll(".ua-region").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const i = sel.dataset.idx;
+        const cSel = modal.querySelector(`.ua-center[data-idx="${i}"]`);
+        cSel.innerHTML = mkCenterOpts(sel.value, "");
+      });
+    });
+
+    // 저장
+    modal.querySelector("#ua-save").addEventListener("click", async () => {
+      const btn = modal.querySelector("#ua-save");
+      const msg = modal.querySelector("#ua-msg");
+      const records = [];
+      let incomplete = 0;
+      modal.querySelectorAll("tbody tr[data-idx]").forEach((row) => {
+        const i  = parseInt(row.dataset.idx, 10);
+        const r  = row.querySelector(".ua-region").value;
+        const c  = row.querySelector(".ua-center").value;
+        if (!r || !c) { incomplete++; return; }
+        records.push({ ...students[i], region: r, center: c });
+      });
+      if (incomplete) { msg.textContent = `⚠️ ${incomplete}명의 지역단·비전센터를 선택하세요.`; return; }
+      if (!records.length) { hide(); return; }
+      btn.disabled = true; msg.textContent = "저장중...";
+      try {
+        if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
+        else for (const rec of records) await window.DataAPI.save(rec);
+        msg.textContent = `✅ ${records.length}명 저장 완료`;
+        toast(`${records.length}명 지역단·비전센터 저장 완료`, "success");
+        setTimeout(hide, 1500);
+      } catch (e) {
+        msg.textContent = "❌ 저장 실패: " + e.message;
+        btn.disabled = false;
+      }
+    });
+
+    modal.hidden = false;
+  }
+
   // 재사용 가능한 Yes/No 확인 모달 (Promise 반환)
   function openConfirmModal(msg) {
     return new Promise((resolve) => {
@@ -6039,6 +6172,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const list = filteredStudents();
     renderKPIs(list);
     renderSidebarStudentList(list);
+    updateUnassignedAlert();
     // 통계 패널이 보일 때만 렌더 (숨겨진 DOM 재구성 비용 제거)
     if (isPanelVisible("dashboard-panel")) renderStats(list, "dashboard-body");
     if (isPanelVisible("progress-panel")) renderProgressPanel();
@@ -6878,6 +7012,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (e.target.value) { e.target.value = ""; e.target.dispatchEvent(new Event("input")); }
     });
 
+    // 미지정 교육생 알림 버튼
+    document.getElementById("btn-unassigned-alert")?.addEventListener("click", openUnassignedModal);
+
     // 모달 닫기
     $$("[data-close]").forEach((el) => el.addEventListener("click", (e) => {
       e.target.closest(".modal").hidden = true;
@@ -7008,7 +7145,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
