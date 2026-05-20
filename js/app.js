@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.97";
+  const APP_VERSION = "1.98";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3760,7 +3760,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   // 지역단별 시상안 → PROGRESS_AWARDS 호환 객체 생성
   // cohortOverride/stepOverride 를 전달하면 state.progressCohort/Step 대신 사용
   function getProgressAwardConfig(region, cohortOverride, stepOverride) {
-    const _cohort = cohortOverride || state.progressCohort;
+    // state.filter.cohort 는 "1기" 형식, 시상안 키는 "1" 형식 — "기" 제거 후 비교
+    const _cohort = (cohortOverride || state.progressCohort || "").replace(/기$/, "");
     const _step   = stepOverride   || state.progressStep;
     let _planKey = region;
     if (_cohort && _step) {
@@ -4380,15 +4381,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byRate = byRateRaw;
     // 홈 필터의 cohort/step 으로 시상안 조회 (state.progressCohort/Step 과 다를 수 있음)
     const _hrankPa = getProgressAwardConfig(region, cohort, step);
-    const _hrAwardPlan = (() => {
-      const _y = state.progressYear || String(new Date().getFullYear());
-      const _ck = makeAwardPlanKey(_y, region, cohort, step);
-      try {
-        const _st = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
-        if (_st[_ck]) return getAwardPlan(_ck);
-      } catch { /**/ }
-      return getAwardPlan(region);
-    })();
 
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
     const groupKeyFn = hasAnyTeam
@@ -7209,7 +7201,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
