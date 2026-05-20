@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.85";
+  const APP_VERSION = "1.86";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5327,6 +5327,29 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
 
+    // 스텝 라디오 변경 → 실적진도현황 붙여넣기 열 설명 텍스트 동적 교체
+    const _pgDescEl = document.querySelector("#pg-paste-mode-progress .pg-paste-desc");
+    if (_pgDescEl) {
+      const _step1Desc = "지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)";
+      const _step2Desc = `<strong>[Step2 형식 · 21열]</strong>&nbsp;&nbsp;`
+        + `지역단·비전센터·지점·사번·<span style="opacity:.45">대리점명</span>·성명·위촉차월·기준실적`
+        + `·<span style="opacity:.45">──step1현재실적·달성률·순증·인품건수·인품실적(5열 무시)──</span>`
+        + `·<strong>★step2현재실적</strong>`
+        + `·<span style="opacity:.45">step2달성률·순증·step1대비달성률·step1대비순증(4열 무시)</span>`
+        + `·<strong>★step2인품건수</strong>·<strong>★step2인품실적</strong>`
+        + `·<span style="opacity:.45">시상금</span>`
+        + `<br><small style="color:#888">굵게=저장 / 흐리게=무시 · 탭 구분 · 금액단위: 원</small>`;
+      root.querySelectorAll('input[name="pg-progress-paste-step"]').forEach((radio) => {
+        radio.addEventListener("change", () => {
+          if (radio.value === "2") {
+            _pgDescEl.innerHTML = _step2Desc;
+          } else {
+            _pgDescEl.textContent = _step1Desc;
+          }
+        });
+      });
+    }
+
     // 총괄월별실적 붙여넣기 반영 (사번 | 장기하이캡(천원) | 실적(천원) → 즉시 Firestore 저장)
     const pasteApply = $("#btn-pg-paste-apply");
     if (pasteApply) pasteApply.addEventListener("click", async () => {
@@ -6931,7 +6954,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
