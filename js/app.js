@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.00";
+  const APP_VERSION = "1.01";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1697,7 +1697,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 const prz = it.payType === "item" ? (it.payVal || "물품")
                            : it.payType === "pct" ? `순증×${it.payVal}%`
                            : `${it.payVal}만원`;
-                _piCard = { icon: "🎯", label: "개인순증시상", sub: `${it.critVal}만원↑ 달성`, prize: prz };
+                _piCard = { icon: "🎯", label: "개인순증시상", sub: `순증 ${it.critVal}만원↑ 달성`, prize: prz, isItem: it.payType === "item" };
                 break;
               }
             }
@@ -1709,7 +1709,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (_rA?.status === "mine" && _rA.effectiveRank > 0) {
             const _p = _pa.rateConfig?.payouts?.[_rA.effectiveRank - 1];
             if (_p != null) {
-              _rateCard = { icon: "📈", label: `신장률 ${_rA.effectiveRank}위`, sub: `${_statMe.rate.toFixed(1)}%`, prize: payoutLabel(_p) };
+              const _np = normPayout(_p);
+              _rateCard = { icon: "📈", label: `신장률 ${_rA.effectiveRank}위`, sub: `신장률 ${_statMe.rate.toFixed(1)}%`, prize: payoutLabel(_p), isItem: _np.type === "item" };
             }
           }
 
@@ -1719,8 +1720,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (_aA?.status === "mine" && _aA.effectiveRank > 0) {
             const _p = _pa.amtConfig?.payouts?.[_aA.effectiveRank - 1];
             if (_p != null) {
+              const _np = normPayout(_p);
               const _netMw = Math.round(_statMe.net / 10000);
-              _amtCard = { icon: "💰", label: `신장액 ${_aA.effectiveRank}위`, sub: `+${_netMw}만원`, prize: payoutLabel(_p) };
+              _amtCard = { icon: "💰", label: `신장액 ${_aA.effectiveRank}위`, sub: `순증 +${_netMw}만원`, prize: payoutLabel(_p), isItem: _np.type === "item" };
             }
           }
 
@@ -1729,28 +1731,29 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (!hasAnyConfig) return "";
 
           const mkCard = (c) => `
-            <div class="aps-award-card">
-              <div class="aps-awd-icon">${c.icon}</div>
-              <div class="aps-awd-body">
-                <div class="aps-awd-label">${escapeHtml(c.label)}</div>
-                <div class="aps-awd-sub">${escapeHtml(c.sub)}</div>
-              </div>
-              <div class="aps-awd-prize">${escapeHtml(c.prize)}</div>
+            <div class="aps-award-card${c.isItem ? " aps-item-prize" : ""}">
+              <div class="aps-awd-head">${c.icon} ${escapeHtml(c.label)}</div>
+              <div class="aps-awd-stat">${escapeHtml(c.sub)}</div>
+              <div class="aps-awd-result">${escapeHtml(c.prize)}</div>
             </div>`;
 
           // 시상 미해당 → 최소 시상 진입까지 부족분 안내
           let noAwardHtml = "";
           if (!hasAward) {
-            const gaps = [];
+            const gapCards = [];
             // 개인순증 최소 구간
             if (_plan.personalIncr?.enabled && _pa.tiers.length) {
-              const minTier = _pa.tiers[_pa.tiers.length - 1]; // 내림차순 → 마지막이 최소
+              const minTier = _pa.tiers[_pa.tiers.length - 1];
               const gap = Math.ceil((minTier.min - _statMe.net) / 10000);
               if (gap > 0) {
                 const prz = minTier.payType === "item" ? (minTier.payVal || "물품")
                            : minTier.payType === "pct" ? `순증×${minTier.payVal}%`
                            : `${minTier.payVal}만원`;
-                gaps.push(`🎯 순증 <strong>${gap}만원</strong> 추가 시 개인순증시상 (${escapeHtml(prz)}) 가능`);
+                gapCards.push({
+                  icon: "🎯", category: "개인순증시상",
+                  gapLine: `현재 순증 ${Math.round(_statMe.net / 10000)}만원 · 최소 기준 ${Math.round(minTier.min / 10000)}만원`,
+                  gapShort: `${gap}만원 부족`, prize: prz, isItem: minTier.payType === "item"
+                });
               }
             }
             // 신장률 Top N 진입
@@ -1758,8 +1761,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const n = Number(_pa.rateConfig.n);
               if (_byRate.length >= n) {
                 const rateGap = _byRate[n - 1].rate - _statMe.rate;
-                if (rateGap > 0)
-                  gaps.push(`📈 신장률 <strong>${rateGap.toFixed(1)}%p</strong> 추가 시 Top${n} 시상 진입 가능`);
+                if (rateGap > 0) {
+                  const _p = _pa.rateConfig?.payouts?.[n - 1];
+                  const prz = _p != null ? payoutLabel(_p) : `Top${n} 시상`;
+                  const _np = _p ? normPayout(_p) : null;
+                  gapCards.push({
+                    icon: "📈", category: `신장률 Top${n} 시상`,
+                    gapLine: `현재 신장률 ${_statMe.rate.toFixed(1)}% · ${n}위 기준 ${_byRate[n-1].rate.toFixed(1)}%`,
+                    gapShort: `${rateGap.toFixed(1)}%p 부족`, prize: prz, isItem: _np?.type === "item"
+                  });
+                }
               }
             }
             // 신장액 Top N 진입
@@ -1767,12 +1778,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const n = Number(_pa.amtConfig.n);
               if (_byAmt.length >= n) {
                 const netGap = Math.ceil((_byAmt[n - 1].net - _statMe.net) / 10000);
-                if (netGap > 0)
-                  gaps.push(`💰 순증액 <strong>${netGap}만원</strong> 추가 시 Top${n} 시상 진입 가능`);
+                if (netGap > 0) {
+                  const _p = _pa.amtConfig?.payouts?.[n - 1];
+                  const prz = _p != null ? payoutLabel(_p) : `Top${n} 시상`;
+                  const _np = _p ? normPayout(_p) : null;
+                  gapCards.push({
+                    icon: "💰", category: `신장액 Top${n} 시상`,
+                    gapLine: `현재 순증 +${Math.round(_statMe.net / 10000)}만원 · ${n}위 기준 +${Math.round(_byAmt[n-1].net / 10000)}만원`,
+                    gapShort: `${netGap}만원 부족`, prize: prz, isItem: _np?.type === "item"
+                  });
+                }
               }
             }
-            noAwardHtml = gaps.length
-              ? `<div class="aps-gap-list">${gaps.map((g) => `<div class="aps-gap-item">${g}</div>`).join("")}</div>`
+            const mkGapCard = (g) => `
+              <div class="aps-gap-card${g.isItem ? " aps-item-prize" : ""}">
+                <div class="aps-gap-head">${g.icon} ${escapeHtml(g.category)}</div>
+                <div class="aps-gap-body">${g.gapLine}</div>
+                <div class="aps-gap-result">${escapeHtml(g.gapShort)} 추가 시<strong>${escapeHtml(g.prize)}</strong></div>
+              </div>`;
+            noAwardHtml = gapCards.length
+              ? `<div class="aps-gap-list">${gapCards.map(mkGapCard).join("")}</div>`
               : `<div class="aps-no-award">현재 순위로는 시상 대상에 해당하지 않습니다</div>`;
           }
 
@@ -7337,7 +7362,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520u)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520v)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

@@ -2968,70 +2968,106 @@ body {
   border-top: 1px solid #eee;
   line-height: 1.5;
 }
+/* ── 예상 시상 카드 (달성) ── */
 .aps-award-cards {
-  padding: 8px 10px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 .aps-award-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 100%);
-  border: 1px solid #b3d4f0;
+  border: 2px solid #1565c0;
   border-radius: 8px;
-  padding: 8px 12px;
+  overflow: hidden;
+  background: #f0f7ff;
 }
-.aps-awd-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-  width: 24px;
-  text-align: center;
+.aps-award-card.aps-item-prize {
+  border-color: #E65100;
 }
-.aps-awd-body {
-  flex: 1;
-  min-width: 0;
+.aps-awd-head {
+  background: #1565c0;
+  color: #fff;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 900;
 }
-.aps-awd-label {
+.aps-award-card.aps-item-prize .aps-awd-head {
+  background: linear-gradient(135deg, #E65100, #FF8F00);
+}
+.aps-awd-stat {
   font-size: 12px;
-  font-weight: 700;
-  color: #0d47a1;
-}
-.aps-awd-sub {
-  font-size: 11px;
-  color: #1976d2;
-  margin-top: 1px;
-}
-.aps-awd-prize {
-  font-size: 13px;
-  font-weight: 700;
   color: #1565c0;
-  text-align: right;
-  white-space: nowrap;
+  background: rgba(21,101,192,.07);
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(21,101,192,.12);
 }
-.aps-no-award {
-  padding: 12px;
+.aps-award-card.aps-item-prize .aps-awd-stat {
+  color: #E65100;
+  background: rgba(230,81,0,.06);
+  border-bottom-color: rgba(230,81,0,.12);
+}
+.aps-awd-result {
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  color: #fff;
+  padding: 13px 14px;
   text-align: center;
-  font-size: 12px;
-  color: #999;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
 }
+.aps-award-card.aps-item-prize .aps-awd-result {
+  background: linear-gradient(135deg, #E65100, #FF8F00);
+  font-size: 17px;
+}
+/* ── 예상 시상 카드 (미달/gap) ── */
 .aps-gap-list {
-  padding: 8px 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 10px;
 }
-.aps-gap-item {
+.aps-gap-card {
+  border: 2px solid #FF8F00;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.aps-gap-card.aps-item-prize {
+  border-color: #FF6F00;
+}
+.aps-gap-head {
+  background: linear-gradient(135deg, #FF6F00, #FF8F00);
+  color: #fff;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 900;
+}
+.aps-gap-body {
   font-size: 12px;
-  color: #555;
-  background: #fff8e1;
-  border: 1px solid #ffe082;
-  border-radius: 6px;
-  padding: 6px 10px;
-  line-height: 1.5;
+  color: #BF360C;
+  background: rgba(255,143,0,.07);
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(255,143,0,.2);
 }
-.aps-gap-item strong { color: #e65100; }
+.aps-gap-result {
+  background: #FFF3E0;
+  color: #BF360C;
+  padding: 12px 14px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+.aps-gap-result strong {
+  color: #E65100;
+  font-size: 17px;
+  display: block;
+  margin-top: 2px;
+}
+.aps-no-award {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+}
 .award-print-row { margin-top: 14px; text-align: center; }
 .btn-award-print {
   display: inline-flex;
