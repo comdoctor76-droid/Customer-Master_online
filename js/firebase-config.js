@@ -86,7 +86,7 @@ window.DataAPI = {
       ref,
       (snap) => {
         const list = [];
-        snap.forEach((d) => list.push(d.data()));
+        snap.forEach((d) => list.push({ _docId: d.id, ...d.data() }));
         const fromCache = snap.metadata.fromCache;
         const pending  = snap.metadata.hasPendingWrites;
         if (firstFire) {
@@ -230,6 +230,22 @@ window.DataAPI = {
     const id = normalizeEmpNo(empNo);
     if (!id) return;
     await deleteDoc(doc(db, "students", id));
+  },
+
+  // 교육생 + 모든 면담기록 원자적 삭제 — docId 직접 지정 (empNo 없는 문서 포함)
+  async removeByDocId(docId) {
+    if (!docId) return;
+    const consultRef = collection(db, "students", docId, "consultations");
+    const snap = await getDocs(consultRef);
+    const CHUNK = 450;
+    const docs = [];
+    snap.forEach((d) => docs.push(d.ref));
+    for (let i = 0; i < docs.length; i += CHUNK) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+    await deleteDoc(doc(db, "students", docId));
   },
 
   // 교육생 + 모든 면담기록 원자적 삭제 (서브컬렉션 포함)
