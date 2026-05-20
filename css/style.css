@@ -2968,6 +2968,54 @@ body {
   border-top: 1px solid #eee;
   line-height: 1.5;
 }
+.aps-award-cards {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.aps-award-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 100%);
+  border: 1px solid #b3d4f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.aps-awd-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+.aps-awd-body {
+  flex: 1;
+  min-width: 0;
+}
+.aps-awd-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d47a1;
+}
+.aps-awd-sub {
+  font-size: 11px;
+  color: #1976d2;
+  margin-top: 1px;
+}
+.aps-awd-prize {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1565c0;
+  text-align: right;
+  white-space: nowrap;
+}
+.aps-no-award {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+}
 .award-print-row { margin-top: 14px; text-align: center; }
 .btn-award-print {
   display: inline-flex;
