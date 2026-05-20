@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.94";
+  const APP_VERSION = "1.95";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3386,16 +3386,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const students = state.students.filter((s) => !s.region || !s.center);
     if (!students.length) { toast("미지정 교육생이 없습니다.", ""); return; }
 
-    const isVC = (c) => c && c.trim().length >= 2 && !/^\d+$/.test(c.trim());
     const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
-    const allCenters = [...new Set(state.students.filter((s) => isVC(s.center)).map((s) => s.center.trim()))].sort();
-    const centersByRegion = {};
-    state.students.forEach((s) => {
-      if (s.region && isVC(s.center)) {
-        if (!centersByRegion[s.region]) centersByRegion[s.region] = new Set();
-        centersByRegion[s.region].add(s.center.trim());
-      }
-    });
+    const cohorts = [...new Set(state.students.map((s) => s.cohort).filter(Boolean))].sort();
+
+    // ORG_DATA 기반 센터 목록
+    const orgCentersByRegion = {};
+    if (window.ORG_DATA?.regions) {
+      for (const r of window.ORG_DATA.regions) orgCentersByRegion[r.name] = r.centers.map((c) => c.name);
+    }
+    const mkCenterOpts = (reg, cur) => {
+      const cs = reg ? (orgCentersByRegion[reg] || []) : [];
+      return `<option value="">-- 선택 --</option>` + cs.map((c) => `<option value="${escapeHtml(c)}"${c === cur ? " selected" : ""}>${escapeHtml(c)}</option>`).join("");
+    };
+    const mkCohortOpts = (cur) =>
+      `<option value="">--</option>` + cohorts.map((c) => `<option value="${escapeHtml(c)}"${c === cur ? " selected" : ""}>${escapeHtml(c)}</option>`).join("");
 
     let modal = document.getElementById("modal-unassigned");
     if (!modal) {
@@ -3407,16 +3411,40 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
 
     const regionOpts = regions.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
-    const mkCenterOpts = (reg, cur) => {
-      const cs = reg ? [...(centersByRegion[reg] || [])].sort() : allCenters;
-      return `<option value="">-- 선택 --</option>` + cs.map((c) => `<option value="${escapeHtml(c)}"${c === cur ? " selected" : ""}>${escapeHtml(c)}</option>`).join("");
-    };
+    let rowCount = students.length;
+
+    const renderRows = () => students.map((s, i) => `
+      <tr data-idx="${i}" style="border-bottom:1px solid #eee">
+        <td style="padding:4px 6px;text-align:center">
+          <button class="ua-del-btn" data-idx="${i}" title="삭제"
+            style="background:none;border:none;cursor:pointer;font-size:15px;color:#e53935;padding:2px 4px">🗑</button>
+        </td>
+        <td style="padding:5px 8px">${escapeHtml(s.name || "(이름없음)")}</td>
+        <td style="padding:5px 8px;font-size:11px;color:#888">${escapeHtml(s.empNo)}</td>
+        <td style="padding:5px 8px;font-size:11px">${escapeHtml(s.branch || "")}</td>
+        <td style="padding:4px">
+          <select class="ua-region side-input" data-idx="${i}" style="width:110px;font-size:12px">
+            <option value="">-- 선택 --</option>
+            ${regions.map((r) => `<option value="${escapeHtml(r)}"${r === (s.region || "") ? " selected" : ""}>${escapeHtml(r)}</option>`).join("")}
+          </select>
+        </td>
+        <td style="padding:4px">
+          <select class="ua-center side-input" data-idx="${i}" style="width:130px;font-size:12px">
+            ${mkCenterOpts(s.region || "", s.center || "")}
+          </select>
+        </td>
+        <td style="padding:4px">
+          <select class="ua-cohort side-input" data-idx="${i}" style="width:70px;font-size:12px">
+            ${mkCohortOpts(s.cohort || "")}
+          </select>
+        </td>
+      </tr>`).join("");
 
     modal.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal-panel xwide" style="max-height:85vh;display:flex;flex-direction:column">
         <div class="modal-head">
-          <h3 style="font-size:15px">미지정 교육생 — ${students.length}명</h3>
+          <h3 id="ua-title" style="font-size:15px">미지정 교육생 — ${students.length}명</h3>
           <button class="modal-close" id="ua-close">&times;</button>
         </div>
         <div style="flex:1;overflow-y:auto;padding:12px 16px">
@@ -3424,32 +3452,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr style="background:#f0f2f5;font-size:12px">
+                <th style="padding:6px 4px;width:32px"></th>
                 <th style="padding:6px 8px;text-align:left;font-weight:600">이름</th>
                 <th style="padding:6px 8px;text-align:left;font-weight:600">사번</th>
                 <th style="padding:6px 8px;text-align:left;font-weight:600">지점</th>
                 <th style="padding:6px 8px;font-weight:600">지역단</th>
                 <th style="padding:6px 8px;font-weight:600">비전센터</th>
+                <th style="padding:6px 8px;font-weight:600">기수</th>
               </tr>
             </thead>
-            <tbody id="ua-tbody">
-              ${students.map((s, i) => `
-                <tr data-idx="${i}" style="border-bottom:1px solid #eee">
-                  <td style="padding:5px 8px">${escapeHtml(s.name || "(이름없음)")}</td>
-                  <td style="padding:5px 8px;font-size:11px;color:#888">${escapeHtml(s.empNo)}</td>
-                  <td style="padding:5px 8px;font-size:11px">${escapeHtml(s.branch || "")}</td>
-                  <td style="padding:4px">
-                    <select class="ua-region side-input" data-idx="${i}" style="width:110px;font-size:12px">
-                      <option value="">-- 선택 --</option>
-                      ${regions.map((r) => `<option value="${escapeHtml(r)}"${r === (s.region || "") ? " selected" : ""}>${escapeHtml(r)}</option>`).join("")}
-                    </select>
-                  </td>
-                  <td style="padding:4px">
-                    <select class="ua-center side-input" data-idx="${i}" style="width:130px;font-size:12px">
-                      ${mkCenterOpts(s.region || "", s.center || "")}
-                    </select>
-                  </td>
-                </tr>`).join("")}
-            </tbody>
+            <tbody id="ua-tbody">${renderRows()}</tbody>
           </table>
         </div>
         <div style="padding:10px 16px;border-top:1px solid #e0e0e0;display:flex;gap:10px;justify-content:flex-end;align-items:center">
@@ -3474,6 +3486,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
 
+    // 삭제 버튼
+    modal.querySelector("#ua-tbody").addEventListener("click", async (e) => {
+      const btn = e.target.closest(".ua-del-btn");
+      if (!btn) return;
+      const i = parseInt(btn.dataset.idx, 10);
+      const s = students[i];
+      const label = s.name ? `"${s.name}"` : `사번 ${s.empNo || "(없음)"}`;
+      const ok = await openConfirmModal(`${label} 교육생을 삭제하시겠습니까?\n(면담 기록 포함 영구 삭제)`);
+      if (!ok) return;
+      try {
+        if (s.empNo) await window.DataAPI.removeStudentWithConsultations(s.empNo);
+        const row = modal.querySelector(`tr[data-idx="${i}"]`);
+        if (row) row.remove();
+        rowCount--;
+        const title = modal.querySelector("#ua-title");
+        if (title) title.textContent = `미지정 교육생 — ${rowCount}명`;
+        toast(`${label} 삭제 완료`, "");
+      } catch (err) { toast("삭제 오류: " + err.message, "error"); }
+    });
+
     // 저장
     modal.querySelector("#ua-save").addEventListener("click", async () => {
       const btn = modal.querySelector("#ua-save");
@@ -3484,8 +3516,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const i  = parseInt(row.dataset.idx, 10);
         const r  = row.querySelector(".ua-region").value;
         const c  = row.querySelector(".ua-center").value;
+        const co = row.querySelector(".ua-cohort").value;
         if (!r || !c) { incomplete++; return; }
-        records.push({ ...students[i], region: r, center: c });
+        records.push({ ...students[i], region: r, center: c, ...(co ? { cohort: co } : {}) });
       });
       if (incomplete) { msg.textContent = `⚠️ ${incomplete}명의 지역단·비전센터를 선택하세요.`; return; }
       if (!records.length) { hide(); return; }
@@ -7169,7 +7202,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
