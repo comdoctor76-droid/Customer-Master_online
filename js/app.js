@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.01";
+  const APP_VERSION = "2.02";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1665,24 +1665,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             </div>`
           : `<div class="master-none">순증 5만원 미만 — 해당없음 (순증 ${fmtWon(incrMaster * 10000)})</div>`}
 
-        <div class="rc-total-box">
-          <div>
-            <div class="tb-cap">고객마스터 2개월 최종 예상 시상금 합계</div>
-            <div class="tb-det">아너스 ${fmtW(award1)} + 하이포 ${fmtW(award2M3)} + 마스터 ${fmtW(award3)}×2 = ${fmtW(award3 * 2)}</div>
-          </div>
-          <div class="tb-amt">${fmtW(total)}</div>
-        </div>
-
-        ${award3NextTier
-          ? `<div class="next-tier">
-              <div class="nt-head">🚀 다음 단계 달성 목표 — ${escapeHtml(award3NextTier.criteria)} (${escapeHtml(award3NextTier.label)})</div>
-              <div class="nt-body">
-                <div><div class="nt-lbl">희망목표 추가 필요</div><div class="nt-cur">현재 ${fmtWon(tgtRaw)} → ${fmtWon(tgtRaw + award3NeedTgt)}</div></div>
-                <div class="nt-amt">+${fmtWon(award3NeedTgt)}</div>
-              </div>
-            </div>`
-          : `<div class="nt-max">🏆 최상위 단계 달성!</div>`}
-
         ${(() => {
           if (!_calcS) return "";
           const _region  = _calcS.region || state.filter.region || state.progressRegion || DEFAULT_REGION;
@@ -1695,7 +1677,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const _statMe  = getProgressStat(_calcS);
           const _empNo   = _calcS.empNo;
 
-          // 동일 기수·지역단 교육생 통계 (자격자만)
           const _peers = state.students.filter((s) => {
             const sc = (s.cohort || "").replace(/기$/, "");
             return s.region === _region && (!_cohort || sc === _cohort);
@@ -1705,7 +1686,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const _byAmt  = sortStatsForType(_elig, "amt");
           const { rateAsgn, amtAsgn } = computeBothAwardAssignments(_byRate, _byAmt, _pa);
 
-          // 개인순증 시상 — net 기준 최고 구간
+          // 개인순증 시상
           let _piCard = null;
           if (_plan.personalIncr?.enabled && _plan.personalIncr.items?.length) {
             const sorted = [..._plan.personalIncr.items]
@@ -1722,7 +1703,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             }
           }
 
-          // 신장률 순위 시상 (dedup 적용)
+          // 신장률 순위 시상 (dedup)
           let _rateCard = null;
           const _rA = _empNo ? rateAsgn.get(_empNo) : null;
           if (_rA?.status === "mine" && _rA.effectiveRank > 0) {
@@ -1732,7 +1713,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             }
           }
 
-          // 신장액 순위 시상 (dedup 적용)
+          // 신장액 순위 시상 (dedup)
           let _amtCard = null;
           const _aA = _empNo ? amtAsgn.get(_empNo) : null;
           if (_aA?.status === "mine" && _aA.effectiveRank > 0) {
@@ -1757,15 +1738,71 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <div class="aps-awd-prize">${escapeHtml(c.prize)}</div>
             </div>`;
 
+          // 시상 미해당 → 최소 시상 진입까지 부족분 안내
+          let noAwardHtml = "";
+          if (!hasAward) {
+            const gaps = [];
+            // 개인순증 최소 구간
+            if (_plan.personalIncr?.enabled && _pa.tiers.length) {
+              const minTier = _pa.tiers[_pa.tiers.length - 1]; // 내림차순 → 마지막이 최소
+              const gap = Math.ceil((minTier.min - _statMe.net) / 10000);
+              if (gap > 0) {
+                const prz = minTier.payType === "item" ? (minTier.payVal || "물품")
+                           : minTier.payType === "pct" ? `순증×${minTier.payVal}%`
+                           : `${minTier.payVal}만원`;
+                gaps.push(`🎯 순증 <strong>${gap}만원</strong> 추가 시 개인순증시상 (${escapeHtml(prz)}) 가능`);
+              }
+            }
+            // 신장률 Top N 진입
+            if (_pa.rateConfig?.enabled && Number(_pa.rateConfig.n) > 0) {
+              const n = Number(_pa.rateConfig.n);
+              if (_byRate.length >= n) {
+                const rateGap = _byRate[n - 1].rate - _statMe.rate;
+                if (rateGap > 0)
+                  gaps.push(`📈 신장률 <strong>${rateGap.toFixed(1)}%p</strong> 추가 시 Top${n} 시상 진입 가능`);
+              }
+            }
+            // 신장액 Top N 진입
+            if (_pa.amtConfig?.enabled && Number(_pa.amtConfig.n) > 0) {
+              const n = Number(_pa.amtConfig.n);
+              if (_byAmt.length >= n) {
+                const netGap = Math.ceil((_byAmt[n - 1].net - _statMe.net) / 10000);
+                if (netGap > 0)
+                  gaps.push(`💰 순증액 <strong>${netGap}만원</strong> 추가 시 Top${n} 시상 진입 가능`);
+              }
+            }
+            noAwardHtml = gaps.length
+              ? `<div class="aps-gap-list">${gaps.map((g) => `<div class="aps-gap-item">${g}</div>`).join("")}</div>`
+              : `<div class="aps-no-award">현재 순위로는 시상 대상에 해당하지 않습니다</div>`;
+          }
+
           return `
             <div class="aps-wrap">
               <div class="aps-header">④ 예상 시상 <span class="aps-badge">${escapeHtml(_cohortLabel)} ${escapeHtml(_stepLabel)}</span></div>
               ${hasAward
                 ? `<div class="aps-award-cards">${[_piCard, _rateCard, _amtCard].filter(Boolean).map(mkCard).join("")}</div>`
-                : `<div class="aps-no-award">현재 순위로는 시상 대상에 해당하지 않습니다</div>`}
+                : noAwardHtml}
               ${_plan.notes ? `<div class="aps-notes">${escapeHtml(_plan.notes)}</div>` : ""}
             </div>`;
         })()}
+
+        <div class="rc-total-box">
+          <div>
+            <div class="tb-cap">고객마스터 2개월 최종 예상 시상금 합계</div>
+            <div class="tb-det">아너스 ${fmtW(award1)} + 하이포 ${fmtW(award2M3)} + 마스터 ${fmtW(award3)}×2 = ${fmtW(award3 * 2)}</div>
+          </div>
+          <div class="tb-amt">${fmtW(total)}</div>
+        </div>
+
+        ${award3NextTier
+          ? `<div class="next-tier">
+              <div class="nt-head">🚀 다음 단계 달성 목표 — ${escapeHtml(award3NextTier.criteria)} (${escapeHtml(award3NextTier.label)})</div>
+              <div class="nt-body">
+                <div><div class="nt-lbl">희망목표 추가 필요</div><div class="nt-cur">현재 ${fmtWon(tgtRaw)} → ${fmtWon(tgtRaw + award3NeedTgt)}</div></div>
+                <div class="nt-amt">+${fmtWon(award3NeedTgt)}</div>
+              </div>
+            </div>`
+          : `<div class="nt-max">🏆 최상위 단계 달성!</div>`}
 
         <div class="award-print-row">
           <button id="btn-award-print" class="btn-award-print" type="button">🖨️ 시상인쇄</button>
@@ -7287,7 +7324,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520r)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520s)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

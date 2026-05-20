@@ -3016,6 +3016,22 @@ body {
   font-size: 12px;
   color: #999;
 }
+.aps-gap-list {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.aps-gap-item {
+  font-size: 12px;
+  color: #555;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  padding: 6px 10px;
+  line-height: 1.5;
+}
+.aps-gap-item strong { color: #e65100; }
 .award-print-row { margin-top: 14px; text-align: center; }
 .btn-award-print {
   display: inline-flex;
