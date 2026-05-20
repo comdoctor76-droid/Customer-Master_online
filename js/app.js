@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.88";
+  const APP_VERSION = "1.89";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -176,20 +176,31 @@
   // 헤더 텍스트 → 필드 자동 매핑
   const PG_HEADER_AUTOMAP = {
     "지역단": "region", "비전센터": "center", "지점": "branch",
-    "사원번호": "empNo", "성명": "name", "차월": "pgMonth", "육성리더": "pgLeader",
+    "사원번호": "empNo", "사번": "empNo",
+    "성명": "name", "차월": "pgMonth", "육성리더": "pgLeader",
     "직전6개월인보험": "pgPreIns", "직전6개월환산": "pgPreConv", "직전6개월육성소득": "pgPreIncome",
     "기준실적": "pgBase", "현재실적": "pgCurrent",
-    "달성률": "ignore", "달성율": "ignore", "순증실적": "ignore",
+    "달성률": "ignore", "달성율": "ignore", "순증실적": "ignore", "순증": "ignore",
+    "대리점명": "ignore",
     "인품건수": "pgIpumCount", "인품실적": "pgIpumAmt",
     "위촉차월": "pgMonth",
     "Step1현재실적": "pgCurrent",  "Step2현재실적": "pgCurrent2",
     "Step1인품건수": "pgIpumCount", "Step2인품건수": "pgIpumCount2",
     "Step1인품실적": "pgIpumAmt",  "Step2인품실적": "pgIpumAmt2",
+    "Step1달성률": "ignore", "Step2달성률": "ignore",
+    "Step1순증실적": "ignore", "Step2순증실적": "ignore",
+    "시상금": "ignore",
   };
   // 헤더 없을 때 기본 열 순서 (표준 16열 기준)
   const PG_DEFAULT_COLS = [
     "region","center","branch","empNo","name","pgMonth","pgLeader",
     "pgPreIns","pgPreConv","pgPreIncome","pgBase","pgCurrent","ignore","ignore","pgIpumCount","pgIpumAmt",
+  ];
+  // Step1 13열 단축 형식: 대리점명 포함 (헤더 없이 붙여넣기 시)
+  // 지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적·현재실적·달성률·순증·인품건수·인품실적
+  const PG_STEP1_SHORT_COLS = [
+    "region","center","branch","empNo","ignore","name","pgMonth",
+    "pgBase","pgCurrent","ignore","ignore","pgIpumCount","pgIpumAmt",
   ];
   // Step2 복합 형식: 기준실적(A) + Step2현재실적(C) · Step2인품 저장 / step1 데이터는 무시
   // 순서: 지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적
@@ -5564,7 +5575,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         dataLines = lines;
         // 열 수·선택 스텝에 따라 기본 매핑 결정
         // · step2 선택 + 18열↑: step1·step2 복합 형식 (기준실적+step1현재+step2현재)
-        // · 13열↓: 직전6개월 없는 단축 형식
+        // · 13열: 대리점명 포함 단축 형식 (지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적·현재실적·달성률·순증·인품건수·인품실적)
+        // · 12열↓: 직전6개월 없는 단축 형식 (대리점명 없음)
         // · 나머지: 표준 16열 형식
         const PG_SHORT_COLS = [
           "region","center","branch","empNo","name","pgMonth","pgLeader",
@@ -5573,8 +5585,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         let effectiveCols;
         if (pasteStepVal === "2" && firstRow.length >= 18) {
           effectiveCols = PG_STEP2_COMBINED_COLS;
-        } else if (firstRow.length <= 13) {
-          effectiveCols = PG_SHORT_COLS;
+        } else if (firstRow.length === 13) {
+          effectiveCols = PG_STEP1_SHORT_COLS;  // 대리점명 포함 13열
+        } else if (firstRow.length <= 12) {
+          effectiveCols = PG_SHORT_COLS;          // 단축 12열 이하
         } else {
           effectiveCols = PG_DEFAULT_COLS;
         }
@@ -5603,7 +5617,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       dataLines.forEach((line) => {
         const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
-        const empNo = getCol(p, "empNo");
+        const empNo = getCol(p, "empNo").replace(/[/\\\s]/g, "");
         if (!empNo) return;
 
         const region      = getCol(p, "region");
@@ -6994,7 +7008,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
