@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.95";
+  const APP_VERSION = "1.96";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3389,7 +3389,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const regions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
     const cohorts = [...new Set(state.students.map((s) => s.cohort).filter(Boolean))].sort();
 
-    // ORG_DATA 기반 센터 목록
     const orgCentersByRegion = {};
     if (window.ORG_DATA?.regions) {
       for (const r of window.ORG_DATA.regions) orgCentersByRegion[r.name] = r.centers.map((c) => c.name);
@@ -3410,15 +3409,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       document.body.appendChild(modal);
     }
 
-    const regionOpts = regions.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
-    let rowCount = students.length;
-
     const renderRows = () => students.map((s, i) => `
       <tr data-idx="${i}" style="border-bottom:1px solid #eee">
-        <td style="padding:4px 6px;text-align:center">
-          <button class="ua-del-btn" data-idx="${i}" title="삭제"
-            style="background:none;border:none;cursor:pointer;font-size:15px;color:#e53935;padding:2px 4px">🗑</button>
-        </td>
         <td style="padding:5px 8px">${escapeHtml(s.name || "(이름없음)")}</td>
         <td style="padding:5px 8px;font-size:11px;color:#888">${escapeHtml(s.empNo)}</td>
         <td style="padding:5px 8px;font-size:11px">${escapeHtml(s.branch || "")}</td>
@@ -3433,10 +3425,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             ${mkCenterOpts(s.region || "", s.center || "")}
           </select>
         </td>
-        <td style="padding:4px">
-          <select class="ua-cohort side-input" data-idx="${i}" style="width:70px;font-size:12px">
+        <td style="padding:4px;white-space:nowrap">
+          <select class="ua-cohort side-input" data-idx="${i}" style="width:60px;font-size:12px">
             ${mkCohortOpts(s.cohort || "")}
           </select>
+          <label style="margin-left:6px;font-size:11px;color:#e53935;cursor:pointer;white-space:nowrap">
+            <input type="checkbox" class="ua-del-chk" data-idx="${i}" style="accent-color:#e53935;vertical-align:middle"> 삭제
+          </label>
         </td>
       </tr>`).join("");
 
@@ -3448,17 +3443,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <button class="modal-close" id="ua-close">&times;</button>
         </div>
         <div style="flex:1;overflow-y:auto;padding:12px 16px">
-          <p style="font-size:12px;color:#888;margin:0 0 10px">지역단·비전센터가 없는 교육생을 지정한 뒤 저장하세요.</p>
+          <p style="font-size:12px;color:#888;margin:0 0 10px">지역단·비전센터가 없는 교육생을 지정한 뒤 저장하세요. 삭제할 행은 <span style="color:#e53935;font-weight:600">삭제</span> 체크 후 저장하세요.</p>
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr style="background:#f0f2f5;font-size:12px">
-                <th style="padding:6px 4px;width:32px"></th>
                 <th style="padding:6px 8px;text-align:left;font-weight:600">이름</th>
                 <th style="padding:6px 8px;text-align:left;font-weight:600">사번</th>
                 <th style="padding:6px 8px;text-align:left;font-weight:600">지점</th>
                 <th style="padding:6px 8px;font-weight:600">지역단</th>
                 <th style="padding:6px 8px;font-weight:600">비전센터</th>
-                <th style="padding:6px 8px;font-weight:600">기수</th>
+                <th style="padding:6px 8px;font-weight:600">기수 / 삭제</th>
               </tr>
             </thead>
             <tbody id="ua-tbody">${renderRows()}</tbody>
@@ -3473,64 +3467,76 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     `;
 
     const hide = () => { modal.hidden = true; };
-    modal.querySelector("#ua-close").onclick   = hide;
-    modal.querySelector("#ua-cancel").onclick  = hide;
+    modal.querySelector("#ua-close").onclick  = hide;
+    modal.querySelector("#ua-cancel").onclick = hide;
     modal.querySelector(".modal-backdrop").onclick = hide;
 
     // 지역단 변경 → 비전센터 옵션 갱신
     modal.querySelectorAll(".ua-region").forEach((sel) => {
       sel.addEventListener("change", () => {
         const i = sel.dataset.idx;
-        const cSel = modal.querySelector(`.ua-center[data-idx="${i}"]`);
-        cSel.innerHTML = mkCenterOpts(sel.value, "");
+        modal.querySelector(`.ua-center[data-idx="${i}"]`).innerHTML = mkCenterOpts(sel.value, "");
       });
     });
 
-    // 삭제 버튼
-    modal.querySelector("#ua-tbody").addEventListener("click", async (e) => {
-      const btn = e.target.closest(".ua-del-btn");
-      if (!btn) return;
-      const i = parseInt(btn.dataset.idx, 10);
-      const s = students[i];
-      const label = s.name ? `"${s.name}"` : `사번 ${s.empNo || "(없음)"}`;
-      const ok = await openConfirmModal(`${label} 교육생을 삭제하시겠습니까?\n(면담 기록 포함 영구 삭제)`);
-      if (!ok) return;
-      try {
-        if (s.empNo) await window.DataAPI.removeStudentWithConsultations(s.empNo);
-        const row = modal.querySelector(`tr[data-idx="${i}"]`);
-        if (row) row.remove();
-        rowCount--;
-        const title = modal.querySelector("#ua-title");
-        if (title) title.textContent = `미지정 교육생 — ${rowCount}명`;
-        toast(`${label} 삭제 완료`, "");
-      } catch (err) { toast("삭제 오류: " + err.message, "error"); }
+    // 삭제 체크박스 → 행 배경색 토글
+    modal.querySelector("#ua-tbody").addEventListener("change", (e) => {
+      const chk = e.target.closest(".ua-del-chk");
+      if (!chk) return;
+      const row = chk.closest("tr");
+      if (chk.checked) {
+        row.style.background = "#fff0f0";
+        row.style.opacity = "0.7";
+        row.querySelectorAll("select").forEach((s) => s.disabled = true);
+      } else {
+        row.style.background = "";
+        row.style.opacity = "";
+        row.querySelectorAll("select").forEach((s) => s.disabled = false);
+      }
     });
 
-    // 저장
+    // 저장 (삭제 체크된 행은 영구 삭제, 나머지는 저장)
     modal.querySelector("#ua-save").addEventListener("click", async () => {
       const btn = modal.querySelector("#ua-save");
       const msg = modal.querySelector("#ua-msg");
-      const records = [];
+      const toDelete = [];
+      const toSave = [];
       let incomplete = 0;
+
       modal.querySelectorAll("tbody tr[data-idx]").forEach((row) => {
         const i  = parseInt(row.dataset.idx, 10);
+        const del = row.querySelector(".ua-del-chk")?.checked;
+        if (del) { toDelete.push(students[i]); return; }
         const r  = row.querySelector(".ua-region").value;
         const c  = row.querySelector(".ua-center").value;
         const co = row.querySelector(".ua-cohort").value;
         if (!r || !c) { incomplete++; return; }
-        records.push({ ...students[i], region: r, center: c, ...(co ? { cohort: co } : {}) });
+        toSave.push({ ...students[i], region: r, center: c, ...(co ? { cohort: co } : {}) });
       });
+
       if (incomplete) { msg.textContent = `⚠️ ${incomplete}명의 지역단·비전센터를 선택하세요.`; return; }
-      if (!records.length) { hide(); return; }
-      btn.disabled = true; msg.textContent = "저장중...";
+      if (!toDelete.length && !toSave.length) { hide(); return; }
+
+      btn.disabled = true;
+      msg.textContent = "처리중...";
       try {
-        if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
-        else for (const rec of records) await window.DataAPI.save(rec);
-        msg.textContent = `✅ ${records.length}명 저장 완료`;
-        toast(`${records.length}명 지역단·비전센터 저장 완료`, "success");
+        if (toDelete.length) {
+          for (const s of toDelete) {
+            if (s.empNo) await window.DataAPI.removeStudentWithConsultations(s.empNo);
+          }
+        }
+        if (toSave.length) {
+          if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(toSave);
+          else for (const rec of toSave) await window.DataAPI.save(rec);
+        }
+        const parts = [];
+        if (toSave.length)   parts.push(`${toSave.length}명 저장`);
+        if (toDelete.length) parts.push(`${toDelete.length}명 삭제`);
+        msg.textContent = `✅ ${parts.join(", ")} 완료`;
+        toast(parts.join(", ") + " 완료", "success");
         setTimeout(hide, 1500);
       } catch (e) {
-        msg.textContent = "❌ 저장 실패: " + e.message;
+        msg.textContent = "❌ 처리 실패: " + e.message;
         btn.disabled = false;
       }
     });
@@ -7202,7 +7208,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
