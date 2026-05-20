@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.02";
+  const APP_VERSION = "2.03";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5198,13 +5198,25 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       saveBtn.disabled = true;
       saveBtn.textContent = "저장중...";
       try {
-        const records = newRecords.map((r, i) => ({
-          ...r,
-          name:   (modal.querySelector(`.pgn-name[data-idx="${i}"]`)?.value.trim()  || r.name),
-          cohort: (modal.querySelector(`.pgn-cohort[data-idx="${i}"]`)?.value.trim() || ""),
-          phone:  (modal.querySelector(`.pgn-phone[data-idx="${i}"]`)?.value.trim()  || ""),
-          target: 0, honors: 0
-        }));
+        // region·center 누락 시 현재 진도 탭 지역단 + ORG_DATA branch→center 맵으로 자동 보완
+        const _dfltRegion = state.progressRegion || state.filter.region || "";
+        const _orgR = window.ORG_DATA?.regions?.find((r) => r.name === _dfltRegion);
+        const _bcMap = {};
+        if (_orgR) for (const c of _orgR.centers) for (const b of c.branches) _bcMap[b] = c.name;
+
+        const records = newRecords.map((r, i) => {
+          const rgn = r.region || _dfltRegion;
+          const ctr = r.center || _bcMap[r.branch] || "";
+          return {
+            ...r,
+            region: rgn,
+            center: ctr,
+            name:   (modal.querySelector(`.pgn-name[data-idx="${i}"]`)?.value.trim()  || r.name),
+            cohort: (modal.querySelector(`.pgn-cohort[data-idx="${i}"]`)?.value.trim() || ""),
+            phone:  (modal.querySelector(`.pgn-phone[data-idx="${i}"]`)?.value.trim()  || ""),
+            target: 0, honors: 0
+          };
+        });
         if (typeof window.DataAPI.saveMany === "function") {
           await window.DataAPI.saveMany(records);
         } else {
@@ -6798,7 +6810,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const pgIpumCountIdx = colOverride.pgIpumCount ?? (20 + colShift);
         const pgIpumAmtIdx   = colOverride.pgIpumAmt   ?? (21 + colShift);
 
-        const region   = cl[0];
+        const region   = cl[0] || state.filter.region || "";
         const rawCtr   = cl[1];
         const branch   = cl[2];
         const empNo    = cl[3].replace(/[\s\/\\]/g, "");
@@ -6830,6 +6842,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         });
       } else {
         let [region, rawCenter, branch, cohort, empNo, name, phone, base, target, honors, tenureMonths] = cl;
+        if (!region) region = state.filter.region || "";
         if (cohort && /^\d+$/.test(cohort)) cohort = cohort + "기";
         if (region === "지역단" && rawCenter === "비전센터" && branch === "지점") return;
         if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
@@ -7324,7 +7337,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520s)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520t)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
