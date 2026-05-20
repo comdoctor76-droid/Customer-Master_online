@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.91";
+  const APP_VERSION = "1.92";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -595,31 +595,23 @@
         if (!unassigned.length) { toast("미지정 교육생이 없습니다.", ""); return; }
         const region = state.filter.region;
         const isValidCenter = (c) => c && c.trim().length >= 2 && !/^\d+$/.test(c.trim());
-        // 현재 지역단 내 이미 배정된 센터만 표시 (+ 직접 입력 옵션 제공)
         const centers = [...new Set(
           state.students
             .filter((s) => (!region || s.region === region) && isValidCenter(s.center))
             .map((s) => s.center.trim())
         )].sort();
-        // "직접 입력" 옵션을 항상 맨 앞에 추가 — 새 센터명도 입력 가능하도록
-        const MANUAL = "✏️ 직접 입력 (새 비전센터명)...";
+        if (!centers.length) { toast("이 지역단에 등록된 비전센터 정보가 없습니다.", "error"); return; }
         openPickerModal(
           `비전센터 선택 — ${unassigned.length}명 일괄 지정`,
-          [MANUAL, ...centers],
+          centers,
           async (picked) => {
-            let finalCenter = picked;
-            if (picked === MANUAL) {
-              const input = window.prompt("배정할 비전센터명을 입력하세요:", "");
-              if (!input?.trim()) return;
-              finalCenter = input.trim();
-            }
-            const ok = await openConfirmModal(`"${finalCenter}"으로\n${unassigned.length}명을 일괄 저장하시겠습니까?`);
+            const ok = await openConfirmModal(`"${picked}"으로\n${unassigned.length}명을 일괄 저장하시겠습니까?`);
             if (!ok) return;
-            const records = unassigned.map((s) => ({ ...s, center: finalCenter }));
+            const records = unassigned.map((s) => ({ ...s, center: picked }));
             try {
               if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
               else for (const r of records) await window.DataAPI.save(r);
-              toast(`✅ ${unassigned.length}명의 비전센터를 "${finalCenter}"으로 저장했습니다.`, "");
+              toast(`✅ ${unassigned.length}명의 비전센터를 "${picked}"으로 저장했습니다.`, "");
             } catch (err) {
               toast("저장 오류: " + err.message, "error");
             }
@@ -7152,7 +7144,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
