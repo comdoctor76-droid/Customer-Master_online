@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.87";
+  const APP_VERSION = "1.88";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3373,6 +3373,47 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
   }
 
+  function openPasteSaveConfirmModal(region, cohort, step, updateRecords, newRecords) {
+    return new Promise((resolve) => {
+      let modal = document.getElementById("modal-paste-confirm");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "modal-paste-confirm";
+        modal.className = "modal";
+        document.body.appendChild(modal);
+      }
+
+      const mkList = (records) => records.length
+        ? records.map((r) => `<li>${r.name || "(이름없음)"} &nbsp;<span style="color:#888;font-size:11px">${r.empNo}</span></li>`).join("")
+        : `<li style="color:#aaa">없음</li>`;
+
+      const scrollStyle = (records) => records.length > 10 ? "max-height:200px;overflow-y:auto;" : "";
+
+      modal.innerHTML = `
+        <div class="modal-backdrop"></div>
+        <div class="modal-panel" style="max-width:480px">
+          <div class="modal-body" style="padding:24px 24px 20px">
+            <h3 style="margin:0 0 16px;font-size:15px;text-align:center">${region} ${cohort} Step ${step} 저장 확인</h3>
+            <p style="font-size:13px;font-weight:600;margin:0 0 5px">업데이트 (${updateRecords.length}명)</p>
+            <ul class="paste-confirm-list" style="${scrollStyle(updateRecords)}">${mkList(updateRecords)}</ul>
+            <p style="font-size:13px;font-weight:600;margin:14px 0 5px">신규 등록 (${newRecords.length}명)</p>
+            <ul class="paste-confirm-list" style="${scrollStyle(newRecords)}">${mkList(newRecords)}</ul>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+              <button class="btn-primary small" id="paste-confirm-yes">✅ 저장</button>
+              <button class="btn-outline small" id="paste-confirm-no">❌ 취소</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const hide = (val) => { modal.hidden = true; resolve(val); };
+      modal.querySelector("#paste-confirm-yes").addEventListener("click", () => hide(true));
+      modal.querySelector("#paste-confirm-no").addEventListener("click",  () => hide(false));
+      modal.querySelector(".modal-backdrop").onclick = () => hide(false);
+      modal.hidden = false;
+    });
+  }
+
   function openPgColMapModal(colDefs, sampleRows) {
     return new Promise((resolve) => {
       const modal = document.getElementById("modal-pg-col-map");
@@ -5641,8 +5682,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         toast("기수를 선택한 뒤 저장하세요.", "error");
         return;
       }
-      const _confirmText = `${_region} ${_cohort} Step ${pasteStepVal}\n\n기존 교육생 업데이트: ${updateRecords.length}명\n신규 등록 대상: ${newRecords.length}명\n\n저장하시겠습니까?`;
-      if (!await openConfirmModal(_confirmText)) return;
+      if (!await openPasteSaveConfirmModal(_region, _cohort, pasteStepVal, updateRecords, newRecords)) return;
 
       // 저장
       if (updateRecords.length > 0) {
@@ -6954,7 +6994,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
