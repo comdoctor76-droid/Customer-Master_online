@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.86";
+  const APP_VERSION = "1.87";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5511,8 +5511,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const lines = txt.split(/\r?\n/).filter((l) => l.trim());
       if (!lines.length) return;
 
-      // 첫 행 헤더 자동 감지
-      const firstRow = lines[0].split(/\t/).map((c) => c.trim());
+      // 첫 행 헤더 자동 감지 — 행 앞뒤 탭 제거 후 분리 (Excel 복사 시 선행 탭 대응)
+      const firstRow = lines[0].trim().split(/\t/).map((c) => c.trim());
       const isHeader = firstRow.some((h) => Object.prototype.hasOwnProperty.call(PG_HEADER_AUTOMAP, h));
 
       let dataLines, colDefs;
@@ -5543,7 +5543,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         }));
       }
 
-      const sampleRows = dataLines.slice(0, 3).map((l) => l.split(/\t/).map((c) => c.trim()));
+      const sampleRows = dataLines.slice(0, 3).map((l) => l.trim().split(/\t/).map((c) => c.trim()));
 
       // ── 열 매핑 확인 팝업 ─────────────────────────────────────────
       const fieldMapping = await openPgColMapModal(colDefs, sampleRows);
@@ -5561,7 +5561,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const newRecords    = [];
 
       dataLines.forEach((line) => {
-        const p = line.split(/\t/).map((c) => c.replace(/,/g, "").trim());
+        const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
         const empNo = getCol(p, "empNo");
         if (!empNo) return;
 
@@ -6954,7 +6954,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
