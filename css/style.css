@@ -2306,6 +2306,27 @@ body {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.2);
 }
+.iv-curAct-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.iv-curAct-row input { flex: 1; min-width: 0; }
+.btn-iv-cur-upd {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue);
+  background: #fff;
+  border: 1.5px solid var(--blue);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-iv-cur-upd:hover { background: var(--blue); color: #fff; }
+.btn-iv-cur-upd:disabled { opacity: 0.5; cursor: not-allowed; }
 .iv-coach label { font-size: 13px; }
 
 /* 교육생 등록폼 마스터목표 팝업 */

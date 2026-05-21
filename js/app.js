@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.03";
+  const APP_VERSION = "1.04";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -813,7 +813,10 @@
 
           <div class="iv-field">
             <label>현재실적</label>
-            <input type="number" id="iv-curAct" placeholder="원" step="1000">
+            <div class="iv-curAct-row">
+              <input type="number" id="iv-curAct" placeholder="원" step="1000">
+              <button type="button" class="btn-iv-cur-upd" id="btn-iv-curAct-update" title="현재실적만 실적진도현황에 저장">업데이트</button>
+            </div>
           </div>
           <div class="iv-field">
             <label>진도 <span class="iv-hint" id="iv-pct-hint"></span></label>
@@ -956,6 +959,27 @@
   function bindInterviewFormEvents() {
     $("#iv-seq").addEventListener("input", updateIvTitle);
     $("#iv-curAct").addEventListener("input", calcIvPct);
+    // 현재실적 단독 업데이트
+    $("#btn-iv-curAct-update").addEventListener("click", async () => {
+      const empNo = state.selectedEmpNo;
+      if (!empNo) return;
+      const newVal = parseFloat($("#iv-curAct")?.value || "0") || 0;
+      const sfx = _pgStepSfx();
+      const field = sfx ? `pgCurrent${sfx}` : "pgCurrent";
+      const curSt = state.students.find((x) => x.empNo === empNo);
+      if (!curSt) { toast("교육생 정보를 찾을 수 없습니다.", "error"); return; }
+      const btn = $("#btn-iv-curAct-update");
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = "저장중...";
+      try {
+        await window.DataAPI.save({ ...curSt, [field]: newVal });
+        toast(`현재실적 ${newVal.toLocaleString()}원 저장 완료`, "success");
+      } catch (e) {
+        toast("저장 실패: " + e.message, "error");
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
     $("#btn-iv-save").addEventListener("click", saveInterview);
     $("#btn-iv-save-top").addEventListener("click", saveInterview);
     $("#btn-iv-cancel-edit").addEventListener("click", cancelEditInterview);
@@ -7377,7 +7401,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260521a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260521b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
