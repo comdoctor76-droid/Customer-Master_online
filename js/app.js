@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.05";
+  const APP_VERSION = "1.06";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4563,10 +4563,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byAmt = [...stats].sort((a, b) => b.net - a.net);
     const byRateRaw = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
-    // 중복시상 정책: 양쪽 대상 중 더 큰 시상만 지급
-    const byRate = byRateRaw;
     // 홈 필터의 cohort/step 으로 시상안 조회 (state.progressCohort/Step 과 다를 수 있음)
     const _hrankPa = getProgressAwardConfig(region, cohort, step);
+    // 중복시상 정책: 양쪽 대상 중 더 큰 시상만 지급 — 중복 대상자는 해당 카테고리 순위에서 제외
+    const { rateAsgn: _hrRateAsgn, amtAsgn: _hrAmtAsgn } = computeBothAwardAssignments(byRateRaw, byAmt, _hrankPa);
+    const byRate    = byRateRaw.filter(st => (_hrRateAsgn.get(st.s.empNo)?.status ?? "none") !== "other");
+    const byAmtDedup = byAmt.filter(st   => (_hrAmtAsgn.get(st.s.empNo)?.status  ?? "none") !== "other");
     const _hrAwardPlan = _hrankPa.plan; // 정규화된 플랜 재사용
 
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
@@ -4604,10 +4606,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const hrCats = [
       { key: "rate", icon: "📈", title: "최고 신장률", sub: "달성률 (현재실적 ÷ 기준실적)", cls: "hr-rate",
-        arr: byRate, isGroup: false,
+        arr: byRate, worstArr: byRateRaw, isGroup: false,
         valFn: (st) => `${st.rate != null ? st.rate.toFixed(1) : "0.0"}%` },
       { key: "amt", icon: "💰", title: "최고 신장액", sub: "순증 금액 절대값", cls: "hr-amt",
-        arr: byAmt, isGroup: false,
+        arr: byAmtDedup, worstArr: byAmt, isGroup: false,
         valFn: (st) => `${st.net >= 0 ? "+" : ""}${Nf(st.net)}원` },
       { key: "ipum", icon: "✨", title: "인품왕", sub: "신상품 판매액", cls: "hr-ipum",
         arr: byIpum, isGroup: false,
@@ -4630,13 +4632,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           bodyHTML: _closeBtnBar + renderTeamAwardFull(groupRanking, _hrAwardPlan, hasAnyTeam)
         };
       } else {
-        const ttls = { rate: `📈 신장률 전체 순위 (${byRate.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
+        const ttls = { rate: `📈 신장률 전체 순위 (${byRateRaw.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
         const subs = { rate: "달성률 (현재실적 ÷ 기준실적)", amt: "순증 금액 절대값", ipum: "신상품 판매액" };
         let body;
         if (cat.key === "rate") {
-          body = byRate.length ? renderProgressRankFullBothAware(byRate, byAmt, _hrankPa, "rate") : `<div class="pg-empty">데이터 없음</div>`;
+          body = byRateRaw.length ? renderProgressRankFullBothAware(byRateRaw, byAmt, _hrankPa, "rate") : `<div class="pg-empty">데이터 없음</div>`;
         } else if (cat.key === "amt") {
-          body = byAmt.length ? renderProgressRankFullBothAware(byRate, byAmt, _hrankPa, "amt") : `<div class="pg-empty">데이터 없음</div>`;
+          body = byAmt.length ? renderProgressRankFullBothAware(byRateRaw, byAmt, _hrankPa, "amt") : `<div class="pg-empty">데이터 없음</div>`;
         } else {
           body = cat.arr.length ? renderProgressTop10(cat.arr, cat.key, Infinity) : `<div class="pg-empty">데이터 없음</div>`;
         }
@@ -4694,7 +4696,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const hidden = isWorst ? " hr-slide-hidden" : "";
       return `<div class="hr-slide${hidden}"><div class="hr-grid">${
         hrCats.map(cat => {
-          const dispArr = isWorst ? [...cat.arr].reverse().slice(0, 3) : cat.arr.slice(0, 3);
+          const dispArr = isWorst ? [...(cat.worstArr || cat.arr)].reverse().slice(0, 3) : cat.arr.slice(0, 3);
           const catAwards = (!isWorst && _hrAwardMap[cat.key]) ? _hrAwardMap[cat.key] : null;
           const title = isWorst ? (worstTitles[cat.key] || cat.title) : cat.title;
           const rows = dispArr.length
@@ -7401,7 +7403,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260521c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260521d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
