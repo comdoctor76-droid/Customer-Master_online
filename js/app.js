@@ -150,7 +150,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.02";
+  const APP_VERSION = "1.03";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1688,39 +1688,44 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const { rateAsgn, amtAsgn } = computeBothAwardAssignments(_byRate, _byAmt, _pa);
 
           // ── 신장률 순위 시상 (아이템 시상 포함) ──
-          let _rateCard = null;
+          let _rateCard = null, _rateRankVal = 0;
           if (_empNo && _pa.rateConfig?.enabled && Number(_pa.rateConfig.n) > 0) {
-            const _rateRank = _byRate.findIndex(st => st.s.empNo === _empNo) + 1;
+            _rateRankVal = _byRate.findIndex(st => st.s.empNo === _empNo) + 1;
             const _n = Number(_pa.rateConfig.n);
-            if (_rateRank > 0 && _rateRank <= _n) {
-              const _p = _pa.rateConfig?.payouts?.[_rateRank - 1];
+            if (_rateRankVal > 0 && _rateRankVal <= _n) {
+              const _p = _pa.rateConfig?.payouts?.[_rateRankVal - 1];
               if (_p != null) {
                 const _np = normPayout(_p);
                 const _rA = rateAsgn.get(_empNo);
-                // 아이템 시상은 현금 비교 불가 → 무조건 표시; 현금은 dedup 적용
                 if (_np.type === "item" || _rA?.status === "mine") {
-                  _rateCard = { icon: "📈", label: `신장률 ${_rateRank}위`, sub: `신장률 ${_statMe.rate.toFixed(1)}%`, prize: payoutLabel(_p), isItem: _np.type === "item" };
+                  _rateCard = { icon: "📈", label: `신장률 ${_rateRankVal}위`, sub: `${_statMe.rate.toFixed(1)}%`, prize: payoutLabel(_p), isItem: _np.type === "item" };
                 }
               }
             }
           }
 
           // ── 신장액 순위 시상 (아이템 시상 포함) ──
-          let _amtCard = null;
+          let _amtCard = null, _amtRankVal = 0;
           if (_empNo && _pa.amtConfig?.enabled && Number(_pa.amtConfig.n) > 0) {
-            const _amtRank = _byAmt.findIndex(st => st.s.empNo === _empNo) + 1;
+            _amtRankVal = _byAmt.findIndex(st => st.s.empNo === _empNo) + 1;
             const _n = Number(_pa.amtConfig.n);
-            if (_amtRank > 0 && _amtRank <= _n) {
-              const _p = _pa.amtConfig?.payouts?.[_amtRank - 1];
+            if (_amtRankVal > 0 && _amtRankVal <= _n) {
+              const _p = _pa.amtConfig?.payouts?.[_amtRankVal - 1];
               if (_p != null) {
                 const _np = normPayout(_p);
                 const _aA = amtAsgn.get(_empNo);
                 const _netMw = Math.round(_statMe.net / 10000);
                 if (_np.type === "item" || _aA?.status === "mine") {
-                  _amtCard = { icon: "💰", label: `신장액 ${_amtRank}위`, sub: `순증 +${_netMw}만원`, prize: payoutLabel(_p), isItem: _np.type === "item" };
+                  _amtCard = { icon: "💰", label: `신장액 ${_amtRankVal}위`, sub: `+${_netMw}만원`, prize: payoutLabel(_p), isItem: _np.type === "item" };
                 }
               }
             }
+          }
+
+          // 신장률/신장액 중 더 좋은 순위 하나만 표시
+          if (_rateCard && _amtCard) {
+            if (_rateRankVal <= _amtRankVal) _amtCard = null;
+            else _rateCard = null;
           }
 
           // ── 팀시상 (groupAward1: 인원, groupAward2: 달성률) ──
@@ -1729,23 +1734,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (_myTeam) {
             const _teamMates = _elig.filter(st => String(st.s.team || "").trim() === _myTeam);
             const _teamSize  = _teamMates.length;
-            // groupAward1: 인원수 기준
             const ga1items = _ga1Items(_plan.groupAward1);
             for (const it of [...ga1items].sort((a, b) => Number(b.threshold) - Number(a.threshold))) {
               if (_teamSize >= Number(it.threshold)) {
                 const np = normPayout(it.payout);
-                _ga1Card = { icon: "👥", label: `팀시상 — ${_myTeam}조`, sub: `팀원 ${_teamSize}명 (기준 ${it.threshold}명)`, prize: payoutLabel(it.payout), isItem: np.type === "item" };
+                _ga1Card = { icon: "👥", label: `팀시상 — ${_myTeam}조`, sub: `팀원 ${_teamSize}명`, prize: payoutLabel(it.payout), isItem: np.type === "item", isTeam: true };
                 break;
               }
             }
-            // groupAward2: 평균 달성률 기준
             const ga2items = _ga2Items(_plan.groupAward2);
             if (_teamMates.length > 0 && ga2items.length) {
               const _teamAvg = _teamMates.reduce((s, st) => s + (st.rate || 0), 0) / _teamMates.length;
               for (const it of [...ga2items].sort((a, b) => Number(b.rateThreshold) - Number(a.rateThreshold))) {
                 if (_teamAvg >= Number(it.rateThreshold)) {
                   const np = normPayout(it.payout);
-                  _ga2Card = { icon: "🏅", label: `팀달성률시상 — ${_myTeam}조`, sub: `평균 달성률 ${_teamAvg.toFixed(1)}% (기준 ${it.rateThreshold}%)`, prize: payoutLabel(it.payout), isItem: np.type === "item" };
+                  _ga2Card = { icon: "🏅", label: `팀달성률 — ${_myTeam}조`, sub: `평균 ${_teamAvg.toFixed(1)}%`, prize: payoutLabel(it.payout), isItem: np.type === "item", isTeam: true };
                   break;
                 }
               }
@@ -1758,17 +1761,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (!hasAnyConfig) return "";
 
           const mkCard = (c) => `
-            <div class="aps-award-card${c.isItem ? " aps-item-prize" : ""}">
+            <div class="aps-award-card${c.isItem ? " aps-item-prize" : ""}${c.isTeam ? " aps-team-prize" : ""}">
               <div class="aps-awd-head">${c.icon} ${escapeHtml(c.label)}</div>
-              <div class="aps-awd-stat">${escapeHtml(c.sub)}</div>
-              <div class="aps-awd-result">${escapeHtml(c.prize)}</div>
+              <div class="aps-awd-body">
+                <div class="aps-awd-stat">${escapeHtml(c.sub)}</div>
+                <div class="aps-awd-result">${escapeHtml(c.prize)}<span class="aps-awd-near"> 근접</span></div>
+              </div>
             </div>`;
 
           // 시상 미해당 → 최소 시상 진입까지 부족분 안내
           let noAwardHtml = "";
           if (!hasAward) {
             const gapCards = [];
-            // 신장률 Top N 진입
             if (_pa.rateConfig?.enabled && Number(_pa.rateConfig.n) > 0) {
               const n = Number(_pa.rateConfig.n);
               if (_byRate.length >= n) {
@@ -1778,14 +1782,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                   const prz = _p != null ? payoutLabel(_p) : `Top${n} 시상`;
                   const _np = _p ? normPayout(_p) : null;
                   gapCards.push({
-                    icon: "📈", category: `신장률 Top${n} 시상`,
-                    gapLine: `현재 신장률 ${_statMe.rate.toFixed(1)}% · ${n}위 기준 ${_byRate[n-1].rate.toFixed(1)}%`,
+                    icon: "📈", category: `신장률 Top${n}`,
+                    gapLine: `현재 ${_statMe.rate.toFixed(1)}% · ${n}위 기준 ${_byRate[n-1].rate.toFixed(1)}%`,
                     gapShort: `${rateGap.toFixed(1)}%p 부족`, prize: prz, isItem: _np?.type === "item"
                   });
                 }
               }
             }
-            // 신장액 Top N 진입
             if (_pa.amtConfig?.enabled && Number(_pa.amtConfig.n) > 0) {
               const n = Number(_pa.amtConfig.n);
               if (_byAmt.length >= n) {
@@ -1795,8 +1798,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                   const prz = _p != null ? payoutLabel(_p) : `Top${n} 시상`;
                   const _np = _p ? normPayout(_p) : null;
                   gapCards.push({
-                    icon: "💰", category: `신장액 Top${n} 시상`,
-                    gapLine: `현재 순증 +${Math.round(_statMe.net / 10000)}만원 · ${n}위 기준 +${Math.round(_byAmt[n-1].net / 10000)}만원`,
+                    icon: "💰", category: `신장액 Top${n}`,
+                    gapLine: `현재 +${Math.round(_statMe.net / 10000)}만원 · ${n}위 기준 +${Math.round(_byAmt[n-1].net / 10000)}만원`,
                     gapShort: `${netGap}만원 부족`, prize: prz, isItem: _np?.type === "item"
                   });
                 }
@@ -1806,7 +1809,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <div class="aps-gap-card${g.isItem ? " aps-item-prize" : ""}">
                 <div class="aps-gap-head">${g.icon} ${escapeHtml(g.category)}</div>
                 <div class="aps-gap-body">${g.gapLine}</div>
-                <div class="aps-gap-result">${escapeHtml(g.gapShort)} 추가 시<strong>${escapeHtml(g.prize)}</strong></div>
+                <div class="aps-gap-result">${escapeHtml(g.gapShort)} 추가 시<strong>${escapeHtml(g.prize)} 근접</strong></div>
               </div>`;
             noAwardHtml = gapCards.length
               ? `<div class="aps-gap-list">${gapCards.map(mkGapCard).join("")}</div>`
@@ -7374,7 +7377,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260520w)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260521a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
