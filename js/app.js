@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.15";
+  const APP_VERSION = "1.16";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6181,16 +6181,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             saveResult = { committed: saved, errors: errs };
           }
 
-          const committed  = saveResult?.committed ?? total;
+          const committed  = saveResult?.committed ?? 0;
           const saveErrors = saveResult?.errors   ?? [];
-          if (saveErrors.length) console.warn("[saveMany 오류]", saveErrors);
+          if (saveErrors.length) {
+            console.warn("[saveMany 오류 목록]", saveErrors);
+            // 첫 번째 오류 메시지를 토스트로 표시
+            const firstErr = saveErrors[0]?.message || "알 수 없는 오류";
+            console.error("첫 번째 오류:", firstErr);
+          }
 
-          let msgTxt = `✅ ${committed}명 저장 완료`;
-          if (saveErrors.length) msgTxt += ` (오류 ${saveErrors.length}건 — 콘솔 확인)`;
+          let msgTxt = committed > 0 ? `✅ ${committed}명 저장 완료` : `❌ 저장된 건 없음`;
+          if (saveErrors.length) msgTxt += ` (오류 ${saveErrors.length}건: ${(saveErrors[0]?.message || "").slice(0, 40)})`;
           if (newRecords.length) msgTxt += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
-          setMsg(msgTxt, saveErrors.length ? "pg-msg warn" : "pg-msg ok");
-          setTimeout(() => { if (m) m.textContent = ""; }, 10000);
-          toast(`${committed}명 실적진도현황 저장 완료`, saveErrors.length ? "warn" : "success");
+          setMsg(msgTxt, (committed === 0 || saveErrors.length) ? "pg-msg err" : "pg-msg ok");
+          setTimeout(() => { if (m) m.textContent = ""; }, 15000);
+          toast(`${committed}명 실적진도현황 저장`, committed > 0 ? "success" : "error");
         } catch (e) {
           console.error(e);
           setMsg("❌ 저장 실패: " + e.message, "pg-msg err");
@@ -7492,7 +7497,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

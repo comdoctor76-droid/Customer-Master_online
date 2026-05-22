@@ -210,7 +210,12 @@ window.DataAPI = {
     });
 
     let committed = 0;
-    const CHUNK = 450; // 500 한도보다 안전 마진
+    const CHUNK = 50; // 작은 청크로 진행 표시를 빠르게 갱신 (기존 450 → 50)
+    const TIMEOUT_MS = 25000; // 25초 타임아웃 — 무한 대기 방지
+    const commitWithTimeout = (batch) => Promise.race([
+      batch.commit(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("Firestore 응답 시간 초과 (25초)")), TIMEOUT_MS))
+    ]);
     for (let i = 0; i < valid.length; i += CHUNK) {
       const slice = valid.slice(i, i + CHUNK);
       const batch = writeBatch(db);
@@ -218,7 +223,7 @@ window.DataAPI = {
         batch.set(doc(db, "students", empNo), record, { merge: true });
       });
       try {
-        await batch.commit();
+        await commitWithTimeout(batch);
         committed += slice.length;
       } catch (err) {
         slice.forEach(({ empNo }) => {
