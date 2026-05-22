@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.19";
+  const APP_VERSION = "1.20";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4522,15 +4522,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <h4>📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
           </h4>
-          <div class="pg-tbl-wrap"><table class="pg-tbl">
-            <thead><tr><th>순위</th><th>성명</th><th>지점</th><th>기준실적</th><th>장기하이캡</th><th>현재실적</th><th>달성률</th><th>순증</th><th>시상</th></tr></thead>
+          <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
+            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:80px">사번</th><th>지점</th><th class="r">기준실적</th><th class="r">현재실적</th><th style="width:64px">달성률</th><th class="r">순증</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
               const nc = st.rate >= 120 ? "pg-c-over" : st.rate >= 100 ? "pg-c-good" : st.rate >= 80 ? "pg-c-mid" : "pg-c-low";
               const netC = st.net > 0 ? "pg-net-p" : st.net < 0 ? "pg-net-m" : "";
               const aw = tierLabel(st.net);
               const baseDisp = st.base > 0 ? Nf(st.base) : "—";
               const rateDisp = st.base > 0 ? st.rate.toFixed(1) + "%" : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${st.hiCap ? Nf(st.hiCap) : "—"}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td>${aw}</td></tr>`;
+              const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -7506,7 +7507,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
