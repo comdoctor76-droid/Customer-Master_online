@@ -132,6 +132,8 @@ window.DataAPI = {
     }
     // 실적진도용 확장 필드
     if (student.current !== undefined)      record.current      = Number(student.current)      || 0;
+    if (student.pgBase   !== undefined)     record.pgBase       = Number(student.pgBase)       || 0;
+    if (student.pgCurrent !== undefined)    record.pgCurrent    = Number(student.pgCurrent)    || 0;
     if (student.ipumCount !== undefined)    record.ipumCount    = Number(student.ipumCount)    || 0;
     if (student.ipumAmt !== undefined)      record.ipumAmt      = Number(student.ipumAmt)      || 0;
     if (student.insAvg !== undefined)       record.insAvg       = Number(student.insAvg)       || 0;
@@ -158,7 +160,7 @@ window.DataAPI = {
 
   // 여러건 일괄 저장 — writeBatch 로 한 번의 네트워크 호출에 묶어서 처리
   // Firestore 제한: 배치 1개당 최대 500개 작업
-  async saveMany(students) {
+  async saveMany(students, onProgress) {
     const errors = [];
     const valid = [];
     students.forEach((student, idx) => {
@@ -181,6 +183,8 @@ window.DataAPI = {
         record.tenureMonths = Number(student.tenureMonths) || 0;
       }
       if (student.current !== undefined)      record.current      = Number(student.current)      || 0;
+      if (student.pgBase   !== undefined)     record.pgBase       = Number(student.pgBase)       || 0;
+      if (student.pgCurrent !== undefined)    record.pgCurrent    = Number(student.pgCurrent)    || 0;
       if (student.hiCap !== undefined)        record.hiCap        = Number(student.hiCap)        || 0;
       if (student.ipumCount !== undefined)    record.ipumCount    = Number(student.ipumCount)    || 0;
       if (student.ipumAmt !== undefined)      record.ipumAmt      = Number(student.ipumAmt)      || 0;
@@ -221,6 +225,7 @@ window.DataAPI = {
           errors.push({ empNo, message: err.message || String(err) });
         });
       }
+      if (onProgress) onProgress(committed, valid.length, errors);
     }
     return { committed, errors };
   },

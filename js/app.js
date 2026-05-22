@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.14";
+  const APP_VERSION = "1.15";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6157,23 +6157,43 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
       if (!await openPasteSaveConfirmModal(_region, _cohort, pasteStepVal, updateRecords, newRecords)) return;
 
-      // 저장
+      // 저장 — 진행 상황 실시간 표시
       if (updateRecords.length > 0) {
         progressPasteApply.disabled = true;
-        if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
+        const total = updateRecords.length;
+        const setMsg = (txt, cls = "pg-msg") => { if (m) { m.textContent = txt; m.className = cls; } };
+        setMsg(`저장중... 0 / ${total}건`);
         try {
+          let saveResult;
           if (typeof window.DataAPI.saveMany === "function") {
-            await window.DataAPI.saveMany(updateRecords);
+            // 배치 저장: 청크 완료마다 진행 수 갱신
+            saveResult = await window.DataAPI.saveMany(updateRecords, (done, tot) => {
+              setMsg(`저장중... ${done} / ${tot}건`);
+            });
           } else {
-            for (const r of updateRecords) await window.DataAPI.save(r);
+            // 폴백: 1건씩 저장하며 진행 수 표시
+            let saved = 0; const errs = [];
+            for (const r of updateRecords) {
+              try { await window.DataAPI.save(r); saved++; }
+              catch (e) { errs.push({ empNo: r.empNo, message: e.message }); }
+              setMsg(`저장중... ${saved} / ${total}건`);
+            }
+            saveResult = { committed: saved, errors: errs };
           }
-          let msgTxt = `✅ ${updateRecords.length}명 저장 완료`;
+
+          const committed  = saveResult?.committed ?? total;
+          const saveErrors = saveResult?.errors   ?? [];
+          if (saveErrors.length) console.warn("[saveMany 오류]", saveErrors);
+
+          let msgTxt = `✅ ${committed}명 저장 완료`;
+          if (saveErrors.length) msgTxt += ` (오류 ${saveErrors.length}건 — 콘솔 확인)`;
           if (newRecords.length) msgTxt += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
-          if (m) { m.textContent = msgTxt; m.className = "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 8000); }
-          toast(`${updateRecords.length}명 실적진도현황 저장`, "success");
+          setMsg(msgTxt, saveErrors.length ? "pg-msg warn" : "pg-msg ok");
+          setTimeout(() => { if (m) m.textContent = ""; }, 10000);
+          toast(`${committed}명 실적진도현황 저장 완료`, saveErrors.length ? "warn" : "success");
         } catch (e) {
           console.error(e);
-          if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
+          setMsg("❌ 저장 실패: " + e.message, "pg-msg err");
           toast("저장 실패: " + e.message, "error");
           progressPasteApply.disabled = false;
           return;
@@ -7472,7 +7492,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
