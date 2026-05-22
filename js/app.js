@@ -34,7 +34,7 @@
       n: 10,
       payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10]
     },
-    bothNodup: false,
+    bothNodup: true,
     groupAward1: { enabled: false, threshold: 5, payout: 5 },
     groupAward2: { enabled: false, rateThreshold: 110, payout: 15 },
     // 4. 기준조건 (eligibility)
@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.11";
+  const APP_VERSION = "1.12";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4980,45 +4980,65 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   function renderProgressRankFullBothAware(byRate, byAmt, pa, kind) {
-    const list = kind === "rate" ? byRate : byAmt;
+    const list  = kind === "rate" ? byRate : byAmt;
+    const topN  = kind === "rate"
+      ? (Number(pa.rateConfig?.n) || (pa.rateTop10 || []).length)
+      : (Number(pa.amtConfig?.n)  || (pa.amtTop10  || []).length);
     const bothEnabled = pa.bothEnabled && !!(pa.rateConfig && pa.amtConfig) &&
       (pa.rateTop10 || []).length > 0 && (pa.amtTop10 || []).length > 0;
 
     const { rateAsgn, amtAsgn } = computeBothAwardAssignments(byRate, byAmt, pa);
-    const asgnMap = kind === "rate" ? rateAsgn : amtAsgn;
+    const asgnMap      = kind === "rate" ? rateAsgn : amtAsgn;
+    const otherAsgnMap = kind === "rate" ? amtAsgn  : rateAsgn;
 
     const otherIcon = kind === "rate" ? "💰" : "📈";
     const otherName = kind === "rate" ? "신장액" : "신장률";
     const titleCol  = kind === "rate" ? "달성률" : "순증(원)";
 
-    const rows = list.map(st => {
-      const empNo = st.s.empNo;
-      const a = asgnMap.get(empNo) || { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 };
+    // 순위 표시 헬퍼: 불투명도 조절 버전
+    const RBMuted = (r) => `<span class="pg-rb rt" style="opacity:.38">${r}</span>`;
+    // 시상금 문자열: 현금이면 "N만원", 물품(0원)이면 "물품"
+    const prizeStr = (amt) => amt > 0 ? `${Math.round(amt / 10000)}만원` : "물품";
+
+    const rows = list.map((st, listIdx) => {
+      const empNo      = st.s.empNo;
+      const displayRank = listIdx + 1;            // 절대 위치(리스트 순서)
+      const inTopN     = displayRank <= topN;
+      const a = asgnMap.get(empNo) || { status: "none" };
       const value = kind === "rate"
         ? (st.rate != null ? st.rate.toFixed(1) : "0.0") + "%"
         : (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
       let rankCell, prizeCell, rowCls = "";
-      if (a.status === "mine") {
-        rankCell  = RB(a.effectiveRank);
-        prizeCell = `<span class="pg-bdg pg-b-g">${Math.round(a.effectiveAmt / 10000)}만원</span>`;
-      } else if (a.status === "other") {
-        rankCell  = `<span class="pg-rb" style="opacity:.3">·</span>`;
-        prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName} ${Math.round(a.otherAmt / 10000)}만원</span>`;
-        rowCls    = " pg-rank-deferred";
-      } else if (a.status === "ineligible") {
-        rankCell  = `<span class="pg-rb" style="opacity:.3">·</span>`;
-        prizeCell = `<span class="pg-bdg pg-b-no">기준미달</span>`;
-      } else {
+
+      if (!inTopN || a.status === "none") {
+        // TOP N 밖 — 순위·시상 표시 없음
         rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
         prizeCell = `<span style="color:#bbb">-</span>`;
+      } else if (a.status === "mine") {
+        rankCell  = RB(displayRank);
+        prizeCell = `<span class="pg-bdg pg-b-g">${prizeStr(a.effectiveAmt)}</span>`;
+      } else if (a.status === "other") {
+        // 이 카테고리는 제외 → 상대 카테고리 시상 표시
+        const oa       = otherAsgnMap.get(empNo);
+        const oRank    = oa?.effectiveRank || 0;
+        const oAmt     = oa?.effectiveAmt  || 0;
+        const rankSuf  = oRank > 0 ? ` ${oRank}위` : "";
+        rankCell  = RBMuted(displayRank);
+        prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName}${rankSuf} ${prizeStr(oAmt)} 시상</span>`;
+        rowCls    = " pg-rank-deferred";
+      } else if (a.status === "ineligible") {
+        // 기준미달이어도 순위(위치)는 표시
+        rankCell  = RBMuted(displayRank);
+        prizeCell = `<span class="pg-bdg pg-b-no">기준미달</span>`;
       }
+
       return `<tr class="pg-tr-click${rowCls}" data-emp="${escapeHtml(empNo)}">
         <td>${rankCell}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${value}</td><td>${prizeCell}</td>
       </tr>`;
     }).join("");
 
     const notice = bothEnabled
-      ? `<div class="pg-rank-notice">⚠️ 신장률·신장액 TOP 중복시상 없음 — 더 큰 시상 1회만 지급 (<span style="background:#dbeafe;color:#1d4ed8;padding:0 4px;border-radius:3px">${otherIcon} ${otherName} 시상</span> 표시된 인원은 해당 항목에서 시상)</div>`
+      ? `<div class="pg-rank-notice">⚠️ 신장률·신장액 TOP 중복시상 없음 — 순위 높은 시상 1회만 지급 (<span style="background:#dbeafe;color:#1d4ed8;padding:0 4px;border-radius:3px">${otherIcon} ${otherName} 시상</span> 표시된 인원은 ${otherName} 항목에서 수상)</div>`
       : "";
     return notice + `<table class="pg-tbl">
       <thead><tr><th>#</th><th>성명</th><th>지점</th><th>${titleCol}</th><th>시상</th></tr></thead>
@@ -7447,7 +7467,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
