@@ -214,28 +214,34 @@ window.DataAPI = {
     });
 
     let committed = 0;
-    const CHUNK = 50; // 작은 청크로 진행 표시를 빠르게 갱신 (기존 450 → 50)
-    const TIMEOUT_MS = 25000; // 25초 타임아웃 — 무한 대기 방지
+    const CHUNK = 50; // 작은 청크로 진행 표시를 빠르게 갱신
+    const TIMEOUT_MS = 10000; // 10초 타임아웃 — 무한 대기 방지 (짧게 해서 빠른 오류 확인)
     const commitWithTimeout = (batch) => Promise.race([
       batch.commit(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("Firestore 응답 시간 초과 (25초)")), TIMEOUT_MS))
+      new Promise((_, rej) => setTimeout(() => rej(new Error("Firestore 응답 시간 초과 (10초)")), TIMEOUT_MS))
     ]);
+    console.info(`[saveMany] 시작: ${valid.length}건, 청크=${CHUNK}`);
     for (let i = 0; i < valid.length; i += CHUNK) {
       const slice = valid.slice(i, i + CHUNK);
       const batch = writeBatch(db);
       slice.forEach(({ empNo, record }) => {
         batch.set(doc(db, "students", empNo), record, { merge: true });
       });
+      const chunkIdx = Math.floor(i / CHUNK) + 1;
+      console.info(`[saveMany] 청크 ${chunkIdx} 커밋 시도 (${i}~${i + slice.length - 1}번)`);
       try {
         await commitWithTimeout(batch);
         committed += slice.length;
+        console.info(`[saveMany] 청크 ${chunkIdx} 완료 — 누적 ${committed}건`);
       } catch (err) {
+        console.error(`[saveMany] 청크 ${chunkIdx} 오류:`, err.message || err);
         slice.forEach(({ empNo }) => {
           errors.push({ empNo, message: err.message || String(err) });
         });
       }
       if (onProgress) onProgress(committed, valid.length, errors);
     }
+    console.info(`[saveMany] 완료: committed=${committed}, errors=${errors.length}`);
     return { committed, errors };
   },
 
