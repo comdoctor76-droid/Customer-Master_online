@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.18";
+  const APP_VERSION = "1.19";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6052,7 +6052,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         }));
       }
 
-      const sampleRows = dataLines.slice(0, 3).map((l) => l.trim().split(/\t/).map((c) => c.trim()));
+      // 랜덤 3개 샘플 행 (데이터가 3개 이하면 전체, 이상이면 무작위 선택)
+      const _sampleIdxs = (() => {
+        const n = dataLines.length;
+        if (n <= 3) return Array.from({ length: n }, (_, i) => i);
+        const s = new Set();
+        while (s.size < 3) s.add(Math.floor(Math.random() * n));
+        return [...s].sort((a, b) => a - b);
+      })();
+      const sampleRows = _sampleIdxs.map((i) => dataLines[i].trim().split(/\t/).map((c) => c.trim()));
 
       // 복합 형식(21열) 여부: 팝업 전에 colDefs 기반으로 감지 (Step2 드롭다운 항목 제거 후에도 동작)
       const isCombinedFormat = colDefs.some((c) => c.field === "pgCurrent2");
@@ -6196,6 +6204,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           setMsg(msgTxt, (committed === 0 || saveErrors.length) ? "pg-msg err" : "pg-msg ok");
           setTimeout(() => { if (m) m.textContent = ""; }, 15000);
           toast(`${committed}명 실적진도현황 저장`, committed > 0 ? "success" : "error");
+          if (committed > 0) { const ta = $("#pg-progress-paste"); if (ta) ta.value = ""; }
         } catch (e) {
           console.error(e);
           setMsg("❌ 저장 실패: " + e.message, "pg-msg err");
@@ -7497,7 +7506,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9068,42 +9077,100 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const setMsg = (t, cls = "") => { if (msgEl) { msgEl.textContent = t; msgEl.className = "pg-msg" + (cls ? " " + cls : ""); } };
     if (!txt) { setMsg("❌ 붙여넣을 내용이 없습니다.", "err"); return; }
     if (!region) { setMsg("❌ 지역단이 설정되지 않았습니다.", "err"); return; }
-    const lines = txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    // skip header row if first cell doesn't look like a branch name
-    const firstCells = lines[0].split(/\t/);
-    const dataLines = (isNaN(Number(firstCells[1])) && /[가-힣]/.test(firstCells[0]) && firstCells[1] && /\D/.test(firstCells[1]))
-      ? lines.slice(1) : lines;
+
+    const lines = txt.split(/\r?\n/).filter((l) => l.trim());
+    if (!lines.length) return;
+
+    // 헤더 자동 감지
+    const firstRow = lines[0].trim().split(/\t/).map((c) => c.trim());
+    const isHeader = firstRow.some((h) => Object.prototype.hasOwnProperty.call(PG_HEADER_AUTOMAP, h));
+    let dataLines, colDefs;
+    if (isHeader) {
+      dataLines = lines.slice(1);
+      colDefs = firstRow.map((h) => ({ label: h, field: PG_HEADER_AUTOMAP[h] ?? "ignore" }));
+    } else {
+      dataLines = lines;
+      // 열 수에 따라 기본 매핑 결정 (관리자 붙여넣기와 동일 로직)
+      let effectiveCols;
+      if (stepVal === "2" && firstRow.length >= 18) {
+        effectiveCols = PG_STEP2_COMBINED_COLS;
+      } else if (firstRow.length === 10) {
+        effectiveCols = PG_STEP_UNIFIED_COLS;
+      } else if (firstRow.length === 13) {
+        effectiveCols = PG_STEP1_SHORT_COLS;
+      } else {
+        effectiveCols = PG_DEFAULT_COLS;
+      }
+      colDefs = firstRow.map((_, i) => ({
+        label: PG_FIELD_OPTIONS.find((o) => o.value === (effectiveCols[i] || "ignore"))?.label ?? `열 ${i + 1}`,
+        field: effectiveCols[i] || "ignore",
+      }));
+    }
     if (!dataLines.length) { setMsg("❌ 데이터가 없습니다.", "err"); return; }
+
+    // 랜덤 3개 샘플 행
+    const _rmSampleIdxs = (() => {
+      const n = dataLines.length;
+      if (n <= 3) return Array.from({ length: n }, (_, i) => i);
+      const s = new Set();
+      while (s.size < 3) s.add(Math.floor(Math.random() * n));
+      return [...s].sort((a, b) => a - b);
+    })();
+    const sampleRows = _rmSampleIdxs.map((i) => dataLines[i].trim().split(/\t/).map((c) => c.trim()));
+
+    // 열 매핑 확인 팝업
+    const fieldMapping = await openPgColMapModal(colDefs, sampleRows);
+    if (!fieldMapping) return;
+
     const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
+    const getCol = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? (p[i] || "") : ""; };
+    const getAmt = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? parseAmt(p[i]) : 0; };
+
     const updates = [];
     const unmatched = [];
     dataLines.forEach((line) => {
-      const cols = line.split(/\t/).map((c) => c.replace(/,/g, "").trim());
-      // columns: 지점(0) 사번(1) 성명(2) 차월(3) 기준실적(4) 현재실적(5)
-      const empNo  = (cols[1] || "").replace(/[/\\\s]/g, "");
+      const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
+      const empNo = getCol(p, "empNo").replace(/[/\\\s]/g, "");
       if (!empNo) return;
-      const st = state.students.find((s) => s.empNo === empNo && s.region === region);
+      const st = state.students.find((s) => s.empNo === empNo);
       if (!st) { unmatched.push(empNo); return; }
-      const branch    = cols[0] || st.branch || "";
-      const name      = cols[2] || st.name   || "";
-      const pgMonth   = cols[3] || st.pgMonth || "";
-      const pgBaseVal = parseAmt(cols[4]);
-      const pgCurVal  = parseAmt(cols[5]);
-      const fBase = sfx ? `pgBase${sfx}` : "pgBase";
-      const fCur  = sfx ? `pgCurrent${sfx}` : "pgCurrent";
-      updates.push({ ...st, branch, name, pgMonth, [fBase]: pgBaseVal, [fCur]: pgCurVal });
+
+      const pgBase      = getAmt(p, "pgBase");
+      const pgCurrent   = getAmt(p, "pgCurrent");
+      const pgIpumCount = getAmt(p, "pgIpumCount");
+      const pgIpumAmt   = getAmt(p, "pgIpumAmt");
+      const name        = getCol(p, "name");
+      const branch      = getCol(p, "branch");
+      const pgMonth     = getCol(p, "pgMonth");
+
+      const pgFields = {};
+      if (fieldMapping.includes("pgBase"))       pgFields[`pgBase${sfx}`]      = pgBase;
+      if (fieldMapping.includes("pgCurrent"))    pgFields[`pgCurrent${sfx}`]   = pgCurrent;
+      if (fieldMapping.includes("pgIpumCount"))  pgFields[`pgIpumCount${sfx}`] = pgIpumCount;
+      if (fieldMapping.includes("pgIpumAmt"))    pgFields[`pgIpumAmt${sfx}`]   = pgIpumAmt;
+
+      updates.push({
+        ...st,
+        ...(name   ? { name }   : {}),
+        ...(branch ? { branch } : {}),
+        ...(pgMonth ? { pgMonth } : {}),
+        ...pgFields,
+      });
     });
+
     if (!updates.length) {
       setMsg(`❌ 매칭된 교육생이 없습니다.${unmatched.length ? ` (미매칭 사번: ${unmatched.slice(0,5).join(", ")})` : ""}`, "err");
       return;
     }
+
     const btn = document.getElementById("btn-rm-paste-apply");
     if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
     try {
-      await window.DataAPI.saveMany(updates);
+      const result = await window.DataAPI.saveMany(updates);
+      const committed  = result?.committed ?? updates.length;
       const warnPart = unmatched.length ? ` (미매칭 ${unmatched.length}건 제외)` : "";
-      setMsg(`✅ ${updates.length}명 저장 완료${warnPart}`, "ok");
-      document.getElementById("rm-paste-area").value = "";
+      setMsg(`✅ ${committed}명 저장 완료${warnPart}`, "ok");
+      if (committed > 0) document.getElementById("rm-paste-area").value = "";
       setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 4000);
     } catch (e) {
       setMsg("❌ 저장 실패: " + e.message, "err");
