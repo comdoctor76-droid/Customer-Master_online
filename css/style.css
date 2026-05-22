@@ -345,6 +345,77 @@ body {
   padding: 7px 8px;
   font-size: 12px;
 }
+.side-field-full {
+  grid-column: 1 / -1;
+}
+.side-region-mgr-btn {
+  width: 100%;
+  background: #1a3a6b;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+}
+.side-region-mgr-btn:hover { background: #254e99; }
+
+/* 지역단 관리 모달 */
+.rm-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: #f5f7fb;
+  border-bottom: 1px solid #e0e5ef;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.rm-filter-label { font-size: 12px; font-weight: 700; color: var(--navy); }
+.rm-filter-sep   { color: #bbb; }
+.rm-sel          { font-size: 13px; padding: 5px 8px; }
+.rm-radio-label  { font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.rm-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #dde3ef;
+  padding: 0 20px;
+  flex-shrink: 0;
+  background: #fff;
+}
+.rm-tab {
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rm-tab:hover  { color: var(--navy); }
+.rm-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+.rm-tab-pane   { padding-top: 4px; }
+.rm-paste-desc { font-size: 12px; color: #666; margin-bottom: 8px; line-height: 1.6; }
+.rm-paste-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: monospace;
+  font-size: 12px;
+  border: 1px solid #d0d7e8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.rm-table-empty { padding: 24px; text-align: center; color: #aaa; font-size: 14px; }
+.rm-tbl th:last-child, .rm-tbl td:last-child { min-width: 130px; }
+.rm-award-intro { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.rm-award-intro p { font-size: 14px; color: #555; margin: 0; }
 
 /* 사이드바 지점별 교육생 명단 */
 .side-students h3 { margin-bottom: 10px; }

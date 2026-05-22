@@ -97,6 +97,9 @@
           <label class="side-field">&nbsp;
             <button class="side-select ghost" id="btn-reset-filter">필터 초기화</button>
           </label>
+          <label class="side-field side-field-full">
+            <button class="side-select side-region-mgr-btn" id="btn-open-region-mgr">🗂️ 지역단 관리</button>
+          </label>
         </div>
       </div>
 
@@ -559,6 +562,71 @@
       <div class="modal-foot">
         <button class="btn-primary" id="btn-er-submit">💾 저장</button>
         <button class="btn-outline" data-close>취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 지역단 관리 모달 -->
+  <div id="modal-region-mgr" class="modal" hidden style="align-items:flex-start;padding-top:40px;overflow-y:auto;">
+    <div class="modal-backdrop" id="rm-backdrop"></div>
+    <div class="modal-panel xwide" style="max-height:95vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-head">
+        <h3>🗂️ 지역단 관리 — <span id="rm-region-label">─</span></h3>
+        <button class="modal-close" id="rm-close">✕</button>
+      </div>
+      <!-- 기수 / 스텝 선택 바 -->
+      <div class="rm-filter-bar">
+        <span class="rm-filter-label">기수</span>
+        <select id="rm-cohort-sel" class="pg-input rm-sel">
+          <option value="">기수 선택</option>
+          <option value="1기">1기</option>
+          <option value="2기">2기</option>
+          <option value="3기">3기</option>
+          <option value="4기">4기</option>
+          <option value="5기">5기</option>
+          <option value="6기">6기</option>
+        </select>
+        <span class="rm-filter-sep">│</span>
+        <span class="rm-filter-label">스텝</span>
+        <label class="rm-radio-label"><input type="radio" name="rm-step" value="1" checked> Step 1</label>
+        <label class="rm-radio-label"><input type="radio" name="rm-step" value="2"> Step 2</label>
+      </div>
+      <!-- 탭 버튼 -->
+      <div class="rm-tabs">
+        <button class="rm-tab active" data-tab="paste">📋 실적진도 붙여넣기</button>
+        <button class="rm-tab" data-tab="table">✏️ 편집 테이블</button>
+        <button class="rm-tab" data-tab="award">🏆 시상안 편집</button>
+      </div>
+      <!-- 탭 내용 -->
+      <div class="modal-body rm-body" style="flex:1;overflow-y:auto;padding:16px 20px;">
+        <!-- 탭1: 붙여넣기 -->
+        <div id="rm-tab-paste" class="rm-tab-pane">
+          <div class="pg-paste-desc rm-paste-desc">지점 · 사원번호 · 성명 · 위촉차월 · 기준실적 · 현재실적 (탭 구분, 금액단위: 원)<br>사원번호 기준으로 해당 지역단의 기존 데이터를 업데이트합니다.</div>
+          <textarea id="rm-paste-area" class="rm-paste-textarea" rows="8" placeholder="엑셀에서 복사 후 붙여넣기&#10;예) 광양지점	1001234	홍길동	3	503789	480000"></textarea>
+          <div id="rm-paste-preview" class="rm-paste-preview" hidden></div>
+          <div class="pg-actions" style="margin-top:10px;">
+            <button class="btn-primary" id="btn-rm-paste-apply">📥 실적진도 저장</button>
+            <button class="btn-outline small" id="btn-rm-paste-clear">🗑 초기화</button>
+            <span id="rm-paste-msg" class="pg-msg"></span>
+          </div>
+        </div>
+        <!-- 탭2: 편집 테이블 -->
+        <div id="rm-tab-table" class="rm-tab-pane" hidden>
+          <div id="rm-table-wrap" class="pg-tbl-wrap">
+            <div class="rm-table-empty">기수와 스텝을 선택하면 교육생 목록이 표시됩니다.</div>
+          </div>
+          <div class="pg-actions" style="margin-top:12px;">
+            <button class="btn-primary" id="btn-rm-table-save">💾 저장 (Firestore)</button>
+            <span id="rm-table-save-msg" class="pg-msg"></span>
+          </div>
+        </div>
+        <!-- 탭3: 시상안 편집 -->
+        <div id="rm-tab-award" class="rm-tab-pane" hidden>
+          <div class="rm-award-intro">
+            <p>현재 지역단의 시상안을 편집합니다. 기수와 스텝을 선택한 뒤 편집 버튼을 누르세요.</p>
+            <button class="btn-primary" id="btn-rm-open-award">🏆 시상안 편집 열기</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

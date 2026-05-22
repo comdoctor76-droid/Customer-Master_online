@@ -152,7 +152,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.07";
+  const APP_VERSION = "1.08";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7405,7 +7405,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8467,6 +8467,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function init() {
     bindEvents();
+    bindRegionMgrEvents();
     initErrorReportModal();
     // 기본 view = 교육생 관리
     switchView("#students");
@@ -8786,6 +8787,237 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     w.document.write(html);
     w.document.close();
     w.addEventListener("load", () => setTimeout(() => { w.focus(); w.print(); }, 300));
+  }
+
+  // ========== 지역단 관리 모달 ==========
+
+  function openRegionMgrModal() {
+    const region = state.filter.region || "";
+    if (!region) { toast("좌측 필터에서 지역단을 먼저 선택해주세요.", "warn"); return; }
+    const modal = document.getElementById("modal-region-mgr");
+    if (!modal) return;
+    document.getElementById("rm-region-label").textContent = region;
+    // sync cohort/step from current filter
+    const cohortSel = document.getElementById("rm-cohort-sel");
+    if (cohortSel && state.filter.cohort) cohortSel.value = state.filter.cohort;
+    const stepVal = state.filter.step || "1";
+    const stepRadio = modal.querySelector(`input[name="rm-step"][value="${stepVal}"]`);
+    if (stepRadio) stepRadio.checked = true;
+    modal.hidden = false;
+    _rmRenderTable();
+  }
+
+  function _rmClose() {
+    const modal = document.getElementById("modal-region-mgr");
+    if (modal) modal.hidden = true;
+  }
+
+  function _rmGetState() {
+    const region  = (document.getElementById("rm-region-label")?.textContent || "").trim();
+    const cohort  = document.getElementById("rm-cohort-sel")?.value || "";
+    const stepVal = (document.querySelector('input[name="rm-step"]:checked') || {}).value || "1";
+    const sfx     = stepVal === "1" ? "" : stepVal;
+    return { region, cohort, stepVal, sfx };
+  }
+
+  function _rmRenderTable() {
+    const { region, cohort, sfx } = _rmGetState();
+    const wrap = document.getElementById("rm-table-wrap");
+    if (!wrap) return;
+    const rows = state.students.filter((s) =>
+      s.region === region && (!cohort || !s.cohort || s.cohort === cohort)
+    );
+    if (!rows.length) {
+      wrap.innerHTML = `<div class="rm-table-empty">해당 기수/스텝의 교육생이 없습니다.</div>`;
+      return;
+    }
+    wrap.innerHTML = `<table class="pg-tbl pg-admin-tbl rm-tbl">
+      <thead><tr>
+        <th>#</th><th>지점</th><th>성명</th>
+        <th>기준실적(원)</th><th>현재실적(원)</th>
+        <th>달성률</th><th>순증</th>
+        <th>인품건</th><th>인품실적(원)</th>
+        <th>전화번호</th>
+      </tr></thead>
+      <tbody>${rows.map((s, i) => {
+        const base  = sfx ? Number(s[`pgBase${sfx}`]    || 0) : (s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0));
+        const cur   = sfx ? Number(s[`pgCurrent${sfx}`] || 0) : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
+        const iCnt  = Number(s[`pgIpumCount${sfx}`] || s.pgIpumCount || 0);
+        const iAmt  = Number(s[`pgIpumAmt${sfx}`]   || s.pgIpumAmt  || 0);
+        const net   = cur - base;
+        const rate  = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
+        const fCur  = sfx ? `pgCurrent${sfx}` : "pgCurrent";
+        const fIcnt = sfx ? `pgIpumCount${sfx}` : "pgIpumCount";
+        const fIamt = sfx ? `pgIpumAmt${sfx}`   : "pgIpumAmt";
+        return `<tr>
+          <td>${i + 1}</td>
+          <td>${escapeHtml(s.branch || "")}</td>
+          <td><strong>${escapeHtml(s.name || "")}</strong></td>
+          <td class="r">${Nf(base)}</td>
+          <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fCur)}" data-pg-role="current" value="${cur}" min="0" step="1"></td>
+          <td class="r" data-rm-calc="rate-${escapeHtml(s.empNo)}">${rate}%</td>
+          <td class="r" data-rm-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
+          <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fIcnt)}" value="${iCnt}" min="0"></td>
+          <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fIamt)}" value="${iAmt}" min="0"></td>
+          <td><input type="text" class="pg-input rm-inp rm-phone" data-emp="${escapeHtml(s.empNo)}" data-f="phone" value="${escapeHtml(s.phone || "")}" placeholder="연락처" style="width:120px"></td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+
+    // live rate/net recalc on current input change
+    wrap.querySelectorAll('.rm-inp[data-pg-role="current"]').forEach((inp) => {
+      inp.addEventListener("input", () => {
+        const emp  = inp.dataset.emp;
+        const st   = state.students.find((x) => x.empNo === emp);
+        if (!st) return;
+        const { sfx: s2 } = _rmGetState();
+        const base = s2 ? Number(st[`pgBase${s2}`] || 0) : (st.pgBase !== undefined ? Number(st.pgBase) : Number(st.base || 0));
+        const cur  = Number(inp.value) || 0;
+        const net  = cur - base;
+        const rate = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
+        const rateEl = wrap.querySelector(`[data-rm-calc="rate-${emp}"]`);
+        const netEl  = wrap.querySelector(`[data-rm-calc="net-${emp}"]`);
+        if (rateEl) rateEl.textContent = `${rate}%`;
+        if (netEl)  netEl.textContent  = `${net >= 0 ? "+" : ""}${Nf(net)}`;
+      });
+    });
+  }
+
+  async function _rmSaveTable() {
+    const btn = document.getElementById("btn-rm-table-save");
+    const msg = document.getElementById("rm-table-save-msg");
+    const wrap = document.getElementById("rm-table-wrap");
+    if (!wrap) return;
+    const inputs = wrap.querySelectorAll(".rm-inp");
+    if (!inputs.length) return;
+    const changes = {};
+    inputs.forEach((inp) => {
+      const emp = inp.dataset.emp;
+      const f   = inp.dataset.f;
+      if (!emp || !f) return;
+      if (!changes[emp]) changes[emp] = {};
+      changes[emp][f] = f === "phone" ? inp.value.trim() : (Number(inp.value) || 0);
+    });
+    const empNos = Object.keys(changes);
+    if (!empNos.length) { msg.textContent = "변경 내용이 없습니다."; msg.className = "pg-msg"; return; }
+    if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
+    try {
+      const updates = empNos.map((emp) => {
+        const st = state.students.find((x) => x.empNo === emp);
+        if (!st) return null;
+        return { ...st, ...changes[emp] };
+      }).filter(Boolean);
+      await window.DataAPI.saveMany(updates);
+      if (msg) { msg.textContent = `✅ ${updates.length}명 저장 완료`; msg.className = "pg-msg ok"; }
+      setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
+    } catch (e) {
+      if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "💾 저장 (Firestore)"; }
+    }
+  }
+
+  async function _rmPasteApply() {
+    const { region, cohort, stepVal, sfx } = _rmGetState();
+    const txt = (document.getElementById("rm-paste-area")?.value || "").trim();
+    const msgEl = document.getElementById("rm-paste-msg");
+    const setMsg = (t, cls = "") => { if (msgEl) { msgEl.textContent = t; msgEl.className = "pg-msg" + (cls ? " " + cls : ""); } };
+    if (!txt) { setMsg("❌ 붙여넣을 내용이 없습니다.", "err"); return; }
+    if (!region) { setMsg("❌ 지역단이 설정되지 않았습니다.", "err"); return; }
+    const lines = txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    // skip header row if first cell doesn't look like a branch name
+    const firstCells = lines[0].split(/\t/);
+    const dataLines = (isNaN(Number(firstCells[1])) && /[가-힣]/.test(firstCells[0]) && firstCells[1] && /\D/.test(firstCells[1]))
+      ? lines.slice(1) : lines;
+    if (!dataLines.length) { setMsg("❌ 데이터가 없습니다.", "err"); return; }
+    const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
+    const updates = [];
+    const unmatched = [];
+    dataLines.forEach((line) => {
+      const cols = line.split(/\t/).map((c) => c.replace(/,/g, "").trim());
+      // columns: 지점(0) 사번(1) 성명(2) 차월(3) 기준실적(4) 현재실적(5)
+      const empNo  = (cols[1] || "").replace(/[/\\\s]/g, "");
+      if (!empNo) return;
+      const st = state.students.find((s) => s.empNo === empNo && s.region === region);
+      if (!st) { unmatched.push(empNo); return; }
+      const branch    = cols[0] || st.branch || "";
+      const name      = cols[2] || st.name   || "";
+      const pgMonth   = cols[3] || st.pgMonth || "";
+      const pgBaseVal = parseAmt(cols[4]);
+      const pgCurVal  = parseAmt(cols[5]);
+      const fBase = sfx ? `pgBase${sfx}` : "pgBase";
+      const fCur  = sfx ? `pgCurrent${sfx}` : "pgCurrent";
+      updates.push({ ...st, branch, name, pgMonth, [fBase]: pgBaseVal, [fCur]: pgCurVal });
+    });
+    if (!updates.length) {
+      setMsg(`❌ 매칭된 교육생이 없습니다.${unmatched.length ? ` (미매칭 사번: ${unmatched.slice(0,5).join(", ")})` : ""}`, "err");
+      return;
+    }
+    const btn = document.getElementById("btn-rm-paste-apply");
+    if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
+    try {
+      await window.DataAPI.saveMany(updates);
+      const warnPart = unmatched.length ? ` (미매칭 ${unmatched.length}건 제외)` : "";
+      setMsg(`✅ ${updates.length}명 저장 완료${warnPart}`, "ok");
+      document.getElementById("rm-paste-area").value = "";
+      setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 4000);
+    } catch (e) {
+      setMsg("❌ 저장 실패: " + e.message, "err");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "📥 실적진도 저장"; }
+    }
+  }
+
+  function bindRegionMgrEvents() {
+    document.getElementById("btn-open-region-mgr")?.addEventListener("click", openRegionMgrModal);
+    document.getElementById("rm-close")?.addEventListener("click", _rmClose);
+    document.getElementById("rm-backdrop")?.addEventListener("click", _rmClose);
+    document.getElementById("btn-rm-paste-apply")?.addEventListener("click", _rmPasteApply);
+    document.getElementById("btn-rm-paste-clear")?.addEventListener("click", () => {
+      const a = document.getElementById("rm-paste-area"); if (a) a.value = "";
+      const m = document.getElementById("rm-paste-msg"); if (m) m.textContent = "";
+    });
+    document.getElementById("btn-rm-table-save")?.addEventListener("click", _rmSaveTable);
+    document.getElementById("btn-rm-open-award")?.addEventListener("click", () => {
+      const { region, cohort, stepVal } = _rmGetState();
+      _rmClose();
+      // Pre-select selectors in award plan modal then open it
+      const cohortSel = document.getElementById("award-plan-cohort");
+      const stepSel   = document.getElementById("award-plan-step");
+      const regionSel = document.getElementById("award-plan-region");
+      if (cohortSel && cohort) cohortSel.value = cohort;
+      if (stepSel)             stepSel.value   = stepVal;
+      if (regionSel) {
+        for (let i = 0; i < regionSel.options.length; i++) {
+          if (regionSel.options[i].value === region) { regionSel.selectedIndex = i; break; }
+        }
+      }
+      openAwardPlanModal();
+    });
+    // tab switching
+    document.querySelectorAll(".rm-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".rm-tab").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        ["paste","table","award"].forEach((t) => {
+          const el = document.getElementById(`rm-tab-${t}`);
+          if (el) el.hidden = t !== tab;
+        });
+        if (tab === "table") _rmRenderTable();
+      });
+    });
+    // re-render table on cohort/step change
+    document.getElementById("rm-cohort-sel")?.addEventListener("change", () => {
+      const activeTab = document.querySelector(".rm-tab.active")?.dataset.tab;
+      if (activeTab === "table") _rmRenderTable();
+    });
+    document.querySelectorAll('input[name="rm-step"]').forEach((r) => {
+      r.addEventListener("change", () => {
+        const activeTab = document.querySelector(".rm-tab.active")?.dataset.tab;
+        if (activeTab === "table") _rmRenderTable();
+      });
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);
