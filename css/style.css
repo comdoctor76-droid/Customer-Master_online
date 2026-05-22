@@ -3225,6 +3225,31 @@ body {
 /* 시상안 편집 모달 */
 .ap-field { margin-bottom: 14px; }
 .ap-label { display: block; font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+.ap-top-group {
+  border: 2px solid #d0dff8;
+  border-radius: 10px;
+  padding: 10px 12px 4px;
+  margin-bottom: 12px;
+  background: #f6f9ff;
+}
+.ap-top-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a56a4;
+  margin-bottom: 8px;
+}
+.ap-top-group .ap-section {
+  margin-bottom: 8px;
+}
+.ap-both-nodup-row {
+  border-top: 1px dashed #b8c8e8;
+  padding: 8px 2px 6px;
+  margin-top: 2px;
+}
+.ap-nodup-label {
+  color: #c0392b !important;
+  font-size: 12px !important;
+}
 .ap-section {
   border: 1px solid #e8e8e8;
   border-radius: 8px;

@@ -34,6 +34,7 @@
       n: 10,
       payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10]
     },
+    bothNodup: false,
     groupAward1: { enabled: false, threshold: 5, payout: 5 },
     groupAward2: { enabled: false, rateThreshold: 110, payout: 15 },
     // 4. 기준조건 (eligibility)
@@ -59,6 +60,7 @@
         personalIncr:  saved.personalIncr  ?? DEFAULT_AWARD_PLAN.personalIncr,
         topAward1:     saved.topAward1     ?? DEFAULT_AWARD_PLAN.topAward1,
         topAward2:     saved.topAward2     ?? DEFAULT_AWARD_PLAN.topAward2,
+        bothNodup:     saved.bothNodup     ?? DEFAULT_AWARD_PLAN.bothNodup,
         groupAward1:   saved.groupAward1   ?? DEFAULT_AWARD_PLAN.groupAward1,
         groupAward2:   saved.groupAward2   ?? DEFAULT_AWARD_PLAN.groupAward2,
         eligibility:   saved.eligibility   ?? DEFAULT_AWARD_PLAN.eligibility,
@@ -150,7 +152,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.06";
+  const APP_VERSION = "1.07";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3984,7 +3986,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       amtTop10:  amtTop,
       rateConfig,
       amtConfig,
-      bothEnabled: !!(rateConfig && amtConfig),
+      bothEnabled: !!(rateConfig && amtConfig) && !!plan.bothNodup,
       isEligible: (student) => isEligibleForAward(student, plan)
     };
   }
@@ -4886,7 +4888,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function computeBothAwardAssignments(byRate, byAmt, pa) {
     const rateTop = pa.rateTop10 || [];
     const amtTop  = pa.amtTop10  || [];
-    const bothEnabled = !!(pa.rateConfig && pa.amtConfig) && rateTop.length > 0 && amtTop.length > 0;
+    const bothEnabled = pa.bothEnabled && !!(pa.rateConfig && pa.amtConfig) && rateTop.length > 0 && amtTop.length > 0;
 
     const amtRankMap = {};
     byAmt.forEach((st, i) => { amtRankMap[st.s.empNo] = i; });
@@ -4937,7 +4939,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function renderProgressRankFullBothAware(byRate, byAmt, pa, kind) {
     const list = kind === "rate" ? byRate : byAmt;
-    const bothEnabled = !!(pa.rateConfig && pa.amtConfig) &&
+    const bothEnabled = pa.bothEnabled && !!(pa.rateConfig && pa.amtConfig) &&
       (pa.rateTop10 || []).length > 0 && (pa.amtTop10 || []).length > 0;
 
     const { rateAsgn, amtAsgn } = computeBothAwardAssignments(byRate, byAmt, pa);
@@ -7403,7 +7405,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260521d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -7758,6 +7760,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       [{ v: "rate", t: "률(%)" }, { v: "amt", t: "금액(원)" }]);
     document.getElementById("ap-t2-n").value = plan.topAward2?.n || 10;
     _apRenderTop("t2", (plan.topAward2?.payouts?.length ? plan.topAward2.payouts : [50]));
+    // 중복시상 불가 체크박스
+    document.getElementById("ap-both-nodup").checked = !!plan.bothNodup;
     // Eligibility
     document.getElementById("ap-elig-en").checked = !!plan.eligibility?.enabled;
     _apSetToggle(document.getElementById("ap-elig-op"), plan.eligibility?.operator || "and",
@@ -7827,6 +7831,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         n: Number(document.getElementById("ap-t2-n").value) || 1,
         payouts: topPayouts("t2")
       },
+      bothNodup: document.getElementById("ap-both-nodup").checked,
       eligibility: {
         enabled: document.getElementById("ap-elig-en").checked,
         operator: document.getElementById("ap-elig-op").dataset.val,

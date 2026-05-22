@@ -629,26 +629,37 @@
           <div id="ap-pi-list" class="ap-list ap-pi-grid"></div>
         </div>
 
-        <div class="ap-section">
-          <div class="ap-sec-head">
-            <label class="ap-chk-label"><input type="checkbox" id="ap-t1-en"> <span class="ap-label-inline">신장</span></label>
-            <button type="button" class="ap-toggle-btn" id="ap-t1-type" data-val="rate">률(%)</button>
-            <span class="ap-label-inline">Top</span>
-            <input type="number" id="ap-t1-n" class="pg-input ap-n-input" min="1" max="50" value="10">
-            <button type="button" class="btn-outline small ap-add-btn" id="ap-t1-add">＋ 추가</button>
-          </div>
-          <div id="ap-t1-list" class="ap-list ap-top-grid"></div>
-        </div>
+        <div class="ap-top-group">
+          <div class="ap-top-group-label">📊 신장 시상</div>
 
-        <div class="ap-section">
-          <div class="ap-sec-head">
-            <label class="ap-chk-label"><input type="checkbox" id="ap-t2-en"> <span class="ap-label-inline">신장</span></label>
-            <button type="button" class="ap-toggle-btn" id="ap-t2-type" data-val="amt">금액(원)</button>
-            <span class="ap-label-inline">Top</span>
-            <input type="number" id="ap-t2-n" class="pg-input ap-n-input" min="1" max="50" value="10">
-            <button type="button" class="btn-outline small ap-add-btn" id="ap-t2-add">＋ 추가</button>
+          <div class="ap-section">
+            <div class="ap-sec-head">
+              <label class="ap-chk-label"><input type="checkbox" id="ap-t1-en"> <span class="ap-label-inline">신장</span></label>
+              <button type="button" class="ap-toggle-btn" id="ap-t1-type" data-val="rate">률(%)</button>
+              <span class="ap-label-inline">Top</span>
+              <input type="number" id="ap-t1-n" class="pg-input ap-n-input" min="1" max="50" value="10">
+              <button type="button" class="btn-outline small ap-add-btn" id="ap-t1-add">＋ 추가</button>
+            </div>
+            <div id="ap-t1-list" class="ap-list ap-top-grid"></div>
           </div>
-          <div id="ap-t2-list" class="ap-list ap-top-grid"></div>
+
+          <div class="ap-section">
+            <div class="ap-sec-head">
+              <label class="ap-chk-label"><input type="checkbox" id="ap-t2-en"> <span class="ap-label-inline">신장</span></label>
+              <button type="button" class="ap-toggle-btn" id="ap-t2-type" data-val="amt">금액(원)</button>
+              <span class="ap-label-inline">Top</span>
+              <input type="number" id="ap-t2-n" class="pg-input ap-n-input" min="1" max="50" value="10">
+              <button type="button" class="btn-outline small ap-add-btn" id="ap-t2-add">＋ 추가</button>
+            </div>
+            <div id="ap-t2-list" class="ap-list ap-top-grid"></div>
+          </div>
+
+          <div class="ap-both-nodup-row">
+            <label class="ap-chk-label">
+              <input type="checkbox" id="ap-both-nodup">
+              <span class="ap-label-inline ap-nodup-label">⛔ 중복시상 불가 — 두 항목 모두 해당 시 순위가 더 좋은 쪽 1회만 지급</span>
+            </label>
+          </div>
         </div>
 
         <div class="ap-section">
