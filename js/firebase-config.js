@@ -21,7 +21,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAnalytics, isSupported as isAnalyticsSupported }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 import {
+  initializeFirestore,
   getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   collectionGroup,
   doc,
@@ -36,8 +39,7 @@ import {
   writeBatch,
   increment,
   arrayUnion,
-  arrayRemove,
-  enableIndexedDbPersistence
+  arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const FIREBASE_CONFIG = {
@@ -51,16 +53,18 @@ const FIREBASE_CONFIG = {
 };
 
 const app = initializeApp(FIREBASE_CONFIG);
-const db = getFirestore(app);
-
-// 오프라인 캐시 (네트워크 끊겨도 로컬 유지 후 재접속 시 동기화)
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === "failed-precondition") {
-    console.warn("[Firebase] 여러 탭에서 열려있어 오프라인 캐시를 건너뜁니다.");
-  } else if (err.code === "unimplemented") {
-    console.warn("[Firebase] 브라우저가 IndexedDB 캐시를 지원하지 않습니다.");
-  }
-});
+// Firebase 10.x 방식: initializeFirestore 로 영구 캐시를 한 번에 설정
+// (구 enableIndexedDbPersistence 는 deprecated — writeBatch 와 충돌하여 hang 유발)
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} catch (e) {
+  // 시크릿 모드·구형 브라우저 등 persistentLocalCache 미지원 시 메모리 캐시 폴백
+  console.warn("[Firebase] persistentLocalCache 초기화 실패, 기본 설정 사용:", e.message || e.code);
+  db = getFirestore(app);
+}
 
 // Analytics (지원되는 환경에서만)
 isAnalyticsSupported().then((ok) => {
