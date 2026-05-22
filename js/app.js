@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.12";
+  const APP_VERSION = "1.13";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -216,6 +216,12 @@
     "region","center","branch","empNo","ignore","name","pgMonth",
     "pgBase","ignore","ignore","ignore","ignore","ignore",
     "pgCurrent2","ignore","ignore","ignore","ignore","pgIpumCount2","pgIpumAmt2","ignore",
+  ];
+  // 스텝1·스텝2 공통 10열 형식 — 사용자가 엑셀에서 복사하는 표준 형식
+  // 지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적·인품건수·인품실적
+  const PG_STEP_UNIFIED_COLS = [
+    "region","center","branch","empNo","ignore","name","pgMonth",
+    "pgBase","pgIpumCount","pgIpumAmt",
   ];
 
   // 상담고객 태그 선택지
@@ -5509,8 +5515,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 <label><input type="radio" name="pg-progress-paste-step" value="1" checked> Step 1</label>
                 <label><input type="radio" name="pg-progress-paste-step" value="2"> Step 2</label>
               </div>
-              <div class="pg-paste-desc">지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)</div>
-              <textarea id="pg-progress-paste" rows="6" placeholder="엑셀에서 복사 후 붙여넣기"></textarea>
+              <div class="pg-paste-desc"><strong>[Step 1 / Step 2 공통 형식]</strong> 지역단·비전센터·지점·사원번호·<span style="opacity:.5">대리점명</span>·성명·위촉차월·기준실적·인품건수·인품실적 (탭 구분, 금액단위: 원) — 스텝 선택에 따라 해당 스텝 실적에 저장</div>
+              <textarea id="pg-progress-paste" rows="7" placeholder="지역단	비전센터	지점	사원번호	대리점명	성명	위촉차월	기준실적	인품건수	인품실적
+강북지역단	성동비전센터	답십리지점	075682		이미라	335	471,834	0	0
+강북지역단	성동비전센터	답십리지점	105122		김순덕	266	326,770	0	0
+강북지역단	성동비전센터	답십리지점	1A1986		김문연	87	428,358	1	71,630"></textarea>
               <div id="pg-progress-paste-confirm" class="pg-paste-confirm" hidden>
                 <div class="pg-paste-confirm-msg" id="pg-progress-paste-confirm-msg"></div>
                 <div class="pg-paste-confirm-btns">
@@ -5833,25 +5842,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
 
-    // 스텝 라디오 변경 → 실적진도현황 붙여넣기 열 설명 텍스트 동적 교체
+    // 스텝 라디오 변경 → 설명 텍스트 업데이트 (Step1/2 공통 포맷이므로 스텝 이름만 바꿔 표시)
     const _pgDescEl = document.querySelector("#pg-paste-mode-progress .pg-paste-desc");
+    const _pgPasteTA = document.querySelector("#pg-progress-paste");
+    const _buildPasteDesc = (step) => {
+      const sfxLabel = step === "2" ? "Step 2" : "Step 1";
+      return `<strong>[${sfxLabel} 저장 중]</strong> 지역단·비전센터·지점·사원번호·<span style="opacity:.5">대리점명</span>·성명·위촉차월·기준실적·인품건수·인품실적 (탭 구분, 금액단위: 원) — 성명이 포함된 열 순서 그대로 붙여넣기`;
+    };
     if (_pgDescEl) {
-      const _step1Desc = "지역단·비전센터·지점·사원번호·성명·차월·육성리더·직전6개월인보험·직전6개월환산·직전6개월육성소득·기준실적·현재실적·달성률·순증실적·인품건수·인품실적 (탭 구분, 금액단위: 원)";
-      const _step2Desc = `<strong>[Step2 형식 · 21열]</strong>&nbsp;&nbsp;`
-        + `지역단·비전센터·지점·사번·<span style="opacity:.45">대리점명</span>·성명·위촉차월·기준실적`
-        + `·<span style="opacity:.45">──step1현재실적·달성률·순증·인품건수·인품실적(5열 무시)──</span>`
-        + `·<strong>★step2현재실적</strong>`
-        + `·<span style="opacity:.45">step2달성률·순증·step1대비달성률·step1대비순증(4열 무시)</span>`
-        + `·<strong>★step2인품건수</strong>·<strong>★step2인품실적</strong>`
-        + `·<span style="opacity:.45">시상금</span>`
-        + `<br><small style="color:#888">굵게=저장 / 흐리게=무시 · 탭 구분 · 금액단위: 원</small>`;
       root.querySelectorAll('input[name="pg-progress-paste-step"]').forEach((radio) => {
         radio.addEventListener("change", () => {
-          if (radio.value === "2") {
-            _pgDescEl.innerHTML = _step2Desc;
-          } else {
-            _pgDescEl.textContent = _step1Desc;
-          }
+          _pgDescEl.innerHTML = _buildPasteDesc(radio.value);
         });
       });
     }
@@ -6039,10 +6040,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         let effectiveCols;
         if (pasteStepVal === "2" && firstRow.length >= 18) {
           effectiveCols = PG_STEP2_COMBINED_COLS;
+        } else if (firstRow.length === 10) {
+          effectiveCols = PG_STEP_UNIFIED_COLS;   // 공통 10열 (지역단~기준실적·인품건수·인품실적)
         } else if (firstRow.length === 13) {
-          effectiveCols = PG_STEP1_SHORT_COLS;  // 대리점명 포함 13열
+          effectiveCols = PG_STEP1_SHORT_COLS;    // 대리점명 포함 13열
         } else if (firstRow.length <= 12) {
-          effectiveCols = PG_SHORT_COLS;          // 단축 12열 이하
+          effectiveCols = PG_SHORT_COLS;           // 단축 12열 이하
         } else {
           effectiveCols = PG_DEFAULT_COLS;
         }
@@ -6104,21 +6107,23 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           // 기준실적(A)은 base에도 반영 (step1 current는 건드리지 않음)
           baseUpdate = pgBase > 0 ? { base: pgBase } : {};
         } else {
-          // 기존 단일 스텝 형식
+          // 단일 스텝 형식 — 매핑에 있는 열만 저장 (없는 열은 기존 값 유지)
           const sfx = sfxOverride;
-          pgFields = {
-            [`pgBase${sfx}`]:      pgBase,
-            [`pgCurrent${sfx}`]:   pgCurrent,
-            [`pgIpumCount${sfx}`]: pgIpumCount,
-            [`pgIpumAmt${sfx}`]:   pgIpumAmt,
-          };
-          // 매핑에 포함된 열만 저장 (삭제된 열이 기존 값을 0으로 덮어쓰지 않도록)
-          if (fieldMapping.includes("pgPreIns"))    pgFields.pgPreIns    = pgPreIns;
-          if (fieldMapping.includes("pgPreConv"))   pgFields.pgPreConv   = pgPreConv;
-          if (fieldMapping.includes("pgPreIncome")) pgFields.pgPreIncome = pgPreIncome;
-          if (fieldMapping.includes("pgMonth"))     pgFields.pgMonth     = pgMonth;
-          if (fieldMapping.includes("pgLeader"))    pgFields.pgLeader    = pgLeader;
-          baseUpdate = (sfx === "" && pgBase > 0) ? { base: pgBase, current: pgCurrent } : {};
+          pgFields = {};
+          if (fieldMapping.includes("pgBase"))       pgFields[`pgBase${sfx}`]      = pgBase;
+          if (fieldMapping.includes("pgCurrent"))    pgFields[`pgCurrent${sfx}`]   = pgCurrent;
+          if (fieldMapping.includes("pgIpumCount"))  pgFields[`pgIpumCount${sfx}`] = pgIpumCount;
+          if (fieldMapping.includes("pgIpumAmt"))    pgFields[`pgIpumAmt${sfx}`]   = pgIpumAmt;
+          if (fieldMapping.includes("pgPreIns"))     pgFields.pgPreIns    = pgPreIns;
+          if (fieldMapping.includes("pgPreConv"))    pgFields.pgPreConv   = pgPreConv;
+          if (fieldMapping.includes("pgPreIncome"))  pgFields.pgPreIncome = pgPreIncome;
+          if (fieldMapping.includes("pgMonth"))      pgFields.pgMonth     = pgMonth;
+          if (fieldMapping.includes("pgLeader"))     pgFields.pgLeader    = pgLeader;
+          // pgCurrent 매핑 없는 포맷(10열 공통)은 현재실적 건드리지 않음
+          const hasCurrent = fieldMapping.includes("pgCurrent");
+          baseUpdate = (sfx === "" && pgBase > 0)
+            ? { base: pgBase, ...(hasCurrent ? { current: pgCurrent } : {}) }
+            : {};
         }
 
         if (existing) {
@@ -7467,7 +7472,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
