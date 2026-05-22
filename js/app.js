@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.10";
+  const APP_VERSION = "1.11";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4892,12 +4892,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function computeBothAwardAssignments(byRate, byAmt, pa) {
     const rateTop = pa.rateTop10 || [];
     const amtTop  = pa.amtTop10  || [];
-    const bothEnabled = pa.bothEnabled && !!(pa.rateConfig && pa.amtConfig) && rateTop.length > 0 && amtTop.length > 0;
+    const rateN   = Number(pa.rateConfig?.n) || rateTop.length;
+    const amtN    = Number(pa.amtConfig?.n)  || amtTop.length;
+    const bothEnabled = pa.bothEnabled && !!(pa.rateConfig && pa.amtConfig) && rateN > 0 && amtN > 0;
 
     const amtRankMap = {};
     byAmt.forEach((st, i) => { amtRankMap[st.s.empNo] = i; });
 
-    // Pass 1: rate prizes (compare against raw amt prize at same position)
+    // Pass 1: rate prizes
+    // 물품(item) 시상은 calcRankAward=0 → 현금 비교 불가 → 순위(rank)로 비교
     let rSlot = 0;
     const rateAsgn = new Map();
     for (const st of byRate) {
@@ -4906,19 +4909,38 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         rateAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
         continue;
       }
-      const rawAmt = (bothEnabled && amtRankMap[empNo] !== undefined)
-        ? (amtTop[amtRankMap[empNo]] || 0) : 0;
-      const potentialRate = rSlot < rateTop.length ? (rateTop[rSlot] || 0) : 0;
-      if (potentialRate > 0 && rawAmt > potentialRate) {
-        rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: rawAmt });
-      } else if (potentialRate > 0) {
-        rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: potentialRate, otherAmt: rawAmt });
+      const inRateRange = rSlot < rateN;
+      if (!inRateRange) { rateAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 }); continue; }
+
+      const rateCash   = rateTop[rSlot] || 0;
+      const amtRankIdx = amtRankMap[empNo] !== undefined ? amtRankMap[empNo] : Infinity;
+      const inAmtRange = bothEnabled && amtRankIdx < amtN;
+      const amtCash    = inAmtRange ? (amtTop[amtRankIdx] || 0) : 0;
+
+      if (!bothEnabled || !inAmtRange) {
+        // 충돌 없음 → rate 획득
+        rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: rateCash, otherAmt: amtCash });
+      } else if (rateCash > 0 || amtCash > 0) {
+        // 현금 비교: 더 큰 시상 쪽으로 (동점은 rate 우선)
+        if (amtCash > rateCash) {
+          rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: amtCash });
+        } else {
+          rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: rateCash, otherAmt: amtCash });
+        }
       } else {
-        rateAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: rawAmt });
+        // 둘 다 물품(0원): 순위 비교 — 더 좋은 순위 쪽으로 (동점은 rate 우선)
+        if (amtRankIdx < rSlot) {
+          // amt 순위가 더 좋음 → amt 쪽으로
+          rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
+        } else {
+          // rate 순위가 같거나 더 좋음 → rate 획득
+          rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: 0, otherAmt: 0 });
+        }
       }
     }
 
-    // Pass 2: amt prizes (compare against EFFECTIVE rate prize from pass 1; rate wins ties)
+    // Pass 2: amt prizes
+    // rate에서 이미 "mine"을 받은 사람은 amt에서 "other"로 처리 (물품 포함)
     let aSlot = 0;
     const amtAsgn = new Map();
     for (const st of byAmt) {
@@ -4927,14 +4949,30 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         amtAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
         continue;
       }
-      const effectiveRateAmt = bothEnabled ? (rateAsgn.get(empNo)?.effectiveAmt || 0) : 0;
-      const potentialAmt = aSlot < amtTop.length ? (amtTop[aSlot] || 0) : 0;
-      if (potentialAmt > 0 && effectiveRateAmt >= potentialAmt) {
-        amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateAmt });
-      } else if (potentialAmt > 0) {
-        amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: potentialAmt, otherAmt: effectiveRateAmt });
+      const inAmtRange = aSlot < amtN;
+      if (!inAmtRange) { amtAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 }); continue; }
+
+      const amtCash         = amtTop[aSlot] || 0;
+      const rateResult      = rateAsgn.get(empNo);
+      const effectiveRateCash = bothEnabled ? (rateResult?.effectiveAmt || 0) : 0;
+      const rateAlreadyMine   = bothEnabled && rateResult?.status === "mine";
+
+      if (!bothEnabled) {
+        amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: 0 });
+      } else if (amtCash > 0 || effectiveRateCash > 0) {
+        // 현금 비교: rate 시상이 amt보다 크거나 같으면 → amt = other
+        if (effectiveRateCash >= amtCash && rateAlreadyMine) {
+          amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateCash });
+        } else {
+          amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
+        }
       } else {
-        amtAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateAmt });
+        // 둘 다 물품: rate에서 이미 획득했으면 → amt = other
+        if (rateAlreadyMine) {
+          amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
+        } else {
+          amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: 0, otherAmt: 0 });
+        }
       }
     }
 
@@ -7409,7 +7447,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
