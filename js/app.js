@@ -55,12 +55,16 @@
       const saved = stored[region];
       if (!saved) return JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN));
       // 새 구조 + 기본값 병합 (필드 누락 안전)
+      // 기존 플랜에 bothNodup이 없으면: 신장률·신장액 둘 다 활성화된 경우 자동으로 true 마이그레이션
+      const _autoNodup = saved.bothNodup == null
+        ? !!(saved.topAward1?.enabled && saved.topAward2?.enabled)
+        : saved.bothNodup;
       return {
         title:         saved.title         ?? DEFAULT_AWARD_PLAN.title,
         personalIncr:  saved.personalIncr  ?? DEFAULT_AWARD_PLAN.personalIncr,
         topAward1:     saved.topAward1     ?? DEFAULT_AWARD_PLAN.topAward1,
         topAward2:     saved.topAward2     ?? DEFAULT_AWARD_PLAN.topAward2,
-        bothNodup:     saved.bothNodup     ?? DEFAULT_AWARD_PLAN.bothNodup,
+        bothNodup:     _autoNodup,
         groupAward1:   saved.groupAward1   ?? DEFAULT_AWARD_PLAN.groupAward1,
         groupAward2:   saved.groupAward2   ?? DEFAULT_AWARD_PLAN.groupAward2,
         eligibility:   saved.eligibility   ?? DEFAULT_AWARD_PLAN.eligibility,
@@ -152,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.09";
+  const APP_VERSION = "1.10";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7405,7 +7409,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
