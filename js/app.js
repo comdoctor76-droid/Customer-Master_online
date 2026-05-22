@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.13";
+  const APP_VERSION = "1.14";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -174,9 +174,6 @@
     { value: "pgCurrent",   label: "현재실적" },
     { value: "pgIpumCount",  label: "인품건수" },
     { value: "pgIpumAmt",   label: "인품실적" },
-    { value: "pgCurrent2",  label: "Step2현재실적" },
-    { value: "pgIpumCount2",label: "Step2인품건수" },
-    { value: "pgIpumAmt2",  label: "Step2인품실적" },
     { value: "ignore",      label: "— 무시 (저장 안 함) —" },
   ];
   // 헤더 텍스트 → 필드 자동 매핑
@@ -188,7 +185,7 @@
     "기준실적": "pgBase", "현재실적": "pgCurrent",
     "달성률": "ignore", "달성율": "ignore", "순증실적": "ignore", "순증": "ignore",
     "대리점명": "ignore",
-    "인품건수": "pgIpumCount", "인품실적": "pgIpumAmt",
+    "인품건수": "pgIpumCount", "인붐건수": "pgIpumCount", "인품실적": "pgIpumAmt",
     "위촉차월": "pgMonth",
     "Step1현재실적": "pgCurrent",  "Step2현재실적": "pgCurrent2",
     "Step1인품건수": "pgIpumCount", "Step2인품건수": "pgIpumCount2",
@@ -6057,17 +6054,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       const sampleRows = dataLines.slice(0, 3).map((l) => l.trim().split(/\t/).map((c) => c.trim()));
 
+      // 복합 형식(21열) 여부: 팝업 전에 colDefs 기반으로 감지 (Step2 드롭다운 항목 제거 후에도 동작)
+      const isCombinedFormat = colDefs.some((c) => c.field === "pgCurrent2");
+      // 원본 열 순서 — 복합 형식에서 Step2 필드를 위치로 추출할 때 사용
+      const origFM  = colDefs.map((c) => c.field);
+      const parseAmt  = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
+      const getOrigAmt = (p, f) => { const i = origFM.indexOf(f); return i >= 0 ? parseAmt(p[i]) : 0; };
+
       // ── 열 매핑 확인 팝업 ─────────────────────────────────────────
       const fieldMapping = await openPgColMapModal(colDefs, sampleRows);
       if (!fieldMapping) return;
 
       // 데이터 파싱 (열 이름 기준)
-      const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
       const getCol = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? (p[i] || "") : ""; };
       const getAmt = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? parseAmt(p[i]) : 0; };
-
-      // step1·step2 실적이 모두 포함된 복합 형식 여부 (pgCurrent2 열이 매핑에 존재)
-      const isCombinedFormat = fieldMapping.includes("pgCurrent2");
 
       const updateRecords = [];
       const newRecords    = [];
@@ -6095,12 +6095,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         let pgFields, baseUpdate;
         if (isCombinedFormat) {
-          // Step2 복합 형식: step2 실적만 저장 (step1 데이터는 무시)
+          // Step2 복합 형식: 원본 열 위치로 step2 필드 추출 (드롭다운에 Step2 항목 없으므로)
           pgFields = {
-            pgBase2:      pgBase,                       // 기준실적(A) → step2 기준
-            pgCurrent2:   getAmt(p, "pgCurrent2"),      // step2현재실적 → pgCurrent2
-            pgIpumCount2: getAmt(p, "pgIpumCount2"),    // step2인품건수 → pgIpumCount2
-            pgIpumAmt2:   getAmt(p, "pgIpumAmt2"),      // step2인품실적 → pgIpumAmt2
+            pgBase2:      pgBase,                          // 기준실적(A) → step2 기준
+            pgCurrent2:   getOrigAmt(p, "pgCurrent2"),     // 원본 위치 기준 추출
+            pgIpumCount2: getOrigAmt(p, "pgIpumCount2"),
+            pgIpumAmt2:   getOrigAmt(p, "pgIpumAmt2"),
           };
           if (fieldMapping.includes("pgMonth"))  pgFields.pgMonth  = pgMonth;
           if (fieldMapping.includes("pgLeader")) pgFields.pgLeader = pgLeader;
@@ -7472,7 +7472,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
