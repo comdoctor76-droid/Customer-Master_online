@@ -152,7 +152,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.08";
+  const APP_VERSION = "1.09";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7405,7 +7405,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8468,6 +8468,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function init() {
     bindEvents();
     bindRegionMgrEvents();
+    initDraggableModals();
     initErrorReportModal();
     // 기본 view = 교육생 관리
     switchView("#students");
@@ -8787,6 +8788,57 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     w.document.write(html);
     w.document.close();
     w.addEventListener("load", () => setTimeout(() => { w.focus(); w.print(); }, 300));
+  }
+
+  // ========== 모달 드래그 이동 (전역, 이벤트 위임) ==========
+
+  function initDraggableModals() {
+    let dragging = false, dragPanel = null, dragHead = null, ox = 0, oy = 0;
+
+    document.addEventListener("mousedown", (e) => {
+      const head = e.target.closest(".modal-head");
+      if (!head || e.target.closest("button,a,select,input,textarea")) return;
+      const panel = head.closest(".modal-panel");
+      if (!panel) return;
+      e.preventDefault();
+      const r = panel.getBoundingClientRect();
+      panel.style.position = "fixed";
+      panel.style.margin   = "0";
+      panel.style.left     = r.left + "px";
+      panel.style.top      = r.top  + "px";
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      dragging = true;
+      dragPanel = panel;
+      dragHead  = head;
+      head.style.cursor = "grabbing";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging || !dragPanel) return;
+      const x = Math.max(0, Math.min(e.clientX - ox, window.innerWidth  - dragPanel.offsetWidth));
+      const y = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - dragPanel.offsetHeight));
+      dragPanel.style.left = x + "px";
+      dragPanel.style.top  = y + "px";
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      if (dragHead) { dragHead.style.cursor = ""; dragHead = null; }
+      dragPanel = null;
+    });
+
+    // 정적 모달이 재오픈될 때 위치 초기화 (MutationObserver)
+    new MutationObserver((muts) => {
+      muts.forEach((m) => {
+        if (m.attributeName !== "hidden") return;
+        const modal = m.target;
+        if (!modal.hidden || !modal.classList?.contains("modal")) return;
+        const panel = modal.querySelector(".modal-panel");
+        if (panel) { panel.style.position = ""; panel.style.margin = ""; panel.style.left = ""; panel.style.top = ""; }
+      });
+    }).observe(document.body, { attributes: true, attributeFilter: ["hidden"], subtree: true });
   }
 
   // ========== 지역단 관리 모달 ==========
