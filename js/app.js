@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.30";
+  const APP_VERSION = "1.31";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5559,7 +5559,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="pg-info-card">
             <h5>📘 ${escapeHtml(state.progressRegion)} 기수별 인원</h5>
             <dl>
-              ${_cohortEntries.map(([c, n]) => `<dt>${escapeHtml(c)}</dt><dd><strong>${n}명</strong></dd>`).join("")}
+              ${_cohortEntries.map(([c, n]) => {
+                const isSpecial = c === "(기수 미지정)";
+                const origCohort = isSpecial ? "" : c.replace(/기$/, "");
+                const delBtn = isSpecial ? "" : `<button type="button" class="btn-cohort-del" data-cohort="${escapeHtml(origCohort)}" data-scope="region" title="${escapeHtml(c)} ${n}명 삭제">🗑️</button>`;
+                return `<dt>${escapeHtml(c)}</dt><dd><strong>${n}명</strong>${delBtn}</dd>`;
+              }).join("")}
               <dt class="pg-dt-total">합계</dt><dd class="pg-dt-total"><strong>${total}명</strong></dd>
               <dt>기준일</dt><dd>${baseDate}</dd>
             </dl>
@@ -5574,7 +5579,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <h5>📊 전체 현황 (${_allTotal}명)</h5>
             <dl>
               <dt>지역단 수</dt><dd><strong>${_rgnCount}개</strong></dd>
-              ${_cohortAllEntries.map(([c, n]) => `<dt>${escapeHtml(c)}</dt><dd>${n}명</dd>`).join("")}
+              ${_cohortAllEntries.map(([c, n]) => {
+                const isSpecial = c === "(미지정)";
+                const origCohort = isSpecial ? "" : c.replace(/기$/, "");
+                const delBtn = isSpecial ? "" : `<button type="button" class="btn-cohort-del" data-cohort="${escapeHtml(origCohort)}" data-scope="all" title="전체: ${escapeHtml(c)} ${n}명 삭제">🗑️</button>`;
+                return `<dt>${escapeHtml(c)}</dt><dd>${n}명${delBtn}</dd>`;
+              }).join("")}
             </dl>
           </div>
         </div>
@@ -6546,6 +6556,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         toast("저장 실패: " + e.message, "error");
       }
       teamSaveBtn.disabled = false;
+    });
+
+    // ── 기수 삭제 버튼 ────────────────────────────────────────────
+    root.querySelectorAll(".btn-cohort-del").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const cohort = btn.dataset.cohort;
+        const scope  = btn.dataset.scope;
+        const toDelete = scope === "region"
+          ? state.students.filter((s) => s.region === state.progressRegion && (s.cohort || "") === cohort)
+          : state.students.filter((s) => (s.cohort || "") === cohort);
+        if (!toDelete.length) { toast("해당 기수 교육생이 없습니다.", "error"); return; }
+        const scopeLabel = scope === "region" ? `${state.progressRegion} ` : "전체 ";
+        const deleted = await confirmAndDeleteStudents(toDelete, { label: `기수 "${cohort}기" ${scopeLabel}` });
+        if (deleted) renderProgressPanel();
+      });
     });
   }
 
@@ -7631,7 +7657,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

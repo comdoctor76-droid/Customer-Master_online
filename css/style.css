@@ -468,6 +468,9 @@ body {
 .pg-goal-adj-btns button[data-amt^="-"]:hover { background: #fee2e2; }
 .pg-goal-adj-btns button:not([data-amt^="-"]):hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
 
+.btn-cohort-del { display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; padding: 1px 5px; font-size: 12px; background: none; border: 1px solid transparent; border-radius: 4px; color: #9ca3af; cursor: pointer; vertical-align: middle; opacity: 0.6; transition: opacity .15s, background .15s, color .15s; }
+.btn-cohort-del:hover { background: #fee2e2; border-color: #fca5a5; color: #b42318; opacity: 1; }
+
 /* 편집 테이블 상단 툴바 */
 .rm-table-toolbar {
   display: flex;
