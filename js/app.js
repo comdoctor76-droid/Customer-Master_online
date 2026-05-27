@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.28";
+  const APP_VERSION = "1.29";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7626,7 +7626,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8659,6 +8659,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       state.students = list || [];
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
+      updateDataTimestamp();
       renderDebounced();
       if (list && list.length > 0) toast(`${list.length}건 동기화 완료`, "success");
       prefetchConsultCountsOnce();
@@ -8713,6 +8714,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       state.studentsLoaded = true;
       state.syncMeta = meta || { fromCache: false };
       migrateStudentBaseValuesIfNeeded();
+      updateDataTimestamp();
       renderDebounced();
       prefetchConsultCountsOnce();
     });
@@ -8720,6 +8722,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   // 구 단위 마이그레이션 — 원 단위 저장으로 전환됨에 따라 비활성화
   async function migrateStudentBaseValuesIfNeeded() { /* no-op: v0.92+ stores all values in 원 */ }
+
+  function updateDataTimestamp() {
+    const el = document.getElementById("data-last-updated");
+    if (!el) return;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    el.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  }
 
   // 최초 1회만 전체 면담 횟수 사전 수집 → state.students 에 consultCount merge → 사이드바 재렌더
   async function prefetchConsultCountsOnce() {
