@@ -452,6 +452,7 @@ body {
   margin-bottom: 8px;
   font-weight: 500;
 }
+.pg-goal-adj-base-lbl { color: #1d4ed8; font-weight: 700; }
 .pg-goal-adj-btns { display: flex; flex-wrap: wrap; gap: 5px; }
 .pg-goal-adj-btns button {
   background: #f2f4f7;

@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.32";
+  const APP_VERSION = "1.33";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4563,7 +4563,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const rateDisp     = masterGoal > 0 ? masterRate.toFixed(1) + "%"    : "—";
               const baseRateDisp = st.base > 0    ? baseRate.toFixed(1) + "%"      : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -5122,7 +5122,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       adjPopup.id = "pg-goal-adj-popup";
       adjPopup.className = "pg-goal-adj-popup";
       adjPopup.hidden = true;
-      adjPopup.innerHTML = `<div class="pg-goal-adj-label">마스터목표 조정</div><div class="pg-goal-adj-btns"><button type="button" data-amt="-500000">-50만</button><button type="button" data-amt="-400000">-40만</button><button type="button" data-amt="-300000">-30만</button><button type="button" data-amt="-200000">-20만</button><button type="button" data-amt="-100000">-10만</button><button type="button" data-amt="-50000">-5만</button><button type="button" data-amt="50000">+5만</button><button type="button" data-amt="100000">+10만</button><button type="button" data-amt="200000">+20만</button><button type="button" data-amt="300000">+30만</button><button type="button" data-amt="400000">+40만</button><button type="button" data-amt="500000">+50만</button></div>`;
+      adjPopup.innerHTML = `<div class="pg-goal-adj-label">기준실적 기준 마스터목표 설정<span class="pg-goal-adj-base-lbl" id="pg-goal-adj-base-lbl"></span></div><div class="pg-goal-adj-btns"><button type="button" data-amt="-500000">-50만</button><button type="button" data-amt="-400000">-40만</button><button type="button" data-amt="-300000">-30만</button><button type="button" data-amt="-200000">-20만</button><button type="button" data-amt="-100000">-10만</button><button type="button" data-amt="-50000">-5만</button><button type="button" data-amt="50000">+5만</button><button type="button" data-amt="100000">+10만</button><button type="button" data-amt="200000">+20만</button><button type="button" data-amt="300000">+30만</button><button type="button" data-amt="400000">+40만</button><button type="button" data-amt="500000">+50만</button></div>`;
       document.body.appendChild(adjPopup);
       document.addEventListener("click", (e) => {
         if (!adjPopup.hidden && !adjPopup.contains(e.target) && !e.target.classList.contains("pg-goal-adj-btn")) {
@@ -5133,7 +5133,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const amtBtn = e.target.closest("button[data-amt]");
         if (!amtBtn || !adjPopup._emp) return;
         const amt = Number(amtBtn.dataset.amt);
-        const newGoal = Math.max(0, (adjPopup._currentGoal || 0) + amt);
+        const newGoal = Math.max(0, (adjPopup._base || 0) + amt);
         const emp = adjPopup._emp;
         if (!state._pgTblPendingGoals) state._pgTblPendingGoals = new Map();
         state._pgTblPendingGoals.set(emp, { newGoal });
@@ -5172,11 +5172,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const emp = btn.dataset.emp;
-        const currentGoal = state._pgTblPendingGoals && state._pgTblPendingGoals.has(emp)
-          ? state._pgTblPendingGoals.get(emp).newGoal
-          : Number(btn.dataset.goal);
-        adjPopup._currentGoal = currentGoal;
+        const base = Number(btn.dataset.base) || 0;
+        adjPopup._base = base;
         adjPopup._emp = emp;
+        const baseLbl = adjPopup.querySelector(".pg-goal-adj-base-lbl");
+        if (baseLbl) baseLbl.textContent = `  — 기준실적 ${Nf(base)}원`;
         const rect = btn.getBoundingClientRect();
         adjPopup.hidden = false;
         const popupW = 330;
@@ -7813,7 +7813,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
