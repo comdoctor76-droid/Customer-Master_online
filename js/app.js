@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.25";
+  const APP_VERSION = "1.26";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -775,7 +775,7 @@
         </div>
         <div class="sib-stats">
           <div><span>평균실적</span><strong>${fmt(Number(s.base))}</strong></div>
-          <div><span>마스터목표</span><strong>${fmt(Number(s.pgBase) > 0 ? Number(s.pgBase) : s.region !== "호남지역단" && !Number(s.target) ? Number(s.base || 0) + 50000 : Number(s.target))}</strong></div>
+          <div><span>마스터목표</span><strong>${Number(s.target) > 0 ? fmt(Number(s.target)) : "<span style='color:#aaa'>미설정</span>"}</strong></div>
           <div><span>아너스목표</span><strong>${fmt(Number(s.honors))}</strong></div>
         </div>
         <div class="sib-actions">
@@ -5106,7 +5106,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const rateC = st.rate >= 120 ? "#0040b0" : st.rate >= 100 ? "#006030" : st.rate >= 80 ? "#884400" : "#880000";
     const netC  = st.net > 0 ? "#0040b0" : st.net < 0 ? "#880000" : "#333";
     const initial = (s.name || "?").trim().charAt(0) || "?";
-    const targetDisp = Number(s.pgBase) > 0 ? Number(s.pgBase) : (Number(s.target) || (s.region !== "호남지역단" && st.base > 0 ? st.base + 50000 : 0));
+    const targetDisp = Number(s.target) > 0 ? Number(s.target) : 0;
     function row(label, val) {
       return `<div class="pg-si-row"><span class="pg-si-label">${label}</span><span class="pg-si-val">${val || "—"}</span></div>`;
     }
@@ -7522,7 +7522,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
