@@ -1255,20 +1255,32 @@ body {
   margin: 10px 0 12px;
 }
 .bulk-toolbar .form-hint { margin: 0; }
-.bulk-header {
-  background: var(--orange-light);
-  color: var(--orange-dark);
-  padding: 8px 12px;
+.bulk-example {
+  background: #f5f7fa;
+  border: 1px solid #e0e4ed;
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  line-height: 1.7;
-}
-.bulk-header-note {
-  font-weight: 400;
+  padding: 8px 12px;
   font-size: 11px;
-  color: #777;
+  margin-bottom: 8px;
+  color: #555;
+}
+.bulk-example strong { color: var(--navy); font-size: 11px; }
+.bulk-example code {
+  display: block;
+  margin: 4px 0 3px;
+  color: #1d4ed8;
+  font-family: monospace;
+  font-size: 11px;
+  white-space: pre;
+  overflow-x: auto;
+}
+.bulk-example-row {
+  display: block;
+  font-family: monospace;
+  font-size: 11px;
+  color: #555;
+  white-space: pre;
+  overflow-x: auto;
 }
 .bulk-preview-btn {
   display: block;
@@ -1400,6 +1412,13 @@ body {
 }
 .bulk-warn-center { color: #e65100; font-size: 11px; font-weight: 700; }
 .bulk-row-err td { background: #fff3e0; color: #bf360c; }
+.bulk-editable-row.bulk-row-deleted { display: none; }
+.bulk-inp { width: 100%; padding: 3px 5px; border: 1px solid #dde; border-radius: 3px; font-size: 11px; background: #fafafa; box-sizing: border-box; }
+.bulk-inp:focus { outline: none; border-color: #7b9fe8; background: #fff; }
+.bulk-inp.r { text-align: right; }
+.bulk-del-row-btn { background: none; border: none; cursor: pointer; font-size: 13px; opacity: .45; padding: 2px 4px; line-height: 1; border-radius: 3px; }
+.bulk-del-row-btn:hover { opacity: 1; background: #fee2e2; }
+.bulk-preview-box { width: min(98vw, 1360px); }
 .bulk-preview-foot {
   display: flex;
   gap: 10px;
