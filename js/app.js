@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.24";
+  const APP_VERSION = "1.25";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4533,15 +4533,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:80px">사번</th><th>지점</th><th class="r">기준실적</th><th class="r">현재실적</th><th style="width:64px">달성률</th><th class="r">순증</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:80px">사번</th><th>지점</th><th class="r">기준실적</th><th class="r">현재실적</th><th class="r" style="width:90px">마스터목표</th><th style="width:64px">달성률</th><th class="r">순증</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
-              const nc = st.rate >= 120 ? "pg-c-over" : st.rate >= 100 ? "pg-c-good" : st.rate >= 80 ? "pg-c-mid" : "pg-c-low";
-              const netC = st.net > 0 ? "pg-net-p" : st.net < 0 ? "pg-net-m" : "";
-              const aw = tierLabel(st.net);
+              const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
+              const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
+              const masterNet  = st.current - masterGoal;
+              const nc = masterRate >= 120 ? "pg-c-over" : masterRate >= 100 ? "pg-c-good" : masterRate >= 80 ? "pg-c-mid" : "pg-c-low";
+              const netC = masterNet > 0 ? "pg-net-p" : masterNet < 0 ? "pg-net-m" : "";
+              const aw = tierLabel(masterNet);
               const baseDisp = st.base > 0 ? Nf(st.base) : "—";
-              const rateDisp = st.base > 0 ? st.rate.toFixed(1) + "%" : "—";
+              const goalDisp = masterGoal > 0 ? Nf(masterGoal) : "—";
+              const rateDisp = masterGoal > 0 ? masterRate.toFixed(1) + "%" : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${st.net >= 0 ? "+" : ""}${Nf(st.net)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell">${goalDisp}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -7518,7 +7522,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8999,7 +9003,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     wrap.innerHTML = `<table class="pg-tbl pg-admin-tbl rm-tbl">
       <thead><tr>
         <th>#</th><th>지점</th><th>성명</th>
-        <th>현재실적(원)</th><th>마스터목표(원)</th>
+        <th>기준실적(원)</th><th>현재실적(원)</th><th>마스터목표(원)</th>
         <th>달성률</th><th>순증</th>
         <th>인품건</th><th>인품실적(원)</th>
         <th>전화번호</th>
@@ -9007,11 +9011,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       <tbody>${rows.map((s, i) => {
         const base  = sfx ? Number(s[`pgBase${sfx}`]    || 0) : (s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0));
         const cur   = sfx ? Number(s[`pgCurrent${sfx}`] || 0) : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
+        const goal  = Number(s.target) > 0 ? Number(s.target) : base;
         const iCnt  = Number(s[`pgIpumCount${sfx}`] || s.pgIpumCount || 0);
         const iAmt  = Number(s[`pgIpumAmt${sfx}`]   || s.pgIpumAmt  || 0);
-        const net   = cur - base;
-        const rate  = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
-        const fBase = sfx ? `pgBase${sfx}` : "pgBase";
+        const net   = cur - goal;
+        const rate  = goal > 0 ? (cur / goal * 100).toFixed(1) : "0.0";
         const fCur  = sfx ? `pgCurrent${sfx}` : "pgCurrent";
         const fIcnt = sfx ? `pgIpumCount${sfx}` : "pgIpumCount";
         const fIamt = sfx ? `pgIpumAmt${sfx}`   : "pgIpumAmt";
@@ -9019,8 +9023,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <td>${i + 1}</td>
           <td>${escapeHtml(s.branch || "")}</td>
           <td><strong>${escapeHtml(s.name || "")}</strong></td>
+          <td class="r pg-base-ref">${base > 0 ? Nf(base) : "—"}</td>
           <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fCur)}" data-pg-role="current" value="${cur}" min="0" step="1"></td>
-          <td><input type="number" class="pg-input rm-inp rm-base-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fBase)}" data-pg-role="base" value="${base}" min="0" step="1"></td>
+          <td><input type="number" class="pg-input rm-inp rm-base-inp" data-emp="${escapeHtml(s.empNo)}" data-f="target" data-pg-role="goal" data-pgbase="${base}" value="${goal}" min="0" step="1"></td>
           <td class="r" data-rm-calc="rate-${escapeHtml(s.empNo)}">${rate}%</td>
           <td class="r" data-rm-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
           <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fIcnt)}" value="${iCnt}" min="0"></td>
@@ -9033,22 +9038,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 행 재계산: 현재실적·마스터목표 입력값 기반으로 달성률·순증 업데이트
     function _rmRecalcRow(emp) {
       const curInp  = wrap.querySelector(`.rm-inp[data-pg-role="current"][data-emp="${emp}"]`);
-      const baseInp = wrap.querySelector(`.rm-inp[data-pg-role="base"][data-emp="${emp}"]`);
+      const goalInp = wrap.querySelector(`.rm-inp[data-pg-role="goal"][data-emp="${emp}"]`);
       const cur  = Number(curInp?.value)  || 0;
-      const base = Number(baseInp?.value) || 0;
-      const net  = cur - base;
-      const rate = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
+      const goal = Number(goalInp?.value) || 0;
+      const net  = cur - goal;
+      const rate = goal > 0 ? (cur / goal * 100).toFixed(1) : "0.0";
       const rateEl = wrap.querySelector(`[data-rm-calc="rate-${emp}"]`);
       const netEl  = wrap.querySelector(`[data-rm-calc="net-${emp}"]`);
       if (rateEl) rateEl.textContent = `${rate}%`;
       if (netEl)  netEl.textContent  = `${net >= 0 ? "+" : ""}${Nf(net)}`;
     }
 
-    wrap.querySelectorAll('.rm-inp[data-pg-role="current"], .rm-inp[data-pg-role="base"]').forEach((inp) => {
+    wrap.querySelectorAll('.rm-inp[data-pg-role="current"], .rm-inp[data-pg-role="goal"]').forEach((inp) => {
       inp.addEventListener("input", () => _rmRecalcRow(inp.dataset.emp));
     });
 
-    // 목표일괄수정 팝업 버튼
+    // 목표일괄수정: 기준실적(pgBase) + 선택금액 → 마스터목표(target)
     const bulkBtn = document.getElementById("btn-rm-bulk-base");
     const bulkPop = document.getElementById("rm-bulk-popup");
     if (bulkBtn && bulkPop) {
@@ -9056,16 +9061,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       bulkPop.querySelectorAll(".btn-bulk-amt").forEach((b) => {
         b.onclick = () => {
           const amt = Number(b.dataset.amt) || 0;
-          wrap.querySelectorAll('.rm-inp[data-pg-role="base"]').forEach((inp) => {
-            inp.value = (Number(inp.value) || 0) + amt;
+          wrap.querySelectorAll('.rm-inp[data-pg-role="goal"]').forEach((inp) => {
+            const pgBase = Number(inp.dataset.pgbase) || 0;
+            inp.value = pgBase + amt;
             _rmRecalcRow(inp.dataset.emp);
           });
           bulkPop.hidden = true;
           const msg = document.getElementById("rm-table-save-msg");
-          if (msg) { msg.textContent = `마스터목표 +${Nf(amt)}원 적용 — 저장 버튼으로 확정`; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 4000); }
+          if (msg) { msg.textContent = `마스터목표 기준실적+${Nf(amt)}원 적용 — 저장 버튼으로 확정`; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 4000); }
         };
       });
-      // 팝업 외부 클릭 시 닫기
       document.addEventListener("click", function _closeBulk(e) {
         if (!bulkPop.hidden && !bulkPop.contains(e.target) && e.target !== bulkBtn) {
           bulkPop.hidden = true;

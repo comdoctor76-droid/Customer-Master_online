@@ -416,6 +416,8 @@ body {
 .rm-tbl th:last-child, .rm-tbl td:last-child { min-width: 110px; }
 .rm-base-inp { background: #f0f7ff; border-color: #93c5fd; }
 .rm-base-inp:focus { background: #fff; border-color: #3b82f6; }
+.pg-base-ref { color: var(--ink-3); font-size: 12px; }
+.pg-goal-cell { color: #1d4ed8; font-weight: 600; }
 
 /* 편집 테이블 상단 툴바 */
 .rm-table-toolbar {
