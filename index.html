@@ -612,12 +612,26 @@
         </div>
         <!-- 탭2: 편집 테이블 -->
         <div id="rm-tab-table" class="rm-tab-pane" hidden>
+          <div class="rm-table-toolbar">
+            <button class="btn-primary" id="btn-rm-table-save">💾 저장 (Firestore)</button>
+            <div class="rm-bulk-wrap">
+              <button class="btn-outline" id="btn-rm-bulk-base">🎯 목표일괄수정</button>
+              <div id="rm-bulk-popup" class="rm-bulk-popup" hidden>
+                <span class="rm-bulk-label">선택 금액을 현재 마스터목표에 더합니다</span>
+                <div class="rm-bulk-btns">
+                  <button class="btn-bulk-amt" data-amt="50000">+5만원</button>
+                  <button class="btn-bulk-amt" data-amt="100000">+10만원</button>
+                  <button class="btn-bulk-amt" data-amt="200000">+20만원</button>
+                  <button class="btn-bulk-amt" data-amt="300000">+30만원</button>
+                  <button class="btn-bulk-amt" data-amt="400000">+40만원</button>
+                  <button class="btn-bulk-amt" data-amt="500000">+50만원</button>
+                </div>
+              </div>
+            </div>
+            <span id="rm-table-save-msg" class="pg-msg"></span>
+          </div>
           <div id="rm-table-wrap" class="pg-tbl-wrap">
             <div class="rm-table-empty">기수와 스텝을 선택하면 교육생 목록이 표시됩니다.</div>
-          </div>
-          <div class="pg-actions" style="margin-top:12px;">
-            <button class="btn-primary" id="btn-rm-table-save">💾 저장 (Firestore)</button>
-            <span id="rm-table-save-msg" class="pg-msg"></span>
           </div>
         </div>
         <!-- 탭3: 시상안 편집 -->

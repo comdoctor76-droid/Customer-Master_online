@@ -413,7 +413,55 @@ body {
   resize: vertical;
 }
 .rm-table-empty { padding: 24px; text-align: center; color: #aaa; font-size: 14px; }
-.rm-tbl th:last-child, .rm-tbl td:last-child { min-width: 130px; }
+.rm-tbl th:last-child, .rm-tbl td:last-child { min-width: 110px; }
+.rm-base-inp { background: #f0f7ff; border-color: #93c5fd; }
+.rm-base-inp:focus { background: #fff; border-color: #3b82f6; }
+
+/* 편집 테이블 상단 툴바 */
+.rm-table-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* 목표일괄수정 팝업 */
+.rm-bulk-wrap { position: relative; display: inline-block; }
+.rm-bulk-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 300;
+  background: #fff;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  min-width: 300px;
+}
+.rm-bulk-label {
+  display: block;
+  font-size: 11px;
+  color: #667085;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.rm-bulk-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn-bulk-amt {
+  background: #f2f4f7;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  color: #344054;
+}
+.btn-bulk-amt:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
 .rm-award-intro { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
 .rm-award-intro p { font-size: 14px; color: #555; margin: 0; }
 

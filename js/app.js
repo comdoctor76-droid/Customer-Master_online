@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.22";
+  const APP_VERSION = "1.23";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7518,7 +7518,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8999,7 +8999,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     wrap.innerHTML = `<table class="pg-tbl pg-admin-tbl rm-tbl">
       <thead><tr>
         <th>#</th><th>지점</th><th>성명</th>
-        <th>기준실적(원)</th><th>현재실적(원)</th>
+        <th>현재실적(원)</th><th>마스터목표(원)</th>
         <th>달성률</th><th>순증</th>
         <th>인품건</th><th>인품실적(원)</th>
         <th>전화번호</th>
@@ -9011,6 +9011,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const iAmt  = Number(s[`pgIpumAmt${sfx}`]   || s.pgIpumAmt  || 0);
         const net   = cur - base;
         const rate  = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
+        const fBase = sfx ? `pgBase${sfx}` : "pgBase";
         const fCur  = sfx ? `pgCurrent${sfx}` : "pgCurrent";
         const fIcnt = sfx ? `pgIpumCount${sfx}` : "pgIpumCount";
         const fIamt = sfx ? `pgIpumAmt${sfx}`   : "pgIpumAmt";
@@ -9018,34 +9019,60 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <td>${i + 1}</td>
           <td>${escapeHtml(s.branch || "")}</td>
           <td><strong>${escapeHtml(s.name || "")}</strong></td>
-          <td class="r">${Nf(base)}</td>
           <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fCur)}" data-pg-role="current" value="${cur}" min="0" step="1"></td>
+          <td><input type="number" class="pg-input rm-inp rm-base-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fBase)}" data-pg-role="base" value="${base}" min="0" step="1"></td>
           <td class="r" data-rm-calc="rate-${escapeHtml(s.empNo)}">${rate}%</td>
           <td class="r" data-rm-calc="net-${escapeHtml(s.empNo)}">${net >= 0 ? "+" : ""}${Nf(net)}</td>
           <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fIcnt)}" value="${iCnt}" min="0"></td>
           <td><input type="number" class="pg-input rm-inp" data-emp="${escapeHtml(s.empNo)}" data-f="${escapeHtml(fIamt)}" value="${iAmt}" min="0"></td>
-          <td><input type="text" class="pg-input rm-inp rm-phone" data-emp="${escapeHtml(s.empNo)}" data-f="phone" value="${escapeHtml(s.phone || "")}" placeholder="연락처" style="width:120px"></td>
+          <td><input type="text" class="pg-input rm-inp rm-phone" data-emp="${escapeHtml(s.empNo)}" data-f="phone" value="${escapeHtml(s.phone || "")}" placeholder="연락처" style="width:110px"></td>
         </tr>`;
       }).join("")}</tbody>
     </table>`;
 
-    // live rate/net recalc on current input change
-    wrap.querySelectorAll('.rm-inp[data-pg-role="current"]').forEach((inp) => {
-      inp.addEventListener("input", () => {
-        const emp  = inp.dataset.emp;
-        const st   = state.students.find((x) => x.empNo === emp);
-        if (!st) return;
-        const { sfx: s2 } = _rmGetState();
-        const base = s2 ? Number(st[`pgBase${s2}`] || 0) : (st.pgBase !== undefined ? Number(st.pgBase) : Number(st.base || 0));
-        const cur  = Number(inp.value) || 0;
-        const net  = cur - base;
-        const rate = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
-        const rateEl = wrap.querySelector(`[data-rm-calc="rate-${emp}"]`);
-        const netEl  = wrap.querySelector(`[data-rm-calc="net-${emp}"]`);
-        if (rateEl) rateEl.textContent = `${rate}%`;
-        if (netEl)  netEl.textContent  = `${net >= 0 ? "+" : ""}${Nf(net)}`;
-      });
+    // 행 재계산: 현재실적·마스터목표 입력값 기반으로 달성률·순증 업데이트
+    function _rmRecalcRow(emp) {
+      const curInp  = wrap.querySelector(`.rm-inp[data-pg-role="current"][data-emp="${emp}"]`);
+      const baseInp = wrap.querySelector(`.rm-inp[data-pg-role="base"][data-emp="${emp}"]`);
+      const cur  = Number(curInp?.value)  || 0;
+      const base = Number(baseInp?.value) || 0;
+      const net  = cur - base;
+      const rate = base > 0 ? (cur / base * 100).toFixed(1) : "0.0";
+      const rateEl = wrap.querySelector(`[data-rm-calc="rate-${emp}"]`);
+      const netEl  = wrap.querySelector(`[data-rm-calc="net-${emp}"]`);
+      if (rateEl) rateEl.textContent = `${rate}%`;
+      if (netEl)  netEl.textContent  = `${net >= 0 ? "+" : ""}${Nf(net)}`;
+    }
+
+    wrap.querySelectorAll('.rm-inp[data-pg-role="current"], .rm-inp[data-pg-role="base"]').forEach((inp) => {
+      inp.addEventListener("input", () => _rmRecalcRow(inp.dataset.emp));
     });
+
+    // 목표일괄수정 팝업 버튼
+    const bulkBtn = document.getElementById("btn-rm-bulk-base");
+    const bulkPop = document.getElementById("rm-bulk-popup");
+    if (bulkBtn && bulkPop) {
+      bulkBtn.onclick = (e) => { e.stopPropagation(); bulkPop.hidden = !bulkPop.hidden; };
+      bulkPop.querySelectorAll(".btn-bulk-amt").forEach((b) => {
+        b.onclick = () => {
+          const amt = Number(b.dataset.amt) || 0;
+          wrap.querySelectorAll('.rm-inp[data-pg-role="base"]').forEach((inp) => {
+            inp.value = (Number(inp.value) || 0) + amt;
+            _rmRecalcRow(inp.dataset.emp);
+          });
+          bulkPop.hidden = true;
+          const msg = document.getElementById("rm-table-save-msg");
+          if (msg) { msg.textContent = `마스터목표 +${Nf(amt)}원 적용 — 저장 버튼으로 확정`; msg.className = "pg-msg ok"; setTimeout(() => { msg.textContent = ""; }, 4000); }
+        };
+      });
+      // 팝업 외부 클릭 시 닫기
+      document.addEventListener("click", function _closeBulk(e) {
+        if (!bulkPop.hidden && !bulkPop.contains(e.target) && e.target !== bulkBtn) {
+          bulkPop.hidden = true;
+          document.removeEventListener("click", _closeBulk);
+        }
+      });
+    }
   }
 
   async function _rmSaveTable() {
