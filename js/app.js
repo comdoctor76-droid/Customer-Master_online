@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.21";
+  const APP_VERSION = "1.22";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3910,8 +3910,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       body.innerHTML = `<div class="empty-state">좌측 필터에서 <strong>지역단</strong>을 선택하면 해당 지역단의 실적진도가 표시됩니다.</div>`;
       return;
     }
-    // progressCohort: "1","2",... (기 없음) / s.cohort: "1기","2기",... — 정규화 후 비교
-    const pgCohort = state.progressCohort;
+    // 좌측 사이드바 기수(state.filter.cohort)를 우선 사용; 없으면 진도탭 자체 선택값
+    const pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
+    if (pgCohort) state.progressCohort = pgCohort; // 두 선택자 동기화
+    // pg-cohort-sel / pg-step-sel 과 사이드바 필터를 동기화
+    const _pgCohortSel = document.getElementById("pg-cohort-sel");
+    if (_pgCohortSel && _pgCohortSel.value !== pgCohort) _pgCohortSel.value = pgCohort;
+    const _pgStepVal = state.filter.step || state.progressStep || "1";
+    const _pgStepSel = document.getElementById("pg-step-sel");
+    if (_pgStepSel && _pgStepSel.value !== _pgStepVal) _pgStepSel.value = _pgStepVal;
     const list = state.students.filter((s) => {
       if (s.region !== region) return false;
       if (pgCohort && s.cohort && String(s.cohort).replace("기", "") !== String(pgCohort)) return false;
@@ -4272,7 +4279,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const total = stats.length;
     const avgR = stats.reduce((a, s) => a + s.rate, 0) / total;
     const over5 = stats.filter((s) => s.net >= 50000).length;
-    const _pa = getProgressAwardConfig(state.progressRegion);
+    const _pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
+    const _pgStep   = state.filter.step || state.progressStep || "1";
+    const _pa = getProgressAwardConfig(state.progressRegion, _pgCohort, _pgStep);
     const elig = stats.filter((s) => _pa.isEligible(s.s));
     const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byAmt  = [...stats].sort((a, b) => b.net - a.net);
@@ -4427,7 +4436,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return `
       <div class="pg-wrap">
         <div class="pg-award-box">
-          <h3>📋 ${escapeHtml(state.progressRegion)} 고객컨설팅 마스터과정 활성화 시상안</h3>
+          <h3>📋 ${escapeHtml(state.progressRegion)}${_pgCohort ? ` ${_pgCohort}기` : ""} Step ${_pgStep} 활성화 시상안</h3>
           ${_plan.title ? `<div class="pg-award-subtitle">${escapeHtml(_plan.title)}</div>` : ""}
           ${_tiersHtml ? `<div class="pg-tier-row">${_tiersHtml}</div>` : ""}
           ${_topToHtml(_plan.topAward1)}
@@ -7356,6 +7365,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     $("#filter-cohort").addEventListener("change", (e) => {
       state.filter.cohort = e.target.value;
       persistFilter();
+      if (isPanelVisible("progress-panel")) renderProgressPanel();
       render();
     });
     document.getElementById("filter-step")?.addEventListener("change", (e) => {
@@ -7508,7 +7518,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
