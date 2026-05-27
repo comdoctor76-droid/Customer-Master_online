@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.27";
+  const APP_VERSION = "1.28";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -664,11 +664,9 @@
     state.consultations = [];
     renderSidebarStudentList(filteredStudents());
     renderStudentDetail();
-    // 모바일: 교육생 선택 시 사이드바 닫고 교육생 관리 패널로 전환
-    if (isMobileViewport()) {
-      closeMobileSidebar();
-      switchView("#students");
-    }
+    // 교육생 선택 시 교육생 관리 패널로 전환 (모바일은 사이드바도 닫기)
+    if (isMobileViewport()) closeMobileSidebar();
+    switchView("#students");
     // 면담 기록 실시간 구독
     if (window.DataAPI && typeof window.DataAPI.subscribeConsultations === "function") {
       state.consultUnsub = window.DataAPI.subscribeConsultations(empNo, (list) => {
@@ -4529,11 +4527,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
 
         <div class="pg-card pg-full-tbl-card pg-desktop-only" id="pg-full-tbl-card">
-          <h4>📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
+          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
+            <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:80px">사번</th><th>지점</th><th class="r">기준실적</th><th class="r">현재실적</th><th class="r" style="width:90px">마스터목표</th><th style="width:64px">달성률</th><th class="r">순증</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:80px">사번</th><th>지점</th><th class="r" style="width:72px">기준실적</th><th class="r" style="width:72px">현재실적</th><th class="r" style="width:100px">마스터목표</th><th style="width:60px">달성률</th><th class="r">순증</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
@@ -4545,7 +4544,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const goalDisp = masterGoal > 0 ? Nf(masterGoal) : "—";
               const rateDisp = masterGoal > 0 ? masterRate.toFixed(1) + "%" : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell">${goalDisp}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -5093,6 +5092,109 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       toggleBtn.addEventListener("click", () => {
         fullCard.classList.toggle("show");
         toggleBtn.textContent = fullCard.classList.contains("show") ? "접기" : "펼쳐보기";
+      });
+    }
+
+    // 마스터목표 개별조정 팝업 (한 번만 생성)
+    if (!state._pgTblPendingGoals) state._pgTblPendingGoals = new Map();
+    let adjPopup = document.getElementById("pg-goal-adj-popup");
+    if (!adjPopup) {
+      adjPopup = document.createElement("div");
+      adjPopup.id = "pg-goal-adj-popup";
+      adjPopup.className = "pg-goal-adj-popup";
+      adjPopup.hidden = true;
+      adjPopup.innerHTML = `<div class="pg-goal-adj-label">마스터목표 조정</div><div class="pg-goal-adj-btns"><button type="button" data-amt="-500000">-50만</button><button type="button" data-amt="-400000">-40만</button><button type="button" data-amt="-300000">-30만</button><button type="button" data-amt="-200000">-20만</button><button type="button" data-amt="-100000">-10만</button><button type="button" data-amt="-50000">-5만</button><button type="button" data-amt="50000">+5만</button><button type="button" data-amt="100000">+10만</button><button type="button" data-amt="200000">+20만</button><button type="button" data-amt="300000">+30만</button><button type="button" data-amt="400000">+40만</button><button type="button" data-amt="500000">+50만</button></div>`;
+      document.body.appendChild(adjPopup);
+      document.addEventListener("click", (e) => {
+        if (!adjPopup.hidden && !adjPopup.contains(e.target) && !e.target.classList.contains("pg-goal-adj-btn")) {
+          adjPopup.hidden = true;
+        }
+      });
+      adjPopup.addEventListener("click", (e) => {
+        const amtBtn = e.target.closest("button[data-amt]");
+        if (!amtBtn || !adjPopup._emp) return;
+        const amt = Number(amtBtn.dataset.amt);
+        const newGoal = Math.max(0, (adjPopup._currentGoal || 0) + amt);
+        const emp = adjPopup._emp;
+        if (!state._pgTblPendingGoals) state._pgTblPendingGoals = new Map();
+        state._pgTblPendingGoals.set(emp, { newGoal });
+        const td = document.querySelector(`#pg-full-tbl-card td.pg-goal-cell[data-emp="${emp}"]`);
+        if (td) {
+          const valSpan = td.querySelector(".pg-goal-val");
+          if (valSpan) valSpan.textContent = Nf(newGoal);
+          const adjBtn = td.querySelector(".pg-goal-adj-btn");
+          if (adjBtn) adjBtn.dataset.goal = String(newGoal);
+          td.dataset.goal = String(newGoal);
+          td.classList.add("pg-goal-pending");
+        }
+        adjPopup._currentGoal = newGoal;
+        adjPopup.hidden = true;
+        const saveBtn = document.getElementById("btn-pg-tbl-save");
+        if (saveBtn) saveBtn.hidden = false;
+      });
+    }
+
+    // 기존 pending 재적용 (re-render 후 DOM에 반영)
+    if (state._pgTblPendingGoals && state._pgTblPendingGoals.size > 0) {
+      state._pgTblPendingGoals.forEach(({ newGoal }, emp) => {
+        const td = document.querySelector(`#pg-full-tbl-card td.pg-goal-cell[data-emp="${emp}"]`);
+        if (td) {
+          const valSpan = td.querySelector(".pg-goal-val");
+          if (valSpan) valSpan.textContent = Nf(newGoal);
+          td.classList.add("pg-goal-pending");
+        }
+      });
+      const saveBtn2 = document.getElementById("btn-pg-tbl-save");
+      if (saveBtn2) saveBtn2.hidden = false;
+    }
+
+    // ± 버튼 이벤트 (매 렌더마다 바인딩)
+    document.querySelectorAll("#pg-full-tbl-card .pg-goal-adj-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const emp = btn.dataset.emp;
+        const currentGoal = state._pgTblPendingGoals && state._pgTblPendingGoals.has(emp)
+          ? state._pgTblPendingGoals.get(emp).newGoal
+          : Number(btn.dataset.goal);
+        adjPopup._currentGoal = currentGoal;
+        adjPopup._emp = emp;
+        const rect = btn.getBoundingClientRect();
+        adjPopup.hidden = false;
+        const popupW = 330;
+        let left = rect.left;
+        if (left + popupW > window.innerWidth - 8) left = window.innerWidth - popupW - 8;
+        if (left < 8) left = 8;
+        adjPopup.style.left = left + "px";
+        adjPopup.style.top = (rect.bottom + 4) + "px";
+      });
+    });
+
+    // 저장 버튼
+    const saveBtn = document.getElementById("btn-pg-tbl-save");
+    if (saveBtn) {
+      saveBtn.addEventListener("click", async () => {
+        if (!state._pgTblPendingGoals || state._pgTblPendingGoals.size === 0) return;
+        saveBtn.disabled = true;
+        saveBtn.textContent = "저장 중...";
+        try {
+          const updates = [];
+          state._pgTblPendingGoals.forEach(({ newGoal }, empNo) => {
+            const s = state.students.find((x) => x.empNo === empNo);
+            if (s) updates.push({ ...s, target: newGoal });
+          });
+          if (updates.length > 0) {
+            if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(updates);
+            else for (const r of updates) await window.DataAPI.save(r);
+          }
+          state._pgTblPendingGoals.clear();
+          saveBtn.hidden = true;
+          document.querySelectorAll("#pg-full-tbl-card td.pg-goal-pending").forEach((td) => td.classList.remove("pg-goal-pending"));
+        } catch (err) {
+          alert("저장 실패: " + (err.message || err));
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "💾 변경 저장";
+        }
       });
     }
   }
@@ -7524,7 +7626,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
