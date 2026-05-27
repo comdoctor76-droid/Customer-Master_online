@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.20";
+  const APP_VERSION = "1.21";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -185,7 +185,8 @@
     "기준실적": "pgBase", "현재실적": "pgCurrent",
     "달성률": "ignore", "달성율": "ignore", "순증실적": "ignore", "순증": "ignore",
     "대리점명": "ignore",
-    "인품건수": "pgIpumCount", "인붐건수": "pgIpumCount", "인품실적": "pgIpumAmt",
+    "인품건수": "pgIpumCount", "인붐건수": "pgIpumCount", "계약건수": "pgIpumCount",
+    "인품실적": "pgIpumAmt",  "실적": "pgIpumAmt",
     "위촉차월": "pgMonth",
     "Step1현재실적": "pgCurrent",  "Step2현재실적": "pgCurrent2",
     "Step1인품건수": "pgIpumCount", "Step2인품건수": "pgIpumCount2",
@@ -214,11 +215,11 @@
     "pgBase","ignore","ignore","ignore","ignore","ignore",
     "pgCurrent2","ignore","ignore","ignore","ignore","pgIpumCount2","pgIpumAmt2","ignore",
   ];
-  // 스텝1·스텝2 공통 10열 형식 — 사용자가 엑셀에서 복사하는 표준 형식
-  // 지역단·비전센터·지점·사번·대리점명·성명·위촉차월·기준실적·인품건수·인품실적
+  // 스텝1·스텝2 공통 10열 형식 — 지역단·비전센터·지점·사번·성명·위촉차월·기준실적·현재실적·계약건수·실적
+  // (구포맷 대리점명 제거, 현재실적 추가)
   const PG_STEP_UNIFIED_COLS = [
-    "region","center","branch","empNo","ignore","name","pgMonth",
-    "pgBase","pgIpumCount","pgIpumAmt",
+    "region","center","branch","empNo","name","pgMonth",
+    "pgBase","pgCurrent","pgIpumCount","pgIpumAmt",
   ];
 
   // 상담고객 태그 선택지
@@ -5513,11 +5514,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 <label><input type="radio" name="pg-progress-paste-step" value="1" checked> Step 1</label>
                 <label><input type="radio" name="pg-progress-paste-step" value="2"> Step 2</label>
               </div>
-              <div class="pg-paste-desc"><strong>[Step 1 / Step 2 공통 형식]</strong> 지역단·비전센터·지점·사원번호·<span style="opacity:.5">대리점명</span>·성명·위촉차월·기준실적·인품건수·인품실적 (탭 구분, 금액단위: 원) — 스텝 선택에 따라 해당 스텝 실적에 저장</div>
-              <textarea id="pg-progress-paste" rows="7" placeholder="지역단	비전센터	지점	사원번호	대리점명	성명	위촉차월	기준실적	인품건수	인품실적
-강북지역단	성동비전센터	답십리지점	075682		이미라	335	471,834	0	0
-강북지역단	성동비전센터	답십리지점	105122		김순덕	266	326,770	0	0
-강북지역단	성동비전센터	답십리지점	1A1986		김문연	87	428,358	1	71,630"></textarea>
+              <div class="pg-paste-desc"><strong>[Step 1 / Step 2 공통 형식]</strong> 지역단·비전센터·지점·사원번호·성명·위촉차월·기준실적·현재실적·계약건수·실적 (탭 구분, 금액단위: 원) — 스텝 선택에 따라 해당 스텝 실적에 저장</div>
+              <textarea id="pg-progress-paste" rows="7" placeholder="지역단	비전센터	지점	사원번호	성명	위촉차월	기준실적	현재실적	계약건수	실적
+강북지역단	성동비전센터	강북수유지점	069563	권명숙	340	274273	199270	0	0
+강북지역단	성동비전센터	강북수유지점	070041	김미영	339	209138	104130	0	0
+강북지역단	성동비전센터	강북수유지점	111435	최연화	251	506915	350200	2	144330"></textarea>
               <div id="pg-progress-paste-confirm" class="pg-paste-confirm" hidden>
                 <div class="pg-paste-confirm-msg" id="pg-progress-paste-confirm-msg"></div>
                 <div class="pg-paste-confirm-btns">
@@ -5845,7 +5846,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const _pgPasteTA = document.querySelector("#pg-progress-paste");
     const _buildPasteDesc = (step) => {
       const sfxLabel = step === "2" ? "Step 2" : "Step 1";
-      return `<strong>[${sfxLabel} 저장 중]</strong> 지역단·비전센터·지점·사원번호·<span style="opacity:.5">대리점명</span>·성명·위촉차월·기준실적·인품건수·인품실적 (탭 구분, 금액단위: 원) — 성명이 포함된 열 순서 그대로 붙여넣기`;
+      return `<strong>[${sfxLabel} 저장]</strong> 지역단·비전센터·지점·사원번호·성명·위촉차월·기준실적·현재실적·계약건수·실적 (탭 구분, 금액단위: 원) — 헤더 포함 입력 권장`;
     };
     if (_pgDescEl) {
       root.querySelectorAll('input[name="pg-progress-paste-step"]').forEach((radio) => {
@@ -7507,7 +7508,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260522d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
