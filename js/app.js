@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.29";
+  const APP_VERSION = "1.30";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4532,19 +4532,24 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:80px">사번</th><th>지점</th><th class="r" style="width:72px">기준실적</th><th class="r" style="width:72px">현재실적</th><th class="r" style="width:100px">마스터목표</th><th style="width:60px">달성률</th><th class="r">순증</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:76px">사번</th><th>지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
               const masterNet  = st.current - masterGoal;
-              const nc = masterRate >= 120 ? "pg-c-over" : masterRate >= 100 ? "pg-c-good" : masterRate >= 80 ? "pg-c-mid" : "pg-c-low";
-              const netC = masterNet > 0 ? "pg-net-p" : masterNet < 0 ? "pg-net-m" : "";
-              const aw = tierLabel(masterNet);
-              const baseDisp = st.base > 0 ? Nf(st.base) : "—";
-              const goalDisp = masterGoal > 0 ? Nf(masterGoal) : "—";
-              const rateDisp = masterGoal > 0 ? masterRate.toFixed(1) + "%" : "—";
+              const baseRate   = st.base > 0 ? (st.current / st.base * 100) : 0;
+              const baseNet    = st.current - st.base;
+              const nc  = masterRate >= 120 ? "pg-c-over" : masterRate >= 100 ? "pg-c-good" : masterRate >= 80 ? "pg-c-mid" : "pg-c-low";
+              const bc  = baseRate   >= 120 ? "pg-c-over" : baseRate   >= 100 ? "pg-c-good" : baseRate   >= 80 ? "pg-c-mid" : "pg-c-low";
+              const netC  = masterNet > 0 ? "pg-net-p" : masterNet < 0 ? "pg-net-m" : "";
+              const bnetC = baseNet   > 0 ? "pg-net-p" : baseNet   < 0 ? "pg-net-m" : "";
+              const aw = tierLabel(st.net);
+              const baseDisp     = st.base > 0    ? Nf(st.base)                    : "—";
+              const goalDisp     = masterGoal > 0 ? Nf(masterGoal)                 : "—";
+              const rateDisp     = masterGoal > 0 ? masterRate.toFixed(1) + "%"    : "—";
+              const baseRateDisp = st.base > 0    ? baseRate.toFixed(1) + "%"      : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -7626,7 +7631,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
