@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.26";
+  const APP_VERSION = "1.27";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -455,7 +455,7 @@
   function renderKPIs(list) {
     const sum = (k) => list.reduce((a, s) => a + (Number(s[k]) || 0), 0);
     $("#kpi-total").textContent = list.length.toLocaleString();
-    $("#kpi-base").textContent = sum("base").toLocaleString();
+    $("#kpi-base").textContent = list.reduce((a, s) => a + (Number(s.pgBase) || Number(s.base || 0)), 0).toLocaleString();
     $("#kpi-target").textContent = sum("target").toLocaleString();
     $("#kpi-honors").textContent = sum("honors").toLocaleString();
     $("#mini-total").textContent = list.length;
@@ -774,7 +774,7 @@
           <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}${s.team ? ` <span class="sib-team">${escapeHtml(String(s.team))}팀</span>` : ""}</div>
         </div>
         <div class="sib-stats">
-          <div><span>평균실적</span><strong>${fmt(Number(s.base))}</strong></div>
+          <div><span>기준실적</span><strong>${fmt(Number(s.pgBase) || Number(s.base || 0))}</strong></div>
           <div><span>마스터목표</span><strong>${Number(s.target) > 0 ? fmt(Number(s.target)) : "<span style='color:#aaa'>미설정</span>"}</strong></div>
           <div><span>아너스목표</span><strong>${fmt(Number(s.honors))}</strong></div>
         </div>
@@ -888,7 +888,7 @@
           <div class="iv-calc-body" id="calc-section" style="display:block">
             <div class="iv-grid-3">
               <div class="iv-field">
-                <label>개인 평균실적 <em>*</em> <span class="iv-hint">(원)</span></label>
+                <label>기준실적 <em>*</em> <span class="iv-hint">(원)</span></label>
                 <input type="text" id="calc-avg" placeholder="예: 767,160" inputmode="numeric">
               </div>
               <div class="iv-field">
@@ -6675,10 +6675,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       </div>
 
       <div class="stats-block">
-        <h3>평균실적 상위 ${top10.length}명</h3>
+        <h3>기준실적 상위 ${top10.length}명</h3>
         <table class="stats-table">
           <thead><tr>
-            <th>#</th><th>이름</th><th>지점</th><th>기수</th><th class="r">평균실적</th><th class="r">순증목표</th>
+            <th>#</th><th>이름</th><th>지점</th><th>기수</th><th class="r">기준실적</th><th class="r">순증목표</th>
           </tr></thead>
           <tbody>
             ${top10.map((s, i) => `
@@ -6832,7 +6832,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     $("#form-empno").value = s.empNo;
     $("#form-name").value = s.name || "";
     $("#form-phone").value = s.phone || "";
-    $("#form-base").value   = s.base   || "";
+    $("#form-base").value   = Number(s.pgBase) || s.base || "";
     const computedTarget = (s.region !== "호남지역단" && !Number(s.target))
       ? getProgressStat(s).base + 50000
       : Number(s.target) || "";
@@ -6874,6 +6874,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       name: $("#form-name").value.trim(),
       phone: $("#form-phone").value.trim(),
       base,
+      pgBase: base,
       target,
       honors: Number($("#form-honors").value || 0),
       team: teamInput > 0 ? String(teamInput) : existingTeam
@@ -6927,7 +6928,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const fields = [
       ["지역단", "region"], ["비전센터", "center"], ["지점", "branch"],
       ["기수", "cohort"], ["이름", "name"], ["연락처", "phone"],
-      ["평균실적", "base"], ["마스터목표", "target"], ["아너스목표", "honors"]
+      ["기준실적", "base"], ["마스터목표", "target"], ["아너스목표", "honors"]
     ];
     return fields.map(([label, key]) => {
       const v = rec[key];
@@ -7018,7 +7019,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const target  = existSt?.target ?? (region !== "호남지역단" && base > 0 ? base + 50000 : 0);
         records.push({
           region, center, branch, cohort, empNo, name, phone, honors,
-          base, target, current,
+          base, pgBase: base, target, current,
           tenureMonths: toNum(tenureM),
           pgLeader, pgPreIns, pgPreConv, pgPreIncome,
           pgIpumCount, pgIpumAmt,
@@ -7032,11 +7033,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (!empNo) { parseErrors.push(`${i + 1}행 사번 누락`); return; }
         const existSt = state.students.find((s) => s.empNo === empNo.replace(/[\s\/\\]/g, ""));
         const center  = rawCenter || existSt?.center || _bulkInferCenter(region, "", branch);
+        const _baseNum = toNum(base);
         const rec = {
           region, center, branch, cohort,
           empNo: empNo.replace(/[\s\/\\]/g, ""),
           name, phone,
-          base: toNum(base), target: toNum(target), honors: toNum(honors),
+          base: _baseNum, pgBase: _baseNum, target: toNum(target), honors: toNum(honors),
           _isNew: !existSt,
         };
         if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
@@ -7285,10 +7287,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function exportCSV() {
     const list = filteredStudents();
     if (list.length === 0) { toast("내보낼 데이터가 없습니다.", "error"); return; }
-    const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","평균실적","마스터목표","아너스목표"];
+    const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","기준실적","마스터목표","아너스목표"];
     const rows = list.map((s) => [
       s.region, s.center, s.branch, s.cohort, s.empNo, s.name, s.phone,
-      Math.round(Number(s.base||0)), Math.round(Number(s.target||0)), Math.round(Number(s.honors||0))
+      Math.round(Number(s.pgBase) || Number(s.base||0)), Math.round(Number(s.target||0)), Math.round(Number(s.honors||0))
     ].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
     const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -7522,7 +7524,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
