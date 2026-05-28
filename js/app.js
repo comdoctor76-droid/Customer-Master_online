@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.33";
+  const APP_VERSION = "1.34";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1419,6 +1419,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
               <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF저장</button>
               <button id="btn-aprint-png" class="aprint-btn aprint-green">🖼️ PNG저장</button>
+              <button id="btn-aprint-kakao" class="aprint-btn aprint-kakao">💬 카카오톡으로 저장하기</button>
               <button id="btn-aprint-close" class="aprint-btn aprint-gray">✕ 닫기</button>
             </div>
             <div class="aprint-scroll">
@@ -1437,6 +1438,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <button id="btn-aprint-printer" class="aprint-btn aprint-blue">🖨️ 인쇄</button>
           <button id="btn-aprint-pdf" class="aprint-btn aprint-red">📄 PDF저장</button>
           <button id="btn-aprint-png" class="aprint-btn aprint-green">🖼️ PNG저장</button>
+          <button id="btn-aprint-kakao" class="aprint-btn aprint-kakao">💬 카카오톡으로 저장하기</button>
           <button id="btn-aprint-close" class="aprint-btn aprint-gray">✕ 닫기</button>
         `;
       }
@@ -1568,7 +1570,45 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       } catch (e) { toast("PNG 실패: " + (e.message || String(e)), "error"); }
     };
 
-    ["btn-aprint-printer", "btn-aprint-pdf", "btn-aprint-png", "btn-aprint-close"].forEach((id) => {
+    const doKakao = async () => {
+      toast("이미지 생성 중...", "info");
+      try {
+        const canvas = await captureCanvas();
+        await new Promise((resolve, reject) => {
+          canvas.toBlob(async (blob) => {
+            if (!blob) { reject(new Error("이미지 생성 실패")); return; }
+            try {
+              const file = new File([blob], `${filename}.png`, { type: "image/png" });
+              const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
+              if (canShareFiles) {
+                await navigator.share({ files: [file], title: "시상 예상답안지" });
+                toast("공유 완료!", "success");
+              } else if (typeof navigator.share === "function") {
+                // 파일 공유 미지원 — 먼저 다운로드 후 공유 유도
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url; link.download = `${filename}.png`; link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 15000);
+                toast("PNG 저장됨 — 카카오톡 앱 > 파일 전송으로 공유해 주세요.", "success");
+              } else {
+                // 데스크탑 등 share 미지원
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url; link.download = `${filename}.png`; link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 15000);
+                toast("PNG 저장됨 — 카카오톡 앱에서 파일을 선택해 공유해 주세요.", "success");
+              }
+              resolve();
+            } catch (e) {
+              if (e.name === "AbortError") { resolve(); return; } // 사용자 취소
+              reject(e);
+            }
+          }, "image/png");
+        });
+      } catch (e) { toast("카카오톡 공유 실패: " + (e.message || String(e)), "error"); }
+    };
+
+    ["btn-aprint-printer", "btn-aprint-pdf", "btn-aprint-png", "btn-aprint-kakao", "btn-aprint-close"].forEach((id) => {
       const el = modal.querySelector("#" + id);
       if (!el) return;
       const clone = el.cloneNode(true);
@@ -1577,6 +1617,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     modal.querySelector("#btn-aprint-printer").addEventListener("click", doPrint);
     modal.querySelector("#btn-aprint-pdf") .addEventListener("click", doPdf);
     modal.querySelector("#btn-aprint-png") .addEventListener("click", doPng);
+    modal.querySelector("#btn-aprint-kakao").addEventListener("click", doKakao);
     modal.querySelector("#btn-aprint-close").addEventListener("click", () => { modal.hidden = true; });
 
     modal.hidden = false;
@@ -7813,7 +7854,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260527m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

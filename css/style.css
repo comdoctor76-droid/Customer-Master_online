@@ -3358,7 +3358,7 @@ body {
 /* 시상인쇄 모달 */
 .aprint-panel { max-width: 860px; width: 95vw; max-height: 95vh; display: flex; flex-direction: column; }
 .aprint-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 0; padding: 0; }
-.aprint-toolbar { display: flex; gap: 10px; padding: 12px 16px; background: var(--bg-soft); border-bottom: 1px solid var(--line-soft); }
+.aprint-toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 16px; background: var(--bg-soft); border-bottom: 1px solid var(--line-soft); }
 .aprint-btn {
   display: inline-flex; align-items: center; gap: 6px;
   border: none; border-radius: 7px; padding: 9px 18px;
@@ -3370,7 +3370,7 @@ body {
 .aprint-red   { background: #C62828; }
 .aprint-green { background: #2E7D32; }
 .aprint-gray  { background: #757575; }
-.aprint-scroll { flex: 1; overflow: hidden; background: #e8e8e8; padding: 0; }
+.aprint-kakao { background: #FEE500; color: #3A1D1D; }
 .aprint-iframe { width: 100%; height: 100%; min-height: 600px; border: none; background: #fff; display: block; }
 
 /* ============ 통계 패널 ============ */
