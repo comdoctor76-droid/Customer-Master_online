@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.44";
+  const APP_VERSION = "1.45";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3046,7 +3046,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const allItvs = studentBlocks.flatMap((b) => b.itvs);
     const calcItv = allItvs.slice().reverse().find((e) => e.calcTgt || e.calcAvg);
     const cmtItv = allItvs.slice().reverse().find((e) => e.calcComment);
-    const awardHtml = (state.printMode === "personal" && calcItv) ? buildPrintAwardHtml(calcItv, allItvs) : "";
+    const _printStep = state.filter.step || "1";
+    const _printStudent = studentBlocks[0]?.s;
+    let awardHtml = "";
+    if (state.printMode === "personal") {
+      if (_printStep === "2" && _printStudent?.pgCurrent) {
+        awardHtml = buildPrintAwardHtmlStep2(_printStudent, allItvs);
+      } else if (calcItv) {
+        awardHtml = buildPrintAwardHtml(calcItv, allItvs);
+      }
+    }
     const cmtHtml = cmtItv?.calcComment ? `
       <div class="print-comment">
         <strong>✍️ 면담자 의견</strong>
@@ -3519,6 +3528,70 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         ${aw3Next ? `<div class="pa-next">
           🚀 다음 단계: <strong>${escapeHtml(aw3Next.criteria)}</strong> — 희망목표 +${fwo(Math.ceil(Math.max(0, aw3Next.critVal - incrMW3) * 10000))} 추가 시 달성
         </div>` : ""}
+      </div>
+    `;
+  }
+
+  // Step 2 면담일지 출력용 — Step 1 실제 실적(pgCurrent/pgBase) 기반 시상 결과
+  function buildPrintAwardHtmlStep2(student, allItvs) {
+    const fw = (mw) => Math.round(mw * 10000).toLocaleString() + "원";
+    const fwo = (w) => Math.round(w).toLocaleString() + "원";
+    const pgCurrent = Number(student?.pgCurrent || 0);
+    const pgBase = Number(student?.pgBase || 0);
+    const curMW = pgCurrent / 10000;
+    const baseMW = pgBase / 10000;
+    const incrMW = Math.max(0, curMW - baseMW);
+
+    // ① 아너스클럽
+    let aw1 = 0, aw1Grade = "미달성";
+    for (let i = 0; i < HONORS.length; i++) {
+      if (curMW >= HONORS[i].critVal) { aw1 = HONORS[i].prize; aw1Grade = HONORS[i].grade; break; }
+    }
+
+    // ② 하이포인트
+    const baseTgtMet = baseMW <= 0 || curMW >= baseMW;
+    const mExtra = baseTgtMet ? Math.floor(incrMW * INCR_CFG.rate / 100 * 10) / 10 : 0;
+    const mFinal = baseTgtMet ? Math.min(INCR_CFG.base + mExtra, INCR_CFG.mcap) : 0;
+    const aw2M3 = baseTgtMet ? Math.min(mFinal * 3, INCR_CFG.qcap) : 0;
+
+    // ③ 마스터과정
+    const lastIns = allItvs.slice().reverse().find((e) => e.ins);
+    const insRaw = (parseFloat(lastIns?.ins || "0") || 0) * 1000;
+    const masterIncrMW = Math.max(0, pgCurrent - insRaw) / 10000;
+    const aw3 = calcMasterAward(masterIncrMW);
+    const aw3Tier = MASTER_AWARD.find((t) => masterIncrMW >= t.critVal);
+    const total = aw1 + aw2M3 + aw3 * 2;
+
+    return `
+      <div class="print-award">
+        <div class="pa-hdr">
+          <div class="pa-t">📊 Step 1 실적 기준 시상 결과</div>
+          <div class="pa-sub">
+            <span class="pa-sub-k">Step 1 현재실적</span> <strong>${fwo(pgCurrent)}</strong><br>
+            <small>기준실적 ${fwo(pgBase)} &nbsp;|&nbsp; 순증 ${fwo(Math.max(0, pgCurrent - pgBase))}</small>
+          </div>
+        </div>
+        <div class="pa-total">
+          <div>Step 1 시상금 합계 (3개월) &nbsp; ① + ② + ③</div>
+          <div class="pa-total-val">${fw(total)}</div>
+        </div>
+        <div class="pa-grid">
+          <div class="pa-cell purple">
+            <div class="pa-lbl">① 아너스클럽</div>
+            <div class="pa-val">${aw1 ? fw(aw1) : "미달성"}</div>
+            <div class="pa-sub2">${escapeHtml(aw1Grade)}</div>
+          </div>
+          <div class="pa-cell green">
+            <div class="pa-lbl">② 하이포인트 (3개월)</div>
+            <div class="pa-val">${fw(aw2M3)}</div>
+            <div class="pa-sub2">순증 ${fwo(Math.max(0, pgCurrent - pgBase))} × 50%</div>
+          </div>
+          <div class="pa-cell blue">
+            <div class="pa-lbl">③ 마스터과정 (×2)</div>
+            <div class="pa-val">${aw3 ? fw(aw3 * 2) : "해당없음"}</div>
+            <div class="pa-sub2">${aw3Tier ? escapeHtml(aw3Tier.label) : "순증 5만원 미만"}</div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -7960,7 +8033,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
