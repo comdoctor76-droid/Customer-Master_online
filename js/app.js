@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.40";
+  const APP_VERSION = "1.41";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -2102,7 +2102,63 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const ok = await confirmSaveWithoutClients();
       if (!ok) return;
     }
+    // 담당자 선택 팝업
+    const managerName = await openManagerPickerModal();
+    if (managerName === null) return; // 취소
+    rec.manager = managerName;
     await doSaveInterview(rec);
+  }
+
+  function openManagerPickerModal() {
+    return new Promise((resolve) => {
+      let modal = document.getElementById("modal-manager-pick");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "modal-manager-pick";
+        modal.className = "modal";
+        modal.hidden = true;
+        modal.innerHTML = `
+          <div class="modal-backdrop" id="mgr-backdrop"></div>
+          <div class="modal-panel" style="max-width:340px">
+            <div class="modal-head">
+              <h3 style="font-size:15px">담당자 입력</h3>
+              <button class="modal-close" id="mgr-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:16px 20px">
+              <p style="font-size:13px;color:#666;margin:0 0 12px">결재란에 표시할 담당자 이름을 입력하세요.</p>
+              <input type="text" id="mgr-name-input" class="side-input" style="width:100%;font-size:14px;padding:8px 10px;box-sizing:border-box" placeholder="예) 홍길동">
+            </div>
+            <div style="padding:10px 16px 14px;display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn-outline small" id="mgr-skip">건너뛰기</button>
+              <button class="btn-primary small" id="mgr-confirm">확인</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+      const input = modal.querySelector("#mgr-name-input");
+      input.value = localStorage.getItem("iv_manager_name") || "";
+      modal.hidden = false;
+      setTimeout(() => { input.focus(); input.select(); }, 80);
+
+      const done = (name) => {
+        modal.hidden = true;
+        if (name !== null && name !== "") localStorage.setItem("iv_manager_name", name);
+        resolve(name);
+      };
+      const confirm = () => done(input.value.trim());
+      const skip    = () => done("");
+      const cancel  = () => { modal.hidden = true; resolve(null); };
+
+      modal.querySelector("#mgr-confirm").onclick = confirm;
+      modal.querySelector("#mgr-skip").onclick    = skip;
+      modal.querySelector("#mgr-close").onclick   = cancel;
+      modal.querySelector("#mgr-backdrop").onclick = cancel;
+      input.onkeydown = (e) => {
+        if (e.key === "Enter") confirm();
+        if (e.key === "Escape") cancel();
+      };
+    });
   }
 
   async function doSaveInterview(rec) {
@@ -3003,10 +3059,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const seqs = [...new Set(allItvs.map((e) => e.seq).filter(Boolean))];
     const seqTxt = seqs.length === 1 ? seqs[0] : (seqs.join(", ") || "");
 
+    const managerName = allItvs.find((e) => e.manager)?.manager || "";
     const apvHtml = `
       <div class="apv-wrap">
-        <div class="apv-box"><div class="apv-title">면담자</div><div class="apv-sign"></div></div>
-        <div class="apv-box"><div class="apv-title">조직파트장</div><div class="apv-sign"></div></div>
+        <div class="apv-box"><div class="apv-title">담당</div><div class="apv-sign apv-sign-name">${escapeHtml(managerName)}</div></div>
+        <div class="apv-box"><div class="apv-title">파트장</div><div class="apv-sign"></div></div>
         <div class="apv-box"><div class="apv-title">지역단장</div><div class="apv-sign"></div></div>
       </div>`;
 
@@ -7906,7 +7963,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

@@ -1829,6 +1829,7 @@ body {
 .apv-box + .apv-box { border-left: none; }
 .apv-title { font-size: 11px; font-weight: 700; color: var(--navy); background: #E8EDF8; padding: 2px 0; border-bottom: 1px solid #888; }
 .apv-sign { height: 48px; }
+.apv-sign-name { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #1d3b6e; }
 
 .doc-hdr { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: #333; }
 .doc-hdr .pg-cnt { font-size: 11px; color: #888; }
