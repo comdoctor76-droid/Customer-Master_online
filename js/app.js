@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.45";
+  const APP_VERSION = "1.46";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8033,7 +8033,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9634,6 +9634,132 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (btn) { btn.disabled = false; btn.textContent = "💾 저장 (Firestore)"; }
     }
   }
+
+  // 연락처 업데이트 모달
+  (function _initContactUpdate() {
+    let _cuParsed = []; // { name, empNo, phone, matched: student|null }
+
+    function _cuOpen() {
+      const modal = document.getElementById("modal-contact-update");
+      if (!modal) return;
+      // 미리보기 초기화
+      document.getElementById("cu-preview-wrap").hidden = true;
+      document.getElementById("cu-paste-area").value = "";
+      document.getElementById("cu-parse-msg").textContent = "";
+      document.getElementById("cu-save-msg").textContent = "";
+      _cuParsed = [];
+      modal.hidden = false;
+      setTimeout(() => document.getElementById("cu-paste-area")?.focus(), 80);
+    }
+
+    function _cuClose() {
+      const modal = document.getElementById("modal-contact-update");
+      if (modal) modal.hidden = true;
+    }
+
+    function _cuParse() {
+      const txt = (document.getElementById("cu-paste-area")?.value || "").trim();
+      const msgEl = document.getElementById("cu-parse-msg");
+      const previewWrap = document.getElementById("cu-preview-wrap");
+      const tbody = document.getElementById("cu-preview-body");
+      const setMsg = (t, cls = "") => { msgEl.textContent = t; msgEl.className = "pg-msg" + (cls ? " " + cls : ""); };
+
+      if (!txt) { setMsg("❌ 붙여넣기 내용이 없습니다.", " err"); return; }
+
+      const lines = txt.split(/\r?\n/).filter((l) => l.trim());
+      if (!lines.length) { setMsg("❌ 내용이 없습니다.", " err"); return; }
+
+      // 헤더 자동 감지
+      const HEADER_KEYS = { "성명": "name", "이름": "name", "사번": "empNo", "사원번호": "empNo", "전화번호": "phone", "연락처": "phone", "휴대폰": "phone", "핸드폰": "phone" };
+      const firstCols = lines[0].trim().split(/\t/).map((c) => c.trim());
+      const isHeader = firstCols.some((h) => HEADER_KEYS[h]);
+      let dataLines, cols;
+      if (isHeader) {
+        cols = firstCols.map((h) => HEADER_KEYS[h] || "ignore");
+        dataLines = lines.slice(1);
+      } else {
+        // 기본: 성명 사번 전화번호
+        cols = ["name", "empNo", "phone"];
+        dataLines = lines;
+      }
+
+      if (!cols.includes("phone")) { setMsg("❌ 전화번호 열을 찾을 수 없습니다.", " err"); return; }
+
+      _cuParsed = dataLines.map((line) => {
+        const parts = line.split(/\t/).map((c) => c.trim());
+        const rec = { name: "", empNo: "", phone: "", matched: null };
+        cols.forEach((f, i) => { if (f !== "ignore" && parts[i] !== undefined) rec[f] = parts[i]; });
+        // 매칭: 사번 우선, 없으면 성명
+        if (rec.empNo) rec.matched = state.students.find((s) => s.empNo === rec.empNo) || null;
+        if (!rec.matched && rec.name) rec.matched = state.students.find((s) => s.name === rec.name) || null;
+        return rec;
+      }).filter((r) => r.phone);
+
+      if (!_cuParsed.length) { setMsg("❌ 유효한 데이터가 없습니다.", " err"); previewWrap.hidden = true; return; }
+
+      const matched = _cuParsed.filter((r) => r.matched).length;
+      setMsg(`총 ${_cuParsed.length}건 — 매칭 ${matched}건 / 미매칭 ${_cuParsed.length - matched}건`, matched > 0 ? " ok" : " err");
+
+      tbody.innerHTML = _cuParsed.map((r, i) => {
+        const st = r.matched;
+        const status = st ? `<span style="color:#1976d2;font-weight:600">✔ 매칭</span>` : `<span style="color:#e53935">✘ 미매칭</span>`;
+        const curPhone = st ? escapeHtml(st.phone || "—") : `<span style="color:#999">—</span>`;
+        const bgStyle = !st ? 'style="background:#fff8f8"' : (st.phone === r.phone ? 'style="background:#f5f5f5;color:#aaa"' : '');
+        return `<tr ${bgStyle}>
+          <td style="text-align:center">${i + 1}</td>
+          <td><strong>${escapeHtml(r.name || (st?.name || ""))}</strong></td>
+          <td style="font-family:monospace">${escapeHtml(r.empNo || (st?.empNo || ""))}</td>
+          <td>${curPhone}</td>
+          <td><strong>${escapeHtml(r.phone)}</strong></td>
+          <td style="text-align:center">${status}</td>
+        </tr>`;
+      }).join("");
+
+      previewWrap.hidden = false;
+      document.getElementById("cu-save-msg").textContent = "";
+    }
+
+    async function _cuSave() {
+      const toSave = _cuParsed.filter((r) => r.matched);
+      const msgEl = document.getElementById("cu-save-msg");
+      const saveBtn = document.getElementById("cu-save-btn");
+      if (!toSave.length) { msgEl.textContent = "❌ 저장할 매칭된 데이터가 없습니다."; msgEl.className = "pg-msg err"; return; }
+      saveBtn.disabled = true; saveBtn.textContent = "저장중...";
+      try {
+        const updates = toSave.map((r) => ({ ...r.matched, phone: r.phone }));
+        await window.DataAPI.saveMany(updates);
+        msgEl.textContent = `✅ ${updates.length}명 연락처 저장 완료`;
+        msgEl.className = "pg-msg ok";
+        // 편집 테이블 전화번호 인풋도 즉시 반영
+        updates.forEach((u) => {
+          const inp = document.querySelector(`.rm-inp[data-emp="${u.empNo}"][data-f="phone"]`);
+          if (inp) inp.value = u.phone;
+        });
+        setTimeout(() => _cuClose(), 1800);
+      } catch (e) {
+        msgEl.textContent = "❌ 저장 실패: " + e.message;
+        msgEl.className = "pg-msg err";
+      } finally {
+        saveBtn.disabled = false; saveBtn.textContent = "💾 저장";
+      }
+    }
+
+    document.getElementById("btn-rm-contact-update")?.addEventListener("click", _cuOpen);
+    document.getElementById("cu-close")?.addEventListener("click", _cuClose);
+    document.getElementById("cu-backdrop")?.addEventListener("click", _cuClose);
+    document.getElementById("cu-cancel-btn")?.addEventListener("click", _cuClose);
+    document.getElementById("cu-parse-btn")?.addEventListener("click", _cuParse);
+    document.getElementById("cu-clear-btn")?.addEventListener("click", () => {
+      document.getElementById("cu-paste-area").value = "";
+      document.getElementById("cu-parse-msg").textContent = "";
+      document.getElementById("cu-preview-wrap").hidden = true;
+      _cuParsed = [];
+    });
+    document.getElementById("cu-save-btn")?.addEventListener("click", _cuSave);
+    document.getElementById("cu-paste-area")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.ctrlKey) _cuParse();
+    });
+  })();
 
   async function _rmPasteApply() {
     const { region, cohort, stepVal, sfx } = _rmGetState();
