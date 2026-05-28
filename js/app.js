@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.38";
+  const APP_VERSION = "1.39";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3731,7 +3731,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 <th style="padding:6px 8px;text-align:left;font-weight:600">지점</th>
                 <th style="padding:6px 8px;font-weight:600">지역단</th>
                 <th style="padding:6px 8px;font-weight:600">비전센터</th>
-                <th style="padding:6px 8px;font-weight:600">기수 / 삭제</th>
+                <th style="padding:6px 8px;font-weight:600;white-space:nowrap">기수 / <label style="color:#e53935;cursor:pointer;font-weight:600" title="전체 선택/해제"><input type="checkbox" id="ua-del-all" style="accent-color:#e53935;vertical-align:middle;margin-right:3px">전체삭제</label></th>
               </tr>
             </thead>
             <tbody id="ua-tbody">${renderRows()}</tbody>
@@ -3758,6 +3758,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     });
 
+    // 전체 삭제 체크박스
+    const delAllChk = modal.querySelector("#ua-del-all");
+    if (delAllChk) {
+      delAllChk.addEventListener("change", () => {
+        modal.querySelectorAll(".ua-del-chk").forEach((chk) => {
+          if (chk.checked === delAllChk.checked) return;
+          chk.checked = delAllChk.checked;
+          const row = chk.closest("tr");
+          if (chk.checked) {
+            row.style.background = "#fff0f0";
+            row.style.opacity = "0.7";
+            row.querySelectorAll("select").forEach((s) => s.disabled = true);
+          } else {
+            row.style.background = "";
+            row.style.opacity = "";
+            row.querySelectorAll("select").forEach((s) => s.disabled = false);
+          }
+        });
+      });
+    }
+
     // 삭제 체크박스 → 행 배경색 토글
     modal.querySelector("#ua-tbody").addEventListener("change", (e) => {
       const chk = e.target.closest(".ua-del-chk");
@@ -3771,6 +3792,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         row.style.background = "";
         row.style.opacity = "";
         row.querySelectorAll("select").forEach((s) => s.disabled = false);
+        if (delAllChk) delAllChk.checked = false;
       }
     });
 
@@ -7884,7 +7906,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
