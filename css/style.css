@@ -1943,7 +1943,7 @@ body {
   /* 인쇄 시에는 모바일 카드 미리보기 감추고 원본 테이블만 출력 */
   .print-mobile-view { display: none !important; }
   .print-page .dt { display: table !important; }
-  .print-page .print-logo-wrap { display: flex !important; }
+  /* print-logo-wrap 제거됨 */
 }
 
 /* 화면상에서도 A4 landscape 느낌 주기 (pixel 환산 ≈ 1122×794, 여백 고려 ~1060) */
@@ -1952,7 +1952,7 @@ body {
   min-width: 1060px;
   margin: 0 auto 14px;
   background: #fff;
-  padding: 10px 12px;
+  padding: 6px 12px 10px;
   border: 1px solid var(--line-soft);
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
@@ -1966,7 +1966,6 @@ body {
 @media (max-width: 640px) {
   .print-page { width: 100%; min-width: 0; padding: 8px; }
   .print-page .dt { display: none; }
-  .print-page .print-logo-wrap { display: none; }
   .print-mobile-view { display: block; }
   .pm-stu-card {
     background: #fff;

@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.43";
+  const APP_VERSION = "1.44";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3166,9 +3166,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return `
         ${pi > 0 ? `<hr class="page-dashed-sep">` : ""}
         <div class="print-page${brkClass}">
-          ${isVeryFirst ? `<div class="print-logo-wrap">
-            <div class="print-logo-sub">고객컨설팅 MASTER과정 지점별 면담일지<br><small>비전센터장 활동관리 시스템</small></div>
-          </div>` : ""}
           <div class="doc-title-row">
             <div class="doc-title">고객컨설팅 MASTER과정 지점별 면담일지 ( ${seqTxt || "&nbsp;&nbsp;"} 차 / 활동점검 )</div>
             ${isVeryFirst ? apvHtml : ""}
@@ -7963,7 +7960,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
