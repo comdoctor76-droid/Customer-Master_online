@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.47";
+  const APP_VERSION = "1.48";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4525,6 +4525,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const a5 = stats.filter((s) => s.net >= 500000).length;
     const a4 = stats.filter((s) => s.net >= 300000 && s.net < 500000).length;
 
+    // 시상안 체크박스 활성화 여부 — 비활성 섹션은 숨김
+    const _rateEnabled  = !!_pa.rateConfig;
+    const _amtEnabled   = !!_pa.amtConfig;
+    const _groupEnabled = !!(_pa.plan.groupAward1?.enabled || _pa.plan.groupAward2?.enabled);
+
     // 그룹 시상 — team 필드가 설정된 학생이 있으면 team 기준, 아니면 branch(지점)
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
     const groupKeyFn = hasAnyTeam
@@ -4689,7 +4694,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         <!-- 모바일 전용 TOP3 미리보기 카드 (2x2) — ≤640px 에서만 노출 -->
         <div class="pg-mobile-grid">
-          <div class="pg-pcard pg-pcard-rate" data-pcard="rate" role="button" tabindex="0">
+          ${_rateEnabled ? `<div class="pg-pcard pg-pcard-rate" data-pcard="rate" role="button" tabindex="0">
             <div class="pg-pcard-head">
               <div class="pg-pcard-icon">📈</div>
               <div class="pg-pcard-titles">
@@ -4699,9 +4704,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <span class="pg-pcard-chev">›</span>
             </div>
             <ol class="pg-top3-list">${pcardRateTop3}</ol>
-          </div>
+          </div>` : ""}
 
-          <div class="pg-pcard pg-pcard-amt" data-pcard="amt" role="button" tabindex="0">
+          ${_amtEnabled ? `<div class="pg-pcard pg-pcard-amt" data-pcard="amt" role="button" tabindex="0">
             <div class="pg-pcard-head">
               <div class="pg-pcard-icon">💰</div>
               <div class="pg-pcard-titles">
@@ -4711,7 +4716,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <span class="pg-pcard-chev">›</span>
             </div>
             <ol class="pg-top3-list">${pcardAmtTop3}</ol>
-          </div>
+          </div>` : ""}
 
           <div class="pg-pcard pg-pcard-ipum" data-pcard="ipum" role="button" tabindex="0">
             <div class="pg-pcard-head">
@@ -4725,7 +4730,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <ol class="pg-top3-list">${pcardIpumTop3}</ol>
           </div>
 
-          <div class="pg-pcard pg-pcard-group" data-pcard="group" role="button" tabindex="0">
+          ${_groupEnabled ? `<div class="pg-pcard pg-pcard-group" data-pcard="group" role="button" tabindex="0">
             <div class="pg-pcard-head">
               <div class="pg-pcard-icon">🏅</div>
               <div class="pg-pcard-titles">
@@ -4735,29 +4740,29 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <span class="pg-pcard-chev">›</span>
             </div>
             <ol class="pg-top3-list">${pcardGroupTop3}</ol>
-          </div>
+          </div>` : ""}
         </div>
 
-        <div class="pg-grid2 pg-desktop-only">
-          <div class="pg-card">
-            <h4>📈 신장률 TOP <small>(중복시상 시 더 큰 시상만 지급)</small></h4>
+        ${(_rateEnabled || _amtEnabled) ? `<div class="pg-grid2 pg-desktop-only" style="${!_rateEnabled || !_amtEnabled ? "grid-template-columns:1fr" : ""}">
+          ${_rateEnabled ? `<div class="pg-card">
+            <h4>📈 신장률 TOP${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}</h4>
             ${renderProgressTop10(rateFinalList, "rate")}
-          </div>
-          <div class="pg-card">
+          </div>` : ""}
+          ${_amtEnabled ? `<div class="pg-card">
             <h4>💰 신장액 TOP10</h4>
             ${renderProgressTop10(byAmt, "amt")}
-          </div>
-        </div>
+          </div>` : ""}
+        </div>` : ""}
 
-        <div class="pg-grid-ipum-group pg-desktop-only">
+        <div class="pg-grid-ipum-group pg-desktop-only" style="${!_groupEnabled ? "grid-template-columns:1fr" : ""}">
           <div class="pg-card">
             <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
             ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
           </div>
-          <div class="pg-card">
+          ${_groupEnabled ? `<div class="pg-card">
             <h4>🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상</h4>
             <div class="pg-tbl-wrap">${renderGroupTable(groupRanking, _pa.plan, hasAnyTeam)}</div>
-          </div>
+          </div>` : ""}
         </div>
 
         <div class="pg-card pg-full-tbl-card pg-desktop-only" id="pg-full-tbl-card">
@@ -4866,6 +4871,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }).join("");
     }
 
+    const _hrRateEnabled  = !!_hrankPa.rateConfig;
+    const _hrAmtEnabled   = !!_hrankPa.amtConfig;
+    const _hrGroupEnabled = !!(_hrAwardPlan.groupAward1?.enabled || _hrAwardPlan.groupAward2?.enabled);
+
     const hrCats = [
       { key: "rate", icon: "📈", title: "최고 신장률", sub: "달성률 (현재실적 ÷ 기준실적)", cls: "hr-rate",
         arr: byRate, worstArr: byRateRaw, isGroup: false,
@@ -4879,7 +4888,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       { key: "group", icon: "🏅", title: hasAnyTeam ? "팀시상" : "그룹 순증", sub: hasAnyTeam ? "팀별 달성률" : "팀구분이 없습니다", cls: "hr-group",
         arr: groupRanking, isGroup: true,
         valFn: (g) => `${g.rate.toFixed(1)}%` }
-    ];
+    ].filter(cat => {
+      if (cat.key === "rate")  return _hrRateEnabled;
+      if (cat.key === "amt")   return _hrAmtEnabled;
+      if (cat.key === "group") return _hrGroupEnabled;
+      return true;
+    });
 
     state._hrankGroupData = {};
     groupRanking.forEach(g => { state._hrankGroupData[g.name] = g; });
@@ -8033,7 +8047,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
