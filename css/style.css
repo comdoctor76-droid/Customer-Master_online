@@ -1820,11 +1820,8 @@ body {
 .doc-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; gap: 12px; }
 .doc-title { font-size: 15px; font-weight: 900; color: var(--navy); letter-spacing: -0.3px; flex: 1; padding-top: 6px; white-space: nowrap; }
 
-/* 결제란 — 화면 미리보기에서는 숨기고, 실제 인쇄 시에만 표시 */
-.apv-wrap { display: none; align-items: stretch; flex-shrink: 0; }
-@media print {
-  .apv-wrap { display: flex !important; }
-}
+/* 결재란 — print-page 및 실제 인쇄 모두 표시 */
+.apv-wrap { display: flex; align-items: stretch; flex-shrink: 0; }
 .apv-box { border: 1px solid #888; text-align: center; width: 68px; }
 .apv-box + .apv-box { border-left: none; }
 .apv-title { font-size: 11px; font-weight: 700; color: var(--navy); background: #E8EDF8; padding: 2px 0; border-bottom: 1px solid #888; }
