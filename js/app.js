@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.36";
+  const APP_VERSION = "1.37";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -550,10 +550,12 @@
         const rows = branches[branch].slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
         const interviewed = rows.filter((s) => Number(s.consultCount || 0) > 0).length;
         const bOpen = state.openBranches.has(branch) || branch === selectedBranch;
+        const isBranchUnassigned = branch === "(지점 미지정)";
         return `
           <details class="branch-mini" data-branch="${escapeHtml(branch)}"${bOpen ? " open" : ""}>
             <summary class="branch-mini-head">
               <span class="branch-name">${escapeHtml(branch)}</span>
+              ${isBranchUnassigned ? `<button class="branch-assign-btn" data-center="${escapeHtml(center)}" title="지점 일괄 지정">📌 지정</button>` : ""}
               <span class="branch-cnt" title="교육생 / 면담된 교육생">${rows.length}/<em>${interviewed}</em></span>
               <span class="branch-chev">▾</span>
             </summary>
@@ -607,6 +609,36 @@
         if (!name) return;
         if (d.open) state.openCenters.add(name);
         else state.openCenters.delete(name);
+      });
+    });
+
+    // "(지점 미지정)" 일괄 지정 버튼
+    container.querySelectorAll(".branch-assign-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const centerName = btn.dataset.center;
+        const unassigned = list.filter((s) => s.center === centerName && !s.branch);
+        if (!unassigned.length) { toast("미지정 교육생이 없습니다.", ""); return; }
+        const region = state.filter.region;
+        const orgRegion = window.ORG_DATA?.regions?.find((r) => r.name === region);
+        const orgCenter = orgRegion?.centers?.find((c) => c.name === centerName);
+        const branches = orgCenter ? orgCenter.branches : [];
+        if (!branches.length) { toast("이 비전센터에 등록된 지점 정보가 없습니다.", "error"); return; }
+        openPickerModal(
+          `지점 선택 — ${centerName} 미지정 ${unassigned.length}명 일괄 지정`,
+          branches,
+          async (picked) => {
+            const ok = await openConfirmModal(`"${picked}"으로\n${unassigned.length}명을 일괄 저장하시겠습니까?`);
+            if (!ok) return;
+            const records = unassigned.map((s) => ({ ...s, branch: picked }));
+            try {
+              if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(records);
+              else for (const r of records) await window.DataAPI.save(r);
+              toast(`✅ ${unassigned.length}명의 지점을 "${picked}"으로 저장했습니다.`, "");
+            } catch (err) { toast("저장 오류: " + err.message, "error"); }
+          }
+        );
       });
     });
 
@@ -7852,11 +7884,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-<<<<<<< HEAD
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528c)`;
-=======
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528b)`;
->>>>>>> origin/main
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
