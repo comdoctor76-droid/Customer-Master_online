@@ -628,6 +628,7 @@
                 </div>
               </div>
             </div>
+            <button class="btn-outline" id="btn-rm-contact-update">📞 연락처 업데이트</button>
             <span id="rm-table-save-msg" class="pg-msg"></span>
           </div>
           <div id="rm-table-wrap" class="pg-tbl-wrap">
@@ -640,6 +641,50 @@
             <p>현재 지역단의 시상안을 편집합니다. 기수와 스텝을 선택한 뒤 편집 버튼을 누르세요.</p>
             <button class="btn-primary" id="btn-rm-open-award">🏆 시상안 편집 열기</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 연락처 업데이트 모달 -->
+  <div id="modal-contact-update" class="modal" hidden>
+    <div class="modal-backdrop" id="cu-backdrop"></div>
+    <div class="modal-panel" style="max-width:680px;width:96vw">
+      <div class="modal-head">
+        <h3 style="font-size:15px">📞 연락처 일괄 업데이트</h3>
+        <button class="modal-close" id="cu-close">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:14px 18px">
+        <p style="font-size:12px;color:#666;margin:0 0 8px">성명·사번·전화번호를 탭 구분으로 붙여넣으세요. 헤더 행 포함 시 자동 인식합니다.</p>
+        <p style="font-size:11px;color:#999;margin:0 0 8px;font-family:monospace">성명&nbsp;&nbsp;&nbsp;사번&nbsp;&nbsp;&nbsp;전화번호<br>홍길동&nbsp;&nbsp;012345&nbsp;&nbsp;010-1234-5678</p>
+        <textarea id="cu-paste-area" rows="6" class="rm-paste-textarea" style="width:100%;box-sizing:border-box;font-size:12px" placeholder="성명	사번	전화번호
+홍길동	012345	010-1234-5678"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button class="btn-primary small" id="cu-parse-btn">🔍 분석</button>
+          <button class="btn-outline small" id="cu-clear-btn">초기화</button>
+          <span id="cu-parse-msg" class="pg-msg" style="font-size:12px"></span>
+        </div>
+      </div>
+      <!-- 미리보기 -->
+      <div id="cu-preview-wrap" hidden style="padding:0 18px 14px">
+        <div style="font-size:12px;color:#555;margin-bottom:6px;font-weight:600">매칭 결과 확인 후 저장하세요</div>
+        <div style="max-height:300px;overflow-y:auto">
+          <table class="pg-tbl" id="cu-preview-tbl" style="width:100%;font-size:12px">
+            <thead><tr>
+              <th style="width:28px">#</th>
+              <th>성명</th>
+              <th style="width:74px">사번</th>
+              <th>현재 전화번호</th>
+              <th>새 전화번호</th>
+              <th style="width:54px">상태</th>
+            </tr></thead>
+            <tbody id="cu-preview-body"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center;justify-content:flex-end">
+          <span id="cu-save-msg" class="pg-msg" style="font-size:12px;margin-right:auto"></span>
+          <button class="btn-outline small" id="cu-cancel-btn">취소</button>
+          <button class="btn-primary small" id="cu-save-btn">💾 저장</button>
         </div>
       </div>
     </div>
