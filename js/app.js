@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.34";
+  const APP_VERSION = "1.35";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1574,37 +1574,35 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       toast("이미지 생성 중...", "info");
       try {
         const canvas = await captureCanvas();
-        await new Promise((resolve, reject) => {
-          canvas.toBlob(async (blob) => {
-            if (!blob) { reject(new Error("이미지 생성 실패")); return; }
-            try {
-              const file = new File([blob], `${filename}.png`, { type: "image/png" });
-              const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
-              if (canShareFiles) {
-                await navigator.share({ files: [file], title: "시상 예상답안지" });
-                toast("공유 완료!", "success");
-              } else if (typeof navigator.share === "function") {
-                // 파일 공유 미지원 — 먼저 다운로드 후 공유 유도
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url; link.download = `${filename}.png`; link.click();
-                setTimeout(() => URL.revokeObjectURL(url), 15000);
-                toast("PNG 저장됨 — 카카오톡 앱 > 파일 전송으로 공유해 주세요.", "success");
-              } else {
-                // 데스크탑 등 share 미지원
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url; link.download = `${filename}.png`; link.click();
-                setTimeout(() => URL.revokeObjectURL(url), 15000);
-                toast("PNG 저장됨 — 카카오톡 앱에서 파일을 선택해 공유해 주세요.", "success");
-              }
-              resolve();
-            } catch (e) {
-              if (e.name === "AbortError") { resolve(); return; } // 사용자 취소
-              reject(e);
-            }
-          }, "image/png");
+        const blob = await new Promise((resolve, reject) => {
+          canvas.toBlob((b) => b ? resolve(b) : reject(new Error("이미지 생성 실패")), "image/png");
         });
+        const file = new File([blob], `${filename}.png`, { type: "image/png" });
+
+        // ① 파일 공유 API 지원 기기(Android Chrome, iOS Safari 최신) → 공유 시트
+        if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: "시상 예상답안지" });
+            toast("카카오톡 공유 완료!", "success");
+            return;
+          } catch (e) {
+            if (e.name === "AbortError") return; // 사용자 취소
+            // share 실패 시 ② 로 fallback
+          }
+        }
+
+        // ② PNG 저장 후 카카오톡 앱 직접 열기
+        const objUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objUrl;
+        link.download = `${filename}.png`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 15000);
+        toast("이미지 저장됨 — 카카오톡이 열립니다.", "success");
+        // 짧은 딜레이 후 카카오톡 URI 스킴으로 앱 열기
+        setTimeout(() => {
+          window.location.href = "kakaotalk://";
+        }, 700);
       } catch (e) { toast("카카오톡 공유 실패: " + (e.message || String(e)), "error"); }
     };
 
@@ -7854,7 +7852,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260528b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
