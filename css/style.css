@@ -376,7 +376,7 @@ body {
 }
 .rm-filter-label { font-size: 12px; font-weight: 700; color: var(--navy); }
 .rm-filter-sep   { color: #bbb; }
-.rm-sel          { font-size: 13px; padding: 5px 8px; }
+.rm-sel          { font-size: 13px; padding: 5px 8px; width: 90px; }
 .rm-radio-label  { font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .rm-tabs {
   display: flex;
@@ -947,7 +947,7 @@ body {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 400;
   display: flex;
   align-items: center;
   justify-content: center;
