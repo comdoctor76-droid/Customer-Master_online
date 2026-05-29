@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.50";
+  const APP_VERSION = "1.51";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4767,7 +4767,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
           <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
-            <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle" style="display:none;">펼쳐보기</button>
+            <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle">펼쳐보기</button>
             <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
@@ -8047,7 +8047,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260529b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260529c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

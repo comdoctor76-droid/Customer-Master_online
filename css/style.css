@@ -3625,6 +3625,7 @@ body {
 .pg-tel-link { color: #1a56db; text-decoration: none; font-size: 12px; white-space: nowrap; }
 .pg-tel-link:hover { text-decoration: underline; }
 .pg-full-rank-tbl td, .pg-full-rank-tbl th { padding: 7px 6px; font-size: 12px; }
+.pg-full-tbl-toggle { display: none; }
 .pg-bdg {
   display: inline-block;
   padding: 2px 8px;
@@ -4196,7 +4197,14 @@ body {
   /* 홈 탭의 전체 교육생 실적표 — 기본 접힘(details) */
   .pg-full-tbl-card > .pg-tbl-wrap { display: none; }
   .pg-full-tbl-card.show > .pg-tbl-wrap { display: block; }
-  .pg-full-tbl-toggle { display: inline-block; }
+  .pg-full-tbl-toggle { display: inline-block !important; }
+  /* 가로 스크롤 시 순위·성명 열 고정 */
+  .pg-full-rank-tbl th:nth-child(1),
+  .pg-full-rank-tbl td:nth-child(1) { position: sticky; left: 0; z-index: 2; background: #fff; }
+  .pg-full-rank-tbl th:nth-child(2),
+  .pg-full-rank-tbl td:nth-child(2) { position: sticky; left: 44px; z-index: 2; background: #fff; }
+  .pg-full-rank-tbl thead th:nth-child(1),
+  .pg-full-rank-tbl thead th:nth-child(2) { z-index: 3; background: var(--navy); }
 }
 @media (max-width: 600px) {
   .pg-tier { min-width: 0; }
