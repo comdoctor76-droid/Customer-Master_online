@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.53";
+  const APP_VERSION = "1.54";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7393,6 +7393,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           tenureMonths: _bulkParseAmt(rec.tenureMonths) || 0,
           current: Number(existSt?.current || 0),
           pgIpumCount: 0, pgIpumAmt: 0,
+          team: existSt?.team || "",
           _isNew: !existSt,
         });
       });
@@ -7441,6 +7442,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           tenureMonths: toNum(tenureM),
           pgLeader, pgPreIns, pgPreConv, pgPreIncome,
           pgIpumCount, pgIpumAmt,
+          team: existSt?.team || "",
           _isNew: !existSt,
         });
       } else {
@@ -7457,6 +7459,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           empNo: empNo.replace(/[\s\/\\]/g, ""),
           name, phone,
           base: _baseNum, target: toNum(target), honors: toNum(honors),
+          team: existSt?.team || "",
           _isNew: !existSt,
         };
         if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
@@ -7632,6 +7635,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         current: Number(existSt?.current || 0),
         pgIpumCount: Number(existSt?.pgIpumCount || 0),
         pgIpumAmt: Number(existSt?.pgIpumAmt || 0),
+        team: existSt?.team || "",
       });
     });
 
@@ -8066,7 +8070,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
