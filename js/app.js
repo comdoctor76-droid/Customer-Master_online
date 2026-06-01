@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.60";
+  const APP_VERSION = "1.61";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -569,7 +569,7 @@
                 <li class="${state.selectedEmpNo === s.empNo ? "selected" : ""}" data-emp="${escapeHtml(s.empNo)}" data-initial="${escapeHtml(initial)}">
                   <span class="s-name-wrap">
                     <span class="s-name">${escapeHtml(nm)}</span>
-                    <span class="s-phone">${escapeHtml(s.phone || "")}</span>
+                    ${s.phone ? `<a href="tel:${escapeHtml(s.phone)}" class="s-phone s-phone-link" onclick="event.stopPropagation()">${escapeHtml(s.phone)}</a>` : `<span class="s-phone"></span>`}
                   </span>
                   ${ccBadge}
                 </li>
@@ -815,7 +815,7 @@
         <div class="sib-avatar">${escapeHtml(initial)}</div>
         <div class="sib-main">
           <div class="sib-name">${escapeHtml(s.name || "")}<span class="sib-emp">${escapeHtml(s.empNo)}</span></div>
-          <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}${s.team ? ` <span class="sib-team">${escapeHtml(String(s.team))}팀</span>` : ""}</div>
+          <div class="sib-meta">${[s.center, s.branch, s.cohort].filter(Boolean).map(escapeHtml).join(" · ")}${s.phone ? ` · <a href="tel:${escapeHtml(s.phone)}" class="sib-phone-link">${escapeHtml(s.phone)}</a>` : ""}${s.team ? ` <span class="sib-team">${escapeHtml(String(s.team))}팀</span>` : ""}</div>
         </div>
         <div class="sib-stats">
           <div><span>기준실적</span><strong>${fmt(Number(s.base || 0))}</strong></div>
@@ -8088,7 +8088,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
