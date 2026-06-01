@@ -3203,47 +3203,53 @@ body {
 }
 /* ── 개인 순증 시상 카드 ── */
 .aps-tier-card {
-  margin: 6px 10px 4px;
+  margin: 8px 10px 6px;
   border-radius: 8px;
   overflow: hidden;
-  font-size: 13px;
+  border: 1.5px solid #c3e6cb;
+  background: #f4fbf4;
+}
+.aps-tier-card.aps-tier-miss {
+  border-color: #e0e0e0;
+  background: #fafafa;
 }
 .aps-tier-head {
-  padding: 5px 12px;
+  padding: 7px 14px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(0,0,0,.07);
 }
-.aps-tier-card.aps-tier-hit .aps-tier-head { background: #EBF5EB; color: #1A6B3A; }
-.aps-tier-card.aps-tier-miss .aps-tier-head { background: #F5F5F5; color: #888; }
+.aps-tier-card.aps-tier-hit .aps-tier-head { color: #1A6B3A; background: #e8f5e9; }
+.aps-tier-card.aps-tier-miss .aps-tier-head { color: #888; background: #f5f5f5; }
 .aps-tier-body {
-  padding: 7px 12px 8px;
-  color: #333;
+  padding: 10px 14px 12px;
+  font-size: 14px;
+  color: #555;
 }
-.aps-tier-card.aps-tier-hit .aps-tier-body { background: #F4FBF4; }
-.aps-tier-card.aps-tier-miss .aps-tier-body { background: #FAFAFA; color: #999; }
-.aps-tier-prize { font-weight: 700; color: #1A6B3A; font-size: 14px; }
-.aps-tier-gap { color: #d97706; font-size: 11px; }
+.aps-tier-card.aps-tier-hit .aps-tier-body { color: #1A6B3A; }
+.aps-tier-prize { font-weight: 900; font-size: 20px; color: #1A6B3A; }
+.aps-tier-gap { color: #d97706; font-size: 12px; }
 /* ── 지난 스텝 개인 순증 결과 ── */
 .aps-prev-step {
   margin: 4px 10px 6px;
-  padding: 8px 14px;
+  padding: 9px 14px;
   border-radius: 8px;
   font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-weight: 700;
+  line-height: 1.45;
 }
 .aps-prev-hit {
-  background: #EBF5EB;
+  background: #e8f5e9;
   color: #1A6B3A;
-  border-left: 3px solid #4CAF50;
+  border-left: 4px solid #4CAF50;
 }
 .aps-prev-miss {
   background: #FFF8F0;
   color: #b45309;
-  border-left: 3px solid #f59e0b;
+  border-left: 4px solid #f59e0b;
 }
 /* ── 예상 시상 카드 (달성) ── */
 .aps-award-cards {

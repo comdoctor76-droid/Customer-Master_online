@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.62";
+  const APP_VERSION = "1.63";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3381,6 +3381,51 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const vc = student.center || "";
     const branch = student.branch || "";
     const sName = student.name || "";
+
+    // ④ 기수·스텝 개인 순증 시상
+    const _p4Region = region;
+    const _p4Cohort = (student.cohort || state.filter.cohort || "").replace(/기$/, "");
+    const _p4Step   = state.filter.step || "1";
+    const _p4Pa     = getProgressAwardConfig(_p4Region, _p4Cohort, _p4Step);
+    const _p4CoLabel = _p4Cohort ? `${_p4Cohort}기` : "";
+    const _p4StLabel = `Step ${_p4Step}`;
+    const _p4NetWon  = Math.max(0, b.tgtRaw - b.insRaw);
+    const _p4TierHit = _p4Pa.tiers.find(t => _p4NetWon >= t.min);
+    const _p4Badge   = `${_p4CoLabel ? _p4CoLabel + " " : ""}${_p4StLabel}`;
+    let award4Html = "";
+    if (_p4Pa.tiers.length > 0) {
+      if (_p4TierHit) {
+        const _p4Prize = _p4TierHit.type === "pct"
+          ? `${_p4TierHit.payVal}% 지급 (${fmtWon(Math.round(_p4NetWon * _p4TierHit.val))})`
+          : `${_p4TierHit.payVal}만원`;
+        award4Html = `
+          <div class="hl-row green4">
+            <span class="hl-icon">🎁</span>
+            <div class="hl-info">
+              <div class="hl-grade">${escapeHtml(_p4Badge)} 개인 순증 시상</div>
+              <div class="hl-crit">마스터목표 순증 ${fmtWon(_p4NetWon)} → <strong>${escapeHtml(_p4Prize)}</strong> 획득 예정</div>
+            </div>
+            <div class="hl-amt grn4">${escapeHtml(_p4Prize)}</div>
+          </div>`;
+      } else {
+        award4Html = `<div class="hl-none">${escapeHtml(_p4Badge)} 개인 순증 시상 — 해당없음 (마스터목표 순증 ${fmtWon(_p4NetWon)})</div>`;
+      }
+      if (_p4Step === "2") {
+        const _prevPa4 = getProgressAwardConfig(_p4Region, _p4Cohort, "1");
+        if (_prevPa4.tiers.length > 0) {
+          const _s1Net = Number(student.pgCurrent || 0) - Number(student.base || 0);
+          const _prevHit4 = _prevPa4.tiers.find(t => _s1Net >= t.min);
+          if (_prevHit4) {
+            const _prevPrize4 = _prevHit4.type === "pct"
+              ? `${Math.round(_s1Net * _prevHit4.val / 10000)}만원`
+              : `${_prevHit4.payVal}만원`;
+            award4Html += `<div class="hl-prev-hit">🎉 지난달 스텝1에서는 시상금 <strong>${escapeHtml(_prevPrize4)}</strong>을 획득 하셨습니다.</div>`;
+          } else {
+            award4Html += `<div class="hl-prev-miss">😅 지난달엔 아쉽지만 개인시상을 획득하지 못하셨습니다. 이달에는 더 화이팅!!</div>`;
+          }
+        }
+      }
+    }
     const branchShort = branch.replace(/지점$/, "");
     const hdrTitle = opts.positiveWord
       ? `🏆 ${escapeHtml(sName)}사장님의 희망답안지`
@@ -3415,6 +3460,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
         <div class="sec-title bl">🎯 고객컨설팅마스터 과정 개인시상</div>
         ${award3Html}
+        ${award4Html ? `<div class="sec-title grn4">🎁 ${escapeHtml(_p4Badge)} 개인 순증 시상</div>${award4Html}` : ""}
         <div class="sec-title">📌 아너스 희망목표금액 기준 시상 (${fmtWon(b.tgtRaw)})</div>
         ${award1Html}${award2Html}
         <div class="total-bar">
@@ -3495,6 +3541,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     .print-footer-name{color:#7B1FA2;font-weight:900;}
     .print-footer-branch{color:#1565C0;font-weight:900;}
     .print-footer-word{color:#E65100;font-size:17px;font-weight:900;font-style:italic;}
+    .sec-title.grn4{color:#1B5E20;}
+    .hl-row.green4{background:#E8F5E9;border-left-color:#2E7D32;}
+    .hl-row.green4 .hl-grade{color:#1B5E20;}
+    .hl-row.green4 .hl-crit{color:#388E3C;}
+    .hl-amt.grn4{color:#2E7D32;font-size:20px;}
+    .hl-prev-hit{background:#E8F5E9;border-left:3px solid #4CAF50;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:13px;color:#1B5E20;font-weight:700;}
+    .hl-prev-miss{background:#FFF8F0;border-left:3px solid #f59e0b;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:13px;color:#b45309;font-weight:700;}
     @media print{
       @page{size:A4 portrait;margin:5mm 7mm;}
       body{font-size:11px;}
@@ -8139,7 +8192,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
