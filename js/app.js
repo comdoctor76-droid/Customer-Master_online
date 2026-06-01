@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.55";
+  const APP_VERSION = "1.56";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7884,14 +7884,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       render();
     });
     $("#filter-cohort").addEventListener("change", (e) => {
+      const prevCohortNum = parseInt(state.filter.cohort, 10) || 0;
+      const newCohortNum  = parseInt(e.target.value, 10) || 0;
       state.filter.cohort = e.target.value;
-      // 기수 변경 시 스텝을 Step 1으로 자동 초기화
-      state.filter.step = "1";
-      state.progressStep = "1";
+      // 뒤 기수 → 앞 기수: Step 2 / 앞 기수 → 뒤 기수: Step 1
+      const autoStep = (newCohortNum > 0 && prevCohortNum > 0 && newCohortNum < prevCohortNum) ? "2" : "1";
+      state.filter.step = autoStep;
+      state.progressStep = autoStep;
       const fsEl = document.getElementById("filter-step");
-      if (fsEl) fsEl.value = "1";
+      if (fsEl) fsEl.value = autoStep;
       const pgStepSel = document.getElementById("pg-step-sel");
-      if (pgStepSel) pgStepSel.value = "1";
+      if (pgStepSel) pgStepSel.value = autoStep;
       persistFilter();
       if (isPanelVisible("progress-panel")) renderProgressPanel();
       render();
@@ -8077,7 +8080,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
