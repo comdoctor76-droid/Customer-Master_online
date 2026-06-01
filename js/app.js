@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.61";
+  const APP_VERSION = "1.62";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1875,7 +1875,52 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const _allCards = [_rateCard, _amtCard, _ga1Card, _ga2Card].filter(Boolean);
           const hasAward  = _allCards.length > 0;
           const hasAnyConfig = _pa.rateConfig || _pa.amtConfig || _plan.groupAward1?.enabled || _plan.groupAward2?.enabled;
-          if (!hasAnyConfig) return "";
+
+          // ── 개인 순증 시상 (과정 시상안 기준, 마스터목표 순증 기준) ──
+          const _targetNetWon = Math.max(0, tgtRaw - insRaw3);
+          const _targetNetMw  = Math.round(_targetNetWon / 10000);
+          const _tierHit = _pa.tiers.find(t => _targetNetWon >= t.min);
+          let _tierSectionHtml = "";
+          if (_pa.tiers.length > 0) {
+            const _tierBadge = `${_cohortLabel ? _cohortLabel + " " : ""}${_stepLabel}`;
+            if (_tierHit) {
+              const _tierPrize = _tierHit.type === "pct"
+                ? `${_tierHit.payVal}% 지급 (${fmtWon(Math.round(_targetNetWon * _tierHit.val))})`
+                : `${_tierHit.payVal}만원`;
+              _tierSectionHtml = `
+                <div class="aps-tier-card aps-tier-hit">
+                  <div class="aps-tier-head">🎁 개인 순증 시상 <span class="aps-badge">${escapeHtml(_tierBadge)}</span></div>
+                  <div class="aps-tier-body">마스터목표 순증 <strong>${_targetNetMw}만원</strong> → <span class="aps-tier-prize">${escapeHtml(_tierPrize)}</span> 획득 예정</div>
+                </div>`;
+            } else {
+              const _lowestTier = _pa.tiers[_pa.tiers.length - 1];
+              const _needMw = _lowestTier ? Math.max(0, Math.ceil((_lowestTier.min - _targetNetWon) / 10000)) : 0;
+              _tierSectionHtml = `
+                <div class="aps-tier-card aps-tier-miss">
+                  <div class="aps-tier-head">🎁 개인 순증 시상 <span class="aps-badge">${escapeHtml(_tierBadge)}</span></div>
+                  <div class="aps-tier-body">마스터목표 순증 ${_targetNetMw}만원 — 해당 없음${_needMw > 0 ? ` <span class="aps-tier-gap">(최저 기준까지 ${_needMw}만원 부족)</span>` : ""}</div>
+                </div>`;
+            }
+          }
+
+          // ── 지난 스텝 개인 순증 시상 결과 (Step 2에서만 표시) ──
+          let _prevStepHtml = "";
+          if (_step === "2") {
+            const _prevPa = getProgressAwardConfig(_region, _cohort, "1");
+            if (_prevPa.tiers.length > 0) {
+              const _step1Current = Number(_calcS.pgCurrent !== undefined ? _calcS.pgCurrent : (_calcS.current || 0));
+              const _step1Net = _step1Current - Number(_calcS.base || 0);
+              const _prevTierHit = _prevPa.tiers.find(t => _step1Net >= t.min);
+              if (_prevTierHit) {
+                const _prevPrize = _prevTierHit.type === "pct"
+                  ? `${Math.round(_step1Net * _prevTierHit.val / 10000)}만원`
+                  : `${_prevTierHit.payVal}만원`;
+                _prevStepHtml = `<div class="aps-prev-step aps-prev-hit">🎉 지난달 스텝1에서는 시상금 <strong>${escapeHtml(_prevPrize)}</strong>을 획득 하셨습니다.</div>`;
+              } else {
+                _prevStepHtml = `<div class="aps-prev-step aps-prev-miss">😅 지난달엔 아쉽지만 개인시상을 획득하지 못하셨습니다. 이달에는 더 화이팅!!</div>`;
+              }
+            }
+          }
 
           const mkCard = (c) => `
             <div class="aps-award-card${c.isItem ? " aps-item-prize" : ""}${c.isTeam ? " aps-team-prize" : ""}">
@@ -1933,12 +1978,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               : `<div class="aps-no-award">현재 순위로는 시상 대상에 해당하지 않습니다</div>`;
           }
 
+          if (!hasAnyConfig && !_pa.tiers.length) return "";
+
           return `
             <div class="aps-wrap">
               <div class="aps-header">④ 예상 시상 <span class="aps-badge">${escapeHtml(_cohortLabel)} ${escapeHtml(_stepLabel)}</span></div>
-              ${hasAward
-                ? `<div class="aps-award-cards">${_allCards.map(mkCard).join("")}</div>`
-                : noAwardHtml}
+              ${_tierSectionHtml}
+              ${_prevStepHtml}
+              ${hasAnyConfig
+                ? (hasAward
+                    ? `<div class="aps-award-cards">${_allCards.map(mkCard).join("")}</div>`
+                    : noAwardHtml)
+                : ""}
               ${_plan.notes ? `<div class="aps-notes">${escapeHtml(_plan.notes)}</div>` : ""}
             </div>`;
         })()}
@@ -8088,7 +8139,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
