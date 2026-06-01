@@ -248,7 +248,9 @@
         <div class="panel-head">
           <h2>📈 실적진도</h2>
           <div class="panel-tools">
-            <span class="pg-region-tag">🏢 <span id="progress-region-label">지역단 미선택</span></span>
+            <select id="pg-region-sel" class="pg-input pg-context-sel pg-region-sel" title="지역단 선택">
+              <option value="">지역단 미선택</option>
+            </select>
             <select id="pg-cohort-sel" class="pg-input pg-context-sel" title="기수 선택">
               <option value="">기수 전체</option>
               <option value="1">1기</option>
@@ -263,9 +265,7 @@
               <option value="1">Step 1</option>
               <option value="2">Step 2</option>
             </select>
-            <div class="sub-tabs">
-              <button class="sub-tab active" data-psub="home">🏠 홈</button>
-            </div>
+            <button id="btn-pg-excel" class="pg-excel-btn" title="시상내역 엑셀 저장하기">📊 시상내역 엑셀 저장하기</button>
           </div>
         </div>
         <div id="progress-body" class="progress-body">

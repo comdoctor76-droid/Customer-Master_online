@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.63";
+  const APP_VERSION = "1.64";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3830,7 +3830,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 간단 모달 대신 prompt + select — 모달 재사용 대신 빠른 구현
     openPickerModal("지역단 선택", regions, (picked) => {
       state.progressRegion = picked;
-      document.getElementById("progress-region-label").textContent = picked;
+      const pgRegSel = document.getElementById("pg-region-sel");
+      if (pgRegSel) pgRegSel.value = picked;
       renderProgressPanel();
     });
   }
@@ -4236,14 +4237,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function renderProgressPanel() {
     const body = $("#progress-body");
     if (!body) return;
-    // 좌측 필터에서 선택한 지역단 기준
-    const region = state.filter.region || "";
+    // 지역단 선택 셀렉트 옵션 갱신 (교육생 데이터 기준)
+    const pgRegSel = document.getElementById("pg-region-sel");
+    if (pgRegSel) {
+      const allRegions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
+      const prev = pgRegSel.value;
+      pgRegSel.innerHTML = '<option value="">지역단 미선택</option>' +
+        allRegions.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
+      const want = prev || state.progressRegion || state.filter.region || "";
+      if (want) pgRegSel.value = want;
+    }
+    const region = pgRegSel?.value || state.progressRegion || state.filter.region || "";
     state.progressRegion = region;
-    const label = document.getElementById("progress-region-label");
-    if (label) label.textContent = region || "지역단 미선택";
 
     if (!region) {
-      body.innerHTML = `<div class="empty-state">좌측 필터에서 <strong>지역단</strong>을 선택하면 해당 지역단의 실적진도가 표시됩니다.</div>`;
+      body.innerHTML = `<div class="empty-state">위 지역단 선택에서 <strong>지역단</strong>을 선택하면 해당 지역단의 실적진도가 표시됩니다.</div>`;
       return;
     }
     // 좌측 사이드바 기수(state.filter.cohort)를 우선 사용; 없으면 진도탭 자체 선택값
@@ -7929,6 +7937,117 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     URL.revokeObjectURL(url);
   }
 
+  // ========== 실적진도 시상내역 엑셀 저장 ==========
+  function loadSheetJS() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      script.onload  = () => resolve(window.XLSX);
+      script.onerror = () => reject(new Error("SheetJS 로드 실패"));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function exportProgressAwardExcel() {
+    const region     = state.progressRegion || state.filter.region || "";
+    const _pgCohort  = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
+    const _pgStep    = state.filter.step    || state.progressStep   || "1";
+    const center     = state.filter.center || "";
+
+    const cohortLabel = _pgCohort ? `${_pgCohort}기` : "";
+    const stepLabel   = `Step${_pgStep}`;
+    const centerPart  = center ? ` ${center}` : "";
+    const msg = `${region || "지역단미선택"}${cohortLabel ? " " + cohortLabel : ""}${centerPart} ${stepLabel} 수상내역을 인쇄 하시겠습니까?`;
+
+    if (!confirm(msg)) return;
+
+    let XLSX;
+    try {
+      toast("엑셀 파일 준비 중…", "");
+      XLSX = await loadSheetJS();
+    } catch (_e) {
+      toast("SheetJS 로드 실패. 인터넷 연결을 확인하세요.", "error");
+      return;
+    }
+
+    const list = state.students.filter((s) => {
+      if (s.region !== region) return false;
+      if (_pgCohort && s.cohort && String(s.cohort).replace(/기$/, "") !== String(_pgCohort)) return false;
+      return true;
+    });
+    if (!list.length) { toast("해당하는 교육생이 없습니다.", "error"); return; }
+
+    const _pa       = getProgressAwardConfig(region, _pgCohort, _pgStep);
+    const stats     = list.map(getProgressStat);
+    const byRate    = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
+    const byAmt     = [...stats].sort((a, b) => b.net - a.net);
+    const byIpum    = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
+    const _bothAsgn = computeBothAwardAssignments(byRate, byAmt, _pa);
+    const ipumRankMap = new Map(byIpum.map((st, i) => [st.s.empNo, i + 1]));
+
+    const rows = [];
+    const titleStr = `${region}${cohortLabel ? " " + cohortLabel : ""} ${stepLabel} 수상내역`;
+    rows.push([titleStr]);
+    rows.push([]);
+    rows.push(["순번", "이름", "비전센터", "기준실적(만원)", "현재실적(만원)", "순증(만원)", "신장률(%)", "개인순증시상", "신장률TOP순위", "신장액TOP순위", "인품왕순위"]);
+
+    byAmt.forEach((st, i) => {
+      const _tlbl  = tierLabel(st.net, undefined, _pa);
+      const _tamt  = tierAward(st.net, undefined, _pa);
+      const tierText = _tamt > 0
+        ? `${_tlbl} (${Math.round(_tamt / 10000)}만원)`
+        : (_pa.tiers.length > 0 ? "해당없음" : "-");
+
+      const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
+      const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
+      let rateTxt = "-";
+      if (rA) {
+        if      (rA.status === "mine")       rateTxt = `${rA.effectiveRank}위 (${Math.round(rA.effectiveAmt / 10000)}만원)`;
+        else if (rA.status === "other")      rateTxt = "→신장액시상";
+        else if (rA.status === "ineligible") rateTxt = "기준미달";
+      }
+      let amtTxt = "-";
+      if (aA) {
+        if      (aA.status === "mine")       amtTxt = `${aA.effectiveRank}위 (${Math.round(aA.effectiveAmt / 10000)}만원)`;
+        else if (aA.status === "other")      amtTxt = "→신장률시상";
+        else if (aA.status === "ineligible") amtTxt = "기준미달";
+      }
+
+      const ipumRank = ipumRankMap.get(st.s.empNo);
+      rows.push([
+        i + 1,
+        st.s.name    || "",
+        st.s.center  || "",
+        Math.round(st.base    / 10000),
+        Math.round(st.current / 10000),
+        Math.round(st.net     / 10000),
+        parseFloat(st.rate.toFixed(1)),
+        tierText,
+        rateTxt,
+        amtTxt,
+        ipumRank ? `${ipumRank}위` : "-",
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
+    ws["!cols"] = [
+      { wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+      { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 10 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "수상내역");
+
+    const today   = new Date();
+    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+    const cohortPart = cohortLabel ? `_${cohortLabel}` : "";
+    const filename = `${region}${cohortPart}_${stepLabel}_수상내역_${dateStr}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    toast("엑셀 파일이 저장되었습니다.", "success");
+  }
+
   // ========== 초기화 ==========
   function bindEvents() {
     // 상단 헤더 — 캐시 초기화 후 새로고침
@@ -8182,17 +8301,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const awardBtn = $("#btn-print-awards");
     if (awardBtn) awardBtn.addEventListener("click", printAwardSheets);
 
-    // 실적진도 서브탭 (지역단은 좌측 필터에서 선택)
-    document.querySelectorAll("#progress-panel .sub-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.progressSubTab = btn.dataset.psub;
-        document.querySelectorAll("#progress-panel .sub-tab").forEach((b) => b.classList.toggle("active", b.dataset.psub === state.progressSubTab));
-        renderProgressPanel();
-      });
+    // 실적진도 — 지역단 선택
+    document.getElementById("pg-region-sel")?.addEventListener("change", (e) => {
+      state.progressRegion = e.target.value;
+      if (isPanelVisible("progress-panel")) renderProgressPanel();
     });
+    // 실적진도 — 시상내역 엑셀 저장하기
+    document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
