@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.51";
+  const APP_VERSION = "1.52";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -469,7 +469,7 @@
   function renderKPIs(list) {
     const sum = (k) => list.reduce((a, s) => a + (Number(s[k]) || 0), 0);
     $("#kpi-total").textContent = list.length.toLocaleString();
-    $("#kpi-base").textContent = list.reduce((a, s) => a + (Number(s.pgBase) || Number(s.base || 0)), 0).toLocaleString();
+    $("#kpi-base").textContent = list.reduce((a, s) => a + Number(s.base || 0), 0).toLocaleString();
     $("#kpi-target").textContent = sum("target").toLocaleString();
     $("#kpi-honors").textContent = sum("honors").toLocaleString();
     $("#mini-total").textContent = list.length;
@@ -818,7 +818,7 @@
           <div class="sib-meta">${escapeHtml([s.center, s.branch, s.cohort, s.phone].filter(Boolean).join(" · "))}${s.team ? ` <span class="sib-team">${escapeHtml(String(s.team))}팀</span>` : ""}</div>
         </div>
         <div class="sib-stats">
-          <div><span>기준실적</span><strong>${fmt(Number(s.pgBase) || Number(s.base || 0))}</strong></div>
+          <div><span>기준실적</span><strong>${fmt(Number(s.base || 0))}</strong></div>
           <div><span>마스터목표</span><strong>${Number(s.target) > 0 ? fmt(Number(s.target)) : "<span style='color:#aaa'>미설정</span>"}</strong></div>
           <div><span>아너스목표</span><strong>${fmt(Number(s.honors))}</strong></div>
         </div>
@@ -3537,7 +3537,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const fw = (mw) => Math.round(mw * 10000).toLocaleString() + "원";
     const fwo = (w) => Math.round(w).toLocaleString() + "원";
     const pgCurrent = Number(student?.pgCurrent || 0);
-    const pgBase = Number(student?.pgBase || 0);
+    const pgBase = Number(student?.base || 0);
     const curMW = pgCurrent / 10000;
     const baseMW = pgBase / 10000;
     const incrMW = Math.max(0, curMW - baseMW);
@@ -4178,9 +4178,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   // 학생 데이터에서 계산된 지표 얻기
   function getProgressStat(s) {
     const sfx = _pgStepSfx();
-    const base    = sfx
-      ? (Number(s[`pgBase${sfx}`]) || Number(s.pgBase) || Number(s.base) || 0)
-      : (s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0));
+    const base    = Number(s.base || 0);
     const current = sfx
       ? Number(s[`pgCurrent${sfx}`] || 0)
       : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
@@ -5684,7 +5682,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <td>${escapeHtml(r.empNo)}</td>
           <td><input class="pg-input pgn-name" data-idx="${i}" value="${escapeHtml(r.name)}" placeholder="성명"></td>
           <td>${escapeHtml(r.branch)}</td>
-          <td class="r">${Nf(r.pgBase)}</td>
+          <td class="r">${Nf(r.base)}</td>
           <td class="r">${Nf(r.pgCurrent)}</td>
           <td><input class="pg-input pgn-cohort" data-idx="${i}" value="" placeholder="기수"></td>
           <td><input class="pg-input pgn-phone" data-idx="${i}" value="" placeholder="연락처"></td>
@@ -5952,8 +5950,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               </tr></thead>
               <tbody>${rows.map((s, i) => {
                 const sfx   = _pgStepSfx();
-                const base  = sfx ? Number(s[`pgBase${sfx}`] || 0)
-                                  : (s.pgBase !== undefined ? Number(s.pgBase) : Number(s.base || 0));
+                const base  = Number(s.base || 0);
                 const hiCap = Number(s[`hiCap${sfx}`] || 0);
                 const cur   = sfx ? Number(s[`pgCurrent${sfx}`] || 0)
                                   : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
@@ -6157,8 +6154,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const emp = e.target.dataset.emp;
         const s = state.students.find((x) => x.empNo === emp);
         const sfx = _pgStepSfx();
-        const base = sfx ? Number(s?.[`pgBase${sfx}`] || 0)
-                         : ((s?.pgBase !== undefined) ? Number(s.pgBase) : Number(s?.base || 0));
+        const base = Number(s?.base || 0);
         const cur  = parseFloat(e.target.value) || 0;
         const net  = cur - base;
         const rate = base > 0 ? (cur / base) * 100 : 0;
@@ -6485,20 +6481,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (isCombinedFormat) {
           // Step2 복합 형식: 원본 열 위치로 step2 필드 추출 (드롭다운에 Step2 항목 없으므로)
           pgFields = {
-            pgBase2:      pgBase,                          // 기준실적(A) → step2 기준
-            pgCurrent2:   getOrigAmt(p, "pgCurrent2"),     // 원본 위치 기준 추출
+            pgCurrent2:   getOrigAmt(p, "pgCurrent2"),
             pgIpumCount2: getOrigAmt(p, "pgIpumCount2"),
             pgIpumAmt2:   getOrigAmt(p, "pgIpumAmt2"),
           };
           if (fieldMapping.includes("pgMonth"))  pgFields.pgMonth  = pgMonth;
           if (fieldMapping.includes("pgLeader")) pgFields.pgLeader = pgLeader;
-          // 기준실적(A)은 base에도 반영 (step1 current는 건드리지 않음)
           baseUpdate = pgBase > 0 ? { base: pgBase } : {};
         } else {
           // 단일 스텝 형식 — 매핑에 있는 열만 저장 (없는 열은 기존 값 유지)
           const sfx = sfxOverride;
           pgFields = {};
-          if (fieldMapping.includes("pgBase"))       pgFields[`pgBase${sfx}`]      = pgBase;
+          if (fieldMapping.includes("pgBase"))       baseUpdate = pgBase > 0 ? { base: pgBase } : {};
           if (fieldMapping.includes("pgCurrent"))    pgFields[`pgCurrent${sfx}`]   = pgCurrent;
           if (fieldMapping.includes("pgIpumCount"))  pgFields[`pgIpumCount${sfx}`] = pgIpumCount;
           if (fieldMapping.includes("pgIpumAmt"))    pgFields[`pgIpumAmt${sfx}`]   = pgIpumAmt;
@@ -6507,11 +6501,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (fieldMapping.includes("pgPreIncome"))  pgFields.pgPreIncome = pgPreIncome;
           if (fieldMapping.includes("pgMonth"))      pgFields.pgMonth     = pgMonth;
           if (fieldMapping.includes("pgLeader"))     pgFields.pgLeader    = pgLeader;
-          // pgCurrent 매핑 없는 포맷(10열 공통)은 현재실적 건드리지 않음
-          const hasCurrent = fieldMapping.includes("pgCurrent");
-          baseUpdate = (sfx === "" && pgBase > 0)
-            ? { base: pgBase, ...(hasCurrent ? { current: pgCurrent } : {}) }
-            : {};
+          if (!baseUpdate) baseUpdate = {};
+          if (sfx === "" && pgBase > 0 && fieldMapping.includes("pgCurrent")) {
+            baseUpdate = { ...baseUpdate, current: pgCurrent };
+          }
         }
 
         if (existing) {
@@ -7213,7 +7206,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     $("#form-empno").value = s.empNo;
     $("#form-name").value = s.name || "";
     $("#form-phone").value = s.phone || "";
-    $("#form-base").value   = Number(s.pgBase) || s.base || "";
+    $("#form-base").value   = s.base || "";
     const computedTarget = (s.region !== "호남지역단" && !Number(s.target))
       ? getProgressStat(s).base + 50000
       : Number(s.target) || "";
@@ -7255,7 +7248,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       name: $("#form-name").value.trim(),
       phone: $("#form-phone").value.trim(),
       base,
-      pgBase: base,
       target,
       honors: Number($("#form-honors").value || 0),
       team: teamInput > 0 ? String(teamInput) : existingTeam
@@ -7395,7 +7387,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           cohort, empNo,
           name: rec.name || "",
           phone: rec.phone || existSt?.phone || "",
-          base, pgBase: base,
+          base,
           target: _bulkParseAmt(rec.target) || (existSt?.target ?? 0),
           honors: _bulkParseAmt(rec.honors) || (existSt?.honors ?? 0),
           tenureMonths: _bulkParseAmt(rec.tenureMonths) || 0,
@@ -7445,7 +7437,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const target  = existSt?.target ?? (region !== "호남지역단" && base > 0 ? base + 50000 : 0);
         records.push({
           region, center, branch, cohort, empNo, name, phone, honors,
-          base, pgBase: base, target, current,
+          base, target, current,
           tenureMonths: toNum(tenureM),
           pgLeader, pgPreIns, pgPreConv, pgPreIncome,
           pgIpumCount, pgIpumAmt,
@@ -7464,7 +7456,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           region, center, branch, cohort,
           empNo: empNo.replace(/[\s\/\\]/g, ""),
           name, phone,
-          base: _baseNum, pgBase: _baseNum, target: toNum(target), honors: toNum(honors),
+          base: _baseNum, target: toNum(target), honors: toNum(honors),
           _isNew: !existSt,
         };
         if (tenureMonths) rec.tenureMonths = toNum(tenureMonths);
@@ -7633,7 +7625,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         cohort, empNo,
         name: g("name"),
         phone: g("phone"),
-        base, pgBase: base,
+        base,
         target: _bulkParseAmt(g("target")) || (existSt?.target ?? 0),
         honors: _bulkParseAmt(g("honors")) || (existSt?.honors ?? 0),
         tenureMonths: _bulkParseAmt(g("tenureMonths")) || 0,
@@ -7809,7 +7801,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const headers = ["지역단","비전센터","지점","기수","사번","이름","연락처","기준실적","마스터목표","아너스목표"];
     const rows = list.map((s) => [
       s.region, s.center, s.branch, s.cohort, s.empNo, s.name, s.phone,
-      Math.round(Number(s.pgBase) || Number(s.base||0)), Math.round(Number(s.target||0)), Math.round(Number(s.honors||0))
+      Math.round(Number(s.base||0)), Math.round(Number(s.target||0)), Math.round(Number(s.honors||0))
     ].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
     const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -8047,7 +8039,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260529c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9544,7 +9536,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         <th>전화번호</th>
       </tr></thead>
       <tbody>${rows.map((s, i) => {
-        const base  = sfx ? Number(s[`pgBase${sfx}`]    || 0) : (s.pgBase    !== undefined ? Number(s.pgBase)    : Number(s.base    || 0));
+        const base  = Number(s.base || 0);
         const cur   = sfx ? Number(s[`pgCurrent${sfx}`] || 0) : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
         const goal  = Number(s.target) > 0 ? Number(s.target) : base;
         const iCnt  = Number(s[`pgIpumCount${sfx}`] || s.pgIpumCount || 0);
@@ -9849,7 +9841,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const pgMonth     = getCol(p, "pgMonth");
 
       const pgFields = {};
-      if (fieldMapping.includes("pgBase"))       pgFields[`pgBase${sfx}`]      = pgBase;
+      if (fieldMapping.includes("pgBase"))       pgFields.base                  = pgBase;
       if (fieldMapping.includes("pgCurrent"))    pgFields[`pgCurrent${sfx}`]   = pgCurrent;
       if (fieldMapping.includes("pgIpumCount"))  pgFields[`pgIpumCount${sfx}`] = pgIpumCount;
       if (fieldMapping.includes("pgIpumAmt"))    pgFields[`pgIpumAmt${sfx}`]   = pgIpumAmt;
