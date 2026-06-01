@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.56";
+  const APP_VERSION = "1.57";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4294,9 +4294,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const rows = groupRanking.map((g, i) => {
       const short = g.members.slice(0, 5).join("·") + (g.members.length > 5 ? "…" : "");
+      let metGa1Items = []; // ga2 연계 판단을 위해 상위 스코프로 선언
       let ga1Cell = "", ga1AwardCell = "";
       if (ga1En) {
-        // 첫 번째 항목을 기준으로 달성 인원 표시
         const primaryIt = ga1ItemList[0] || { threshold: 5, payout: { type: "cash", val: 5 } };
         const thr = Number(primaryIt.threshold || 5) * 10000;
         const total = (g.memberStats || []).length || g.members.length;
@@ -4304,29 +4304,34 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const allAchieved = achieved === total && total > 0;
         const icon = allAchieved ? "✅" : (achieved === 0 ? "✕" : "△");
         const bdg = allAchieved ? "pg-grp-ok" : (achieved > 0 ? "pg-grp-half" : "pg-grp-no");
-        // 달성된 모든 항목의 시상 합산
-        const metItems = ga1ItemList.filter(it => {
+        metGa1Items = ga1ItemList.filter(it => {
           const itThr = Number(it.threshold || 5) * 10000;
           return (g.memberStats || []).every(st => (st.net || 0) >= itThr) && total > 0;
         });
-        const awardLabels = metItems.map(it => escapeHtml(payoutLabel(it.payout))).join("+");
+        const awardLabels = metGa1Items.map(it => escapeHtml(payoutLabel(it.payout))).join("+");
         ga1Cell = `<td><span class="pg-grp-badge ${bdg}">${icon}${achieved}/${total}명</span></td>`;
-        ga1AwardCell = `<td>${metItems.length ? `<span class="pg-grp-award">${awardLabels}</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
+        ga1AwardCell = `<td>${metGa1Items.length ? `<span class="pg-grp-award">${awardLabels}</span>` : `<span class="pg-grp-miss">미달</span>`}</td>`;
       }
       let ga2Cell = "";
       if (ga2En) {
         const g2items = _ga2Items(ga2);
-        const metItems = g2items.filter(it => g.rate >= Number(it.rateThreshold || 110));
-        if (metItems.length > 0) {
-          const bestPay = metItems.reduce((best, it) => {
-            const np = normPayout(it.payout ?? 15);
-            if (np.type === "item") return best || np;
-            return (!best || Number(np.val) > Number(normPayout(best).val)) ? np : best;
-          }, null);
-          ga2Cell = `<td><span class="pg-grp-award">${escapeHtml(payoutLabel(bestPay))}</span></td>`;
+        // 그룹시상1 연계: linkToGroup1 활성화 시 ga1 미달이면 ga2도 미달 표시
+        const ga2LinkToGa1 = !!(ga2?.linkToGroup1 && ga1En);
+        if (ga2LinkToGa1 && !metGa1Items.length) {
+          ga2Cell = `<td><span class="pg-grp-miss">미달(1연계)</span></td>`;
         } else {
-          const firstThr = g2items[0]?.rateThreshold || 110;
-          ga2Cell = `<td><span class="pg-grp-miss">미달(${firstThr}%↑)</span></td>`;
+          const metGa2Items = g2items.filter(it => g.rate >= Number(it.rateThreshold || 110));
+          if (metGa2Items.length > 0) {
+            const bestPay = metGa2Items.reduce((best, it) => {
+              const np = normPayout(it.payout ?? 15);
+              if (np.type === "item") return best || np;
+              return (!best || Number(np.val) > Number(normPayout(best).val)) ? np : best;
+            }, null);
+            ga2Cell = `<td><span class="pg-grp-award">${escapeHtml(payoutLabel(bestPay))}</span></td>`;
+          } else {
+            const firstThr = g2items[0]?.rateThreshold || 110;
+            ga2Cell = `<td><span class="pg-grp-miss">미달(${firstThr}%↑)</span></td>`;
+          }
         }
       }
       return `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td><small>${escapeHtml(short)}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
@@ -5283,15 +5288,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
         prizeCell = `<span style="color:#bbb">-</span>`;
       } else if (a.status === "mine") {
-        rankCell  = RB(displayRank);
+        rankCell  = RB(a.effectiveRank || displayRank);  // 중복배제 후 실제 순위
         prizeCell = `<span class="pg-bdg pg-b-g">${prizeStr(a.effectiveAmt)}</span>`;
       } else if (a.status === "other") {
-        // 이 카테고리는 제외 → 상대 카테고리 시상 표시
+        // 이 카테고리는 제외 → 순위 표시 없음, 상대 카테고리 시상만 표시
         const oa       = otherAsgnMap.get(empNo);
         const oRank    = oa?.effectiveRank || 0;
         const oAmt     = oa?.effectiveAmt  || 0;
         const rankSuf  = oRank > 0 ? ` ${oRank}위` : "";
-        rankCell  = RBMuted(displayRank);
+        rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;  // 순위 미표시
         prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName}${rankSuf} ${prizeStr(oAmt)} 시상</span>`;
         rowCls    = " pg-rank-deferred";
       } else if (a.status === "ineligible") {
@@ -8080,7 +8085,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8454,7 +8459,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       ? plan.groupAward1.items
       : [{ threshold: plan.groupAward1?.threshold ?? 5, payout: normPayout(plan.groupAward1?.payout ?? 5) }];
     _apRenderGa1(ga1RawItems);
-    document.getElementById("ap-ga2-en").checked = !!plan.groupAward2?.enabled;
+    document.getElementById("ap-ga2-en").checked   = !!plan.groupAward2?.enabled;
+    const ga2LinkEl = document.getElementById("ap-ga2-link");
+    if (ga2LinkEl) ga2LinkEl.checked = !!plan.groupAward2?.linkToGroup1;
     const ga2Items = plan.groupAward2?.items?.length
       ? plan.groupAward2.items
       : [{ rateThreshold: plan.groupAward2?.rateThreshold ?? 110, payout: plan.groupAward2?.payout ?? 15 }];
@@ -8536,6 +8543,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       },
       groupAward2: {
         enabled: document.getElementById("ap-ga2-en")?.checked ?? false,
+        linkToGroup1: document.getElementById("ap-ga2-link")?.checked ?? false,
         items: (() => {
           const arr = [];
           document.querySelectorAll("#ap-ga2-list .ap-ga2-row").forEach((row) => {
