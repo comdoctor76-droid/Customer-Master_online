@@ -3576,7 +3576,7 @@ body {
 
 /* 2열 그리드 */
 .pg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.pg-grid-ipum-group { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; }
+.pg-grid-ipum-group { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .pg-card {
   background: #fff;
   border: 1px solid var(--line-soft);
@@ -4182,8 +4182,8 @@ body {
   .pg-kpi:nth-last-child(-n+3) { border-bottom: none; }
   .pg-kpi .pgl { font-size: 10px; }
   .pg-kpi .pgv { font-size: 15px; }
-  /* 신장률·신장액 2열 유지 (1열로 펼치면 공간 낭비) */
-  .pg-grid2 { grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* 신장률·신장액 / 인품왕·조별순증 2열 유지 */
+  .pg-grid2, .pg-grid-ipum-group { grid-template-columns: 1fr 1fr; gap: 8px; }
   /* 모바일 컴팩트 카드: 제목·테이블 셀 타이트하게 */
   .pg-card { padding: 10px 10px; }
   .pg-card h4 { font-size: 12px; }
