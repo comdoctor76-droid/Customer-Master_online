@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.54";
+  const APP_VERSION = "1.55";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7885,6 +7885,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
     $("#filter-cohort").addEventListener("change", (e) => {
       state.filter.cohort = e.target.value;
+      // 기수 변경 시 스텝을 Step 1으로 자동 초기화
+      state.filter.step = "1";
+      state.progressStep = "1";
+      const fsEl = document.getElementById("filter-step");
+      if (fsEl) fsEl.value = "1";
+      const pgStepSel = document.getElementById("pg-step-sel");
+      if (pgStepSel) pgStepSel.value = "1";
       persistFilter();
       if (isPanelVisible("progress-panel")) renderProgressPanel();
       render();
@@ -8070,11 +8077,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
-    $("#btn-open-award-plan")?.addEventListener("click", openAwardPlanModal);
+    $("#btn-open-award-plan")?.addEventListener("click", () =>
+      openAwardPlanModal({ region: state.filter.region, cohort: state.filter.cohort, step: state.filter.step || "1" })
+    );
     bindAwardPlanModal();
     document.getElementById("pg-cohort-sel")?.addEventListener("change", (e) => {
       state.progressCohort = e.target.value;
@@ -8115,11 +8124,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   // ========== 시상안 편집 ==========
-  function openAwardPlanModal() {
+  function openAwardPlanModal(opts = {}) {
     const modal = document.getElementById("modal-award-plan");
     const regionSel = document.getElementById("award-plan-region");
     const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && (r.endsWith("지역단") || r.endsWith("사업부"))))].sort();
-    const current = state.progressRegion || state.filter.region || (regions[0] || "");
+    const current = opts.region || state.progressRegion || state.filter.region || (regions[0] || "");
     regionSel.innerHTML = regions.map((r) =>
       `<option value="${escapeHtml(r)}"${r === current ? " selected" : ""}>${escapeHtml(r)}</option>`
     ).join("");
@@ -8142,6 +8151,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (last.step && stepSel) stepSel.value = last.step;
       }
     } catch {}
+    // 호출자 지정 값이 최우선 (필터/rm모달 값)
+    if (opts.region && regions.includes(opts.region)) regionSel.value = opts.region;
+    if (opts.cohort && cohortSel) cohortSel.value = opts.cohort;
+    if (opts.step && stepSel) stepSel.value = opts.step;
     _apRefreshFromSelectors();
     [yearSel, cohortSel, stepSel, regionSel].forEach((sel) => {
       if (sel) sel.onchange = () => { _apSaveLastSel(); _apMaybeSaveConfirm(_apRefreshFromSelectors); };
@@ -10045,18 +10058,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-rm-open-award")?.addEventListener("click", () => {
       const { region, cohort, stepVal } = _rmGetState();
       _rmClose();
-      // Pre-select selectors in award plan modal then open it
-      const cohortSel = document.getElementById("award-plan-cohort");
-      const stepSel   = document.getElementById("award-plan-step");
-      const regionSel = document.getElementById("award-plan-region");
-      if (cohortSel && cohort) cohortSel.value = cohort;
-      if (stepSel)             stepSel.value   = stepVal;
-      if (regionSel) {
-        for (let i = 0; i < regionSel.options.length; i++) {
-          if (regionSel.options[i].value === region) { regionSel.selectedIndex = i; break; }
-        }
-      }
-      openAwardPlanModal();
+      openAwardPlanModal({ region, cohort, step: stepVal });
     });
     // tab switching
     document.querySelectorAll(".rm-tab").forEach((btn) => {
