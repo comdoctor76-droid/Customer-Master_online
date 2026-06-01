@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.52";
+  const APP_VERSION = "1.53";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7961,6 +7961,33 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       state.form.branch = e.target.value;
     });
 
+    // 사번 입력 시 기존 교육생 자동 로드 (첫 등록 제외, 사번 기준 매칭)
+    $("#form-empno")?.addEventListener("blur", () => {
+      if (editingEmpNo) return;
+      const empNo = ($("#form-empno")?.value || "").trim();
+      if (!empNo) return;
+      const s = state.students.find((x) => x.empNo === empNo);
+      if (!s) return;
+      state.form = { region: s.region || "", center: s.center || "", branch: s.branch || "" };
+      $("#form-name").value   = s.name   || "";
+      $("#form-phone").value  = s.phone  || "";
+      $("#form-base").value   = s.base   || "";
+      const computedTarget = (s.region !== "호남지역단" && !Number(s.target))
+        ? getProgressStat(s).base + 50000
+        : Number(s.target) || "";
+      $("#form-target").value  = computedTarget;
+      $("#form-honors").value  = s.honors || "";
+      $("#form-cohort").value  = s.cohort || "";
+      const teamNum = parseInt(s.team, 10);
+      const formTeamEl = $("#form-team");
+      if (formTeamEl) formTeamEl.value = teamNum > 0 ? teamNum : "";
+      editingEmpNo = s.empNo;
+      state.formTgtAddAmount = null;
+      const ft = $("#form-target"); if (ft) ft.removeAttribute("readonly");
+      syncOrgLabels();
+      toast(`${s.name}(${empNo}) 정보를 불러왔습니다.`);
+    });
+
     // 탭 전환
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
@@ -8039,7 +8066,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9767,6 +9794,132 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
   })();
 
+  // ========== 조편성 모달 ==========
+  (function _initTeamAssign() {
+    let _taStudents = [];
+
+    function openTeamAssignModal() {
+      const { region, cohort, stepVal } = _rmGetState();
+      if (!cohort) { toast("기수를 선택해주세요.", "warn"); return; }
+      _taStudents = state.students.filter((s) => s.region === region && s.cohort === cohort);
+      if (!_taStudents.length) { toast("해당 기수의 교육생이 없습니다.", "warn"); return; }
+      const titleEl = document.getElementById("ta-title");
+      if (titleEl) titleEl.textContent = `${region} ${cohort} Step${stepVal}`;
+      _taRenderTable();
+      document.getElementById("modal-team-assign").hidden = false;
+    }
+
+    function _taRenderTable() {
+      const tbody = document.getElementById("ta-tbody");
+      if (!tbody) return;
+      const rows = _taStudents.map((s) => {
+        const base = Number(s.base || 0);
+        const team = Number(s.team) || 0;
+        const opts = Array.from({ length: 10 }, (_, i) => {
+          const n = i + 1;
+          return `<option value="${n}"${team === n ? " selected" : ""}>${n}조</option>`;
+        }).join("");
+        return `<tr>
+          <td style="text-align:center"><input type="checkbox" class="ta-chk"></td>
+          <td>${escapeHtml(s.region || "")}</td>
+          <td>${escapeHtml(s.center || "")}</td>
+          <td>${escapeHtml(s.branch || "")}</td>
+          <td><strong>${escapeHtml(s.name || "")}</strong></td>
+          <td>${escapeHtml(s.empNo || "")}</td>
+          <td class="r">${Nf(base)}</td>
+          <td>${escapeHtml(s.phone || "")}</td>
+          <td><select class="ta-grp-sel${team ? " ta-grp-set" : ""}" data-emp="${escapeHtml(s.empNo)}" data-base="${base}">
+            <option value="0"${!team ? " selected" : ""}>-</option>
+            ${opts}
+          </select></td>
+        </tr>`;
+      });
+      tbody.innerHTML = rows.join("");
+      tbody.querySelectorAll(".ta-grp-sel").forEach((sel) => {
+        sel.addEventListener("change", (e) => {
+          e.target.classList.toggle("ta-grp-set", Number(e.target.value) > 0);
+          _taUpdateSums();
+        });
+      });
+      _taUpdateSums();
+    }
+
+    function _taUpdateSums() {
+      const bar = document.getElementById("ta-sum-bar");
+      if (!bar) return;
+      const sums = {};
+      document.querySelectorAll(".ta-grp-sel").forEach((sel) => {
+        const g = Number(sel.value);
+        const base = Number(sel.dataset.base || 0);
+        if (g > 0) sums[g] = (sums[g] || 0) + base;
+      });
+      const keys = Object.keys(sums).map(Number).sort((a, b) => a - b);
+      if (!keys.length) {
+        bar.innerHTML = `<span class="ta-sum-empty">조를 배정하면 합계가 표시됩니다.</span>`;
+      } else {
+        bar.innerHTML = keys.map((g) =>
+          `<span class="ta-sum-item">${g}조: ${sums[g].toLocaleString()}원</span>`
+        ).join(" &nbsp;|&nbsp; ");
+      }
+    }
+
+    async function _taSave() {
+      const btn = document.getElementById("btn-ta-save");
+      const msgEl = document.getElementById("ta-save-msg");
+      const sels = document.querySelectorAll(".ta-grp-sel");
+      const updates = [];
+      sels.forEach((sel) => {
+        const emp = sel.dataset.emp;
+        const g = Number(sel.value);
+        const st = state.students.find((x) => x.empNo === emp);
+        if (!st) return;
+        const newTeam = g > 0 ? String(g) : "";
+        if ((st.team || "") !== newTeam) updates.push({ ...st, team: newTeam });
+      });
+      if (!updates.length) {
+        if (msgEl) { msgEl.textContent = "변경된 조 배정이 없습니다."; msgEl.className = "pg-msg"; }
+        setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 2000);
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
+      try {
+        await window.DataAPI.saveMany(updates);
+        if (msgEl) { msgEl.textContent = `✅ ${updates.length}명 저장 완료`; msgEl.className = "pg-msg ok"; }
+        setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 3000);
+      } catch (e) {
+        if (msgEl) { msgEl.textContent = "❌ 저장 실패: " + e.message; msgEl.className = "pg-msg err"; }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "💾 저장"; }
+      }
+    }
+
+    document.getElementById("btn-rm-team-assign")?.addEventListener("click", openTeamAssignModal);
+    document.getElementById("ta-close")?.addEventListener("click", () => {
+      document.getElementById("modal-team-assign").hidden = true;
+    });
+    document.getElementById("ta-backdrop")?.addEventListener("click", () => {
+      document.getElementById("modal-team-assign").hidden = true;
+    });
+    document.getElementById("btn-ta-save")?.addEventListener("click", _taSave);
+    document.getElementById("ta-chk-all")?.addEventListener("change", (e) => {
+      document.querySelectorAll(".ta-chk").forEach((chk) => { chk.checked = e.target.checked; });
+    });
+    document.querySelector(".ta-action-bar")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".ta-assign-btn");
+      if (!btn) return;
+      const g = btn.dataset.g;
+      const checkedRows = [...document.querySelectorAll(".ta-chk:checked")].map((chk) => chk.closest("tr"));
+      if (!checkedRows.length) { toast("배정할 교육생을 체크해주세요.", "warn"); return; }
+      checkedRows.forEach((row) => {
+        const sel = row.querySelector(".ta-grp-sel");
+        if (!sel) return;
+        sel.value = g;
+        sel.classList.toggle("ta-grp-set", Number(g) > 0);
+      });
+      _taUpdateSums();
+    });
+  })();
+
   async function _rmPasteApply() {
     const { region, cohort, stepVal, sfx } = _rmGetState();
     const txt = (document.getElementById("rm-paste-area")?.value || "").trim();
@@ -9848,8 +10001,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       updates.push({
         ...st,
-        ...(name   ? { name }   : {}),
-        ...(branch ? { branch } : {}),
+        ...(branch  ? { branch }  : {}),
         ...(pgMonth ? { pgMonth } : {}),
         ...pgFields,
       });

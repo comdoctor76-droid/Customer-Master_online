@@ -629,6 +629,7 @@
               </div>
             </div>
             <button class="btn-outline" id="btn-rm-contact-update">📞 연락처 업데이트</button>
+            <button class="btn-outline" id="btn-rm-team-assign">👥 조편성</button>
             <span id="rm-table-save-msg" class="pg-msg"></span>
           </div>
           <div id="rm-table-wrap" class="pg-tbl-wrap">
@@ -686,6 +687,48 @@
           <button class="btn-outline small" id="cu-cancel-btn">취소</button>
           <button class="btn-primary small" id="cu-save-btn">💾 저장</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 조편성 모달 -->
+  <div id="modal-team-assign" class="modal" hidden>
+    <div class="modal-backdrop" id="ta-backdrop"></div>
+    <div class="modal-panel ta-panel">
+      <div class="modal-head">
+        <h3>👥 조편성 &mdash; <span id="ta-title">─</span></h3>
+        <button class="modal-close" id="ta-close">&times;</button>
+      </div>
+      <div id="ta-sum-bar" class="ta-sum-bar">
+        <span class="ta-sum-empty">조를 배정하면 합계가 표시됩니다.</span>
+      </div>
+      <div class="ta-action-bar">
+        <button class="btn-primary" id="btn-ta-save">💾 저장</button>
+        <span class="ta-assign-label">선택→</span>
+        <button class="btn-outline ta-assign-btn" data-g="1">1조</button>
+        <button class="btn-outline ta-assign-btn" data-g="2">2조</button>
+        <button class="btn-outline ta-assign-btn" data-g="3">3조</button>
+        <button class="btn-outline ta-assign-btn" data-g="4">4조</button>
+        <button class="btn-outline ta-assign-btn" data-g="5">5조</button>
+        <button class="btn-outline ta-assign-btn" data-g="6">6조</button>
+        <button class="btn-outline ta-assign-btn" data-g="7">7조</button>
+        <button class="btn-outline ta-assign-btn" data-g="8">8조</button>
+        <button class="btn-outline ta-assign-btn" data-g="9">9조</button>
+        <button class="btn-outline ta-assign-btn" data-g="10">10조</button>
+        <button class="btn-outline ta-assign-btn ta-assign-clear" data-g="0">해제</button>
+        <span id="ta-save-msg" class="pg-msg"></span>
+      </div>
+      <div class="modal-body ta-body">
+        <table class="ta-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="ta-chk-all" title="전체선택"></th>
+              <th>지역단</th><th>비전센터</th><th>지점</th>
+              <th>성명</th><th>사번</th><th>기준실적</th><th>연락처</th><th>조</th>
+            </tr>
+          </thead>
+          <tbody id="ta-tbody"></tbody>
+        </table>
       </div>
     </div>
   </div>

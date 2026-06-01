@@ -5172,3 +5172,43 @@ body {
 .ap-ga2-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ap-ga2-row .ap-row-prefix { font-size: 12px; color: var(--ink-3,#888); white-space: nowrap; }
 .ap-ga2-row .ap-row-suffix { font-size: 12px; color: var(--ink-3,#888); white-space: nowrap; }
+
+
+/* ========== 조편성 모달 ========== */
+.ta-panel { max-width: 920px; width: 96vw; display: flex; flex-direction: column; max-height: 90vh; }
+.ta-sum-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 16px;
+  background: #f0f4ff;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+  min-height: 36px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ta-sum-item { font-weight: 700; color: var(--navy); }
+.ta-sum-empty { color: #aaa; font-size: 12px; }
+.ta-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+.ta-assign-label { font-size: 12px; color: #666; white-space: nowrap; margin-left: 6px; }
+.ta-assign-btn { font-size: 12px; padding: 4px 9px; }
+.ta-assign-clear { color: #b42318 !important; border-color: #fca5a5 !important; }
+.ta-assign-clear:hover { background: #fee2e2 !important; }
+.ta-body { padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.ta-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ta-table th, .ta-table td { border: 1px solid #e5e7eb; padding: 6px 8px; white-space: nowrap; }
+.ta-table thead th { background: var(--navy); color: #fff; text-align: center; position: sticky; top: 0; z-index: 2; }
+.ta-table td.r { text-align: right; }
+.ta-grp-sel { font-size: 12px; padding: 3px 6px; border: 1px solid #d1d5db; border-radius: 5px; background: #fff; width: 60px; }
+.ta-grp-sel.ta-grp-set { background: #eff6ff; font-weight: 700; }
+.ta-table tbody tr:nth-child(even) { background: #fafafa; }
+.ta-table tbody tr:hover { background: #eff6ff; }
