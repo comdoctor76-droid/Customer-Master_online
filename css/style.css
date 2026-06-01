@@ -690,6 +690,10 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.student-mini-list a.s-phone-link {
+  text-decoration: none;
+}
+.student-mini-list a.s-phone-link:hover { text-decoration: underline; }
 .student-mini-list .s-ivcnt {
   flex-shrink: 0;
   margin-left: auto;
@@ -1513,6 +1517,12 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.sib-phone-link {
+  color: var(--orange);
+  text-decoration: none;
+  font-weight: 600;
+}
+.sib-phone-link:hover { text-decoration: underline; }
 .sib-team {
   display: inline-block;
   background: var(--orange);
