@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.59";
+  const APP_VERSION = "1.60";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4236,18 +4236,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     };
   }
 
-  function tierAward(net, region) {
-    const pa = getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
-    for (const t of pa.tiers) {
+  function tierAward(net, region, pa) {
+    const _pa = pa || getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
+    for (const t of _pa.tiers) {
       if (net >= t.min) {
         return t.type === "pct" ? Math.round(net * t.val) : t.val;
       }
     }
     return 0;
   }
-  function tierLabel(net, region) {
-    const pa = getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
-    for (const t of pa.tiers) {
+  function tierLabel(net, region, pa) {
+    const _pa = pa || getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
+    for (const t of _pa.tiers) {
       if (net >= t.min) {
         return t.type === "pct" ? `${t.payVal}% 지급` : `${t.payVal}만원`;
       }
@@ -4633,7 +4633,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       ipum: {
         title: `✨ 인품왕 전체 순위 (${byIpum.length}명)`,
         subtitle: "신상품 판매액 기준",
-        bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum", Infinity) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`
+        bodyHTML: byIpum.length ? renderProgressTop10(byIpum, "ipum", Infinity, _pa) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`
       },
       group: {
         title: `🏅 ${hasAnyTeam ? "팀시상" : "그룹 순증"} (${groupRanking.length}${hasAnyTeam ? "팀" : "개 지점"})`,
@@ -4749,18 +4749,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         ${(_rateEnabled || _amtEnabled) ? `<div class="pg-grid2 pg-desktop-only" style="${!_rateEnabled || !_amtEnabled ? "grid-template-columns:1fr" : ""}">
           ${_rateEnabled ? `<div class="pg-card">
             <h4>📈 신장률 TOP${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}</h4>
-            ${renderProgressTop10(rateFinalList, "rate")}
+            ${renderProgressTop10(rateFinalList, "rate", undefined, _pa)}
           </div>` : ""}
           ${_amtEnabled ? `<div class="pg-card">
             <h4>💰 신장액 TOP10</h4>
-            ${renderProgressTop10(byAmt, "amt")}
+            ${renderProgressTop10(byAmt, "amt", undefined, _pa)}
           </div>` : ""}
         </div>` : ""}
 
         <div class="pg-grid-ipum-group pg-desktop-only" style="${!_groupEnabled ? "grid-template-columns:1fr" : ""}">
           <div class="pg-card">
             <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
-            ${byIpum.length ? renderProgressTop10(byIpum, "ipum") : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
+            ${byIpum.length ? renderProgressTop10(byIpum, "ipum", undefined, _pa) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
           </div>
           ${_groupEnabled ? `<div class="pg-card">
             <h4>🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상</h4>
@@ -4785,7 +4785,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const bc  = baseRate   >= 120 ? "pg-c-over" : baseRate   >= 100 ? "pg-c-good" : baseRate   >= 80 ? "pg-c-mid" : "pg-c-low";
               const netC  = masterNet > 0 ? "pg-net-p" : masterNet < 0 ? "pg-net-m" : "";
               const bnetC = baseNet   > 0 ? "pg-net-p" : baseNet   < 0 ? "pg-net-m" : "";
-              const aw = tierLabel(st.net);
+              const aw = tierLabel(st.net, undefined, _pa);
               const baseDisp     = st.base > 0    ? Nf(st.base)                    : "—";
               const goalDisp     = masterGoal > 0 ? Nf(masterGoal)                 : "—";
               const rateDisp     = masterGoal > 0 ? masterRate.toFixed(1) + "%"    : "—";
@@ -4919,7 +4919,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         } else if (cat.key === "amt") {
           body = byAmt.length ? renderProgressRankFullBothAware(byRateRaw, byAmt, _hrankPa, "amt") : `<div class="pg-empty">데이터 없음</div>`;
         } else {
-          body = cat.arr.length ? renderProgressTop10(cat.arr, cat.key, Infinity) : `<div class="pg-empty">데이터 없음</div>`;
+          body = cat.arr.length ? renderProgressTop10(cat.arr, cat.key, Infinity, _hrankPa) : `<div class="pg-empty">데이터 없음</div>`;
         }
         state._hrankFullData[cat.key] = {
           title: ttls[cat.key], subtitle: subs[cat.key],
@@ -5111,9 +5111,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
   }
 
-  function renderProgressTop10(list, kind, limit) {
+  function renderProgressTop10(list, kind, limit, pa) {
     const region = state.progressRegion;
-    const pa = getProgressAwardConfig(region);
+    if (!pa) pa = getProgressAwardConfig(region);
     let max;
     if (limit === undefined || limit === null) {
       if (kind === "rate") max = pa.rateConfig?.n || 10;
@@ -5459,8 +5459,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const s = state.students.find((x) => x.empNo === empNo);
     if (!s) return;
     const st = getProgressStat(s);
-    const netAwd = tierAward(st.net);
-    const awdText = netAwd > 0 ? `${Nf(netAwd)}원 (${tierLabel(st.net)})` : "해당없음";
+    const _popupPa = getProgressAwardConfig(state.progressRegion,
+      (state.filter.cohort || state.progressCohort || ""),
+      (state.filter.step   || state.progressStep   || "1"));
+    const netAwd = tierAward(st.net, undefined, _popupPa);
+    const awdText = netAwd > 0 ? `${Nf(netAwd)}원 (${tierLabel(st.net, undefined, _popupPa)})` : "해당없음";
     const rateC = st.rate >= 120 ? "#0040b0" : st.rate >= 100 ? "#006030" : st.rate >= 80 ? "#884400" : "#880000";
     const netC  = st.net > 0 ? "#0040b0" : st.net < 0 ? "#880000" : "#333";
     const initial = (s.name || "?").trim().charAt(0) || "?";
@@ -8085,7 +8088,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
