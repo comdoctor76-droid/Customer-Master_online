@@ -92,10 +92,13 @@
   }
 
   // 기준조건 체크용: 학생 metric 추출 (만원 단위 기준)
-  function getStudentMetric(s, field) {
+  function getStudentMetric(s, field, sfx) {
     if (field === "converted") {
-      // 환산실적 = 현재실적 (pgCurrent 우선, 없으면 current)
-      const cur = s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
+      // 환산실적 = 현재실적 (스텝별 pgCurrent2/3… 우선, 없으면 pgCurrent, 없으면 current)
+      const key = sfx ? `pgCurrent${sfx}` : null;
+      const cur = (key && s[key] !== undefined)
+        ? Number(s[key])
+        : s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0);
       return cur / 10000;
     }
     if (field === "hiCap")     return Number(s.hiCap || 0);
@@ -104,11 +107,11 @@
   }
 
   // 시상 자격 확인
-  function isEligibleForAward(student, plan) {
+  function isEligibleForAward(student, plan, sfx) {
     if (!plan?.eligibility?.enabled) return true;
     const conds = plan.eligibility.conditions || [];
     if (!conds.length) return true;
-    const checks = conds.map((c) => getStudentMetric(student, c.field) > Number(c.threshold || 0));
+    const checks = conds.map((c) => getStudentMetric(student, c.field, sfx) > Number(c.threshold || 0));
     return plan.eligibility.operator === "or" ? checks.some(Boolean) : checks.every(Boolean);
   }
 
@@ -154,7 +157,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.74";
+  const APP_VERSION = "1.75";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4335,6 +4338,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const amtConfig  = (top1 && top1.type === "amt")  ? top1 : (top2 && top2.type === "amt")  ? top2 : null;
     const rateTop = rateConfig ? Array.from({ length: Number(rateConfig.n) }, (_, i) => calcRankAward(i + 1, rateConfig)) : [];
     const amtTop  = amtConfig  ? Array.from({ length: Number(amtConfig.n)  }, (_, i) => calcRankAward(i + 1, amtConfig))  : [];
+    // Step 2 이상이면 sfx="2"/"3"…, Step 1은 sfx=""
+    const _sfx = (_step && _step !== "1") ? String(_step) : "";
     return {
       plan,
       tiers,
@@ -4343,7 +4348,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       rateConfig,
       amtConfig,
       bothEnabled: !!(rateConfig && amtConfig) && !!plan.bothNodup,
-      isEligible: (student) => isEligibleForAward(student, plan)
+      isEligible: (student) => isEligibleForAward(student, plan, _sfx)
     };
   }
 
@@ -8915,7 +8920,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
