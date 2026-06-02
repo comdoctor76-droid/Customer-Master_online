@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.64";
+  const APP_VERSION = "1.65";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7950,14 +7950,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   async function exportProgressAwardExcel() {
-    const region     = state.progressRegion || state.filter.region || "";
-    const _pgCohort  = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
-    const _pgStep    = state.filter.step    || state.progressStep   || "1";
-    const center     = state.filter.center || "";
+    const region    = state.progressRegion || state.filter.region || "";
+    const _pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
+    const _pgStep   = state.filter.step    || state.progressStep   || "1";
+    const center    = state.filter.center || "";
 
     const cohortLabel = _pgCohort ? `${_pgCohort}기` : "";
     const stepLabel   = `Step${_pgStep}`;
     const centerPart  = center ? ` ${center}` : "";
+    const baseTitle   = `${region}${cohortLabel ? " " + cohortLabel : ""} ${stepLabel}`;
     const msg = `${region || "지역단미선택"}${cohortLabel ? " " + cohortLabel : ""}${centerPart} ${stepLabel} 수상내역을 인쇄 하시겠습니까?`;
 
     if (!confirm(msg)) return;
@@ -7979,6 +7980,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (!list.length) { toast("해당하는 교육생이 없습니다.", "error"); return; }
 
     const _pa       = getProgressAwardConfig(region, _pgCohort, _pgStep);
+    const plan      = _pa.plan;
     const stats     = list.map(getProgressStat);
     const byRate    = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byAmt     = [...stats].sort((a, b) => b.net - a.net);
@@ -7986,59 +7988,229 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const _bothAsgn = computeBothAwardAssignments(byRate, byAmt, _pa);
     const ipumRankMap = new Map(byIpum.map((st, i) => [st.s.empNo, i + 1]));
 
-    const rows = [];
-    const titleStr = `${region}${cohortLabel ? " " + cohortLabel : ""} ${stepLabel} 수상내역`;
-    rows.push([titleStr]);
-    rows.push([]);
-    rows.push(["순번", "이름", "비전센터", "기준실적(만원)", "현재실적(만원)", "순증(만원)", "신장률(%)", "개인순증시상", "신장률TOP순위", "신장액TOP순위", "인품왕순위"]);
-
-    byAmt.forEach((st, i) => {
-      const _tlbl  = tierLabel(st.net, undefined, _pa);
-      const _tamt  = tierAward(st.net, undefined, _pa);
-      const tierText = _tamt > 0
-        ? `${_tlbl} (${Math.round(_tamt / 10000)}만원)`
-        : (_pa.tiers.length > 0 ? "해당없음" : "-");
-
-      const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
-      const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
-      let rateTxt = "-";
-      if (rA) {
-        if      (rA.status === "mine")       rateTxt = `${rA.effectiveRank}위 (${Math.round(rA.effectiveAmt / 10000)}만원)`;
-        else if (rA.status === "other")      rateTxt = "→신장액시상";
-        else if (rA.status === "ineligible") rateTxt = "기준미달";
-      }
-      let amtTxt = "-";
-      if (aA) {
-        if      (aA.status === "mine")       amtTxt = `${aA.effectiveRank}위 (${Math.round(aA.effectiveAmt / 10000)}만원)`;
-        else if (aA.status === "other")      amtTxt = "→신장률시상";
-        else if (aA.status === "ineligible") amtTxt = "기준미달";
-      }
-
-      const ipumRank = ipumRankMap.get(st.s.empNo);
-      rows.push([
-        i + 1,
-        st.s.name    || "",
-        st.s.center  || "",
-        Math.round(st.base    / 10000),
-        Math.round(st.current / 10000),
-        Math.round(st.net     / 10000),
-        parseFloat(st.rate.toFixed(1)),
-        tierText,
-        rateTxt,
-        amtTxt,
-        ipumRank ? `${ipumRank}위` : "-",
-      ]);
+    // 그룹 순위 계산
+    const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
+    const groupKeyFn = hasAnyTeam
+      ? ((s) => (s.s.team || "").toString().trim() || "(팀 미배정)")
+      : ((s) => s.s.branch || "(미지정)");
+    const groupMap = {};
+    stats.forEach((st) => {
+      const k = groupKeyFn(st);
+      if (!groupMap[k]) groupMap[k] = { base: 0, current: 0, members: [], memberStats: [] };
+      groupMap[k].base += st.base;
+      groupMap[k].current += st.current;
+      groupMap[k].members.push(st.s.name || "");
+      groupMap[k].memberStats.push(st);
     });
+    const groupRanking = Object.entries(groupMap)
+      .map(([name, g]) => ({ name, rate: g.base > 0 ? (g.current / g.base) * 100 : 0, ...g }))
+      .sort((a, b) => b.rate - a.rate);
+    const groupLabel = hasAnyTeam ? "팀" : "지점";
+    const ga1 = plan?.groupAward1;
+    const ga2 = plan?.groupAward2;
+    const ga1En = !!ga1?.enabled;
+    const ga2En = !!ga2?.enabled;
+    const ga1ItemList = _ga1Items(ga1);
+    const ga2ItemList = _ga2Items(ga2);
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
-    ws["!cols"] = [
-      { wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
-      { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 10 },
-    ];
+    // 순위별 시상 라벨 (물품명 포함)
+    const rankAwardLabel = (config, rank) => {
+      if (!config?.enabled || !rank || rank < 1) return "-";
+      const v = (config.payouts || [])[rank - 1];
+      return v != null ? payoutLabel(v) : "-";
+    };
+
+    // 시트 생성 헬퍼
+    const makeWs = (rows, colWidths) => {
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      if (colWidths) ws["!cols"] = colWidths;
+      const ncols = colWidths?.length || 5;
+      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: ncols - 1 } }];
+      return ws;
+    };
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "수상내역");
+
+    // ── Sheet 1: 개인순증시상 ──
+    {
+      const rows = [];
+      rows.push([`${baseTitle} 개인순증시상`]);
+      rows.push([]);
+      if (!_pa.tiers.length) {
+        rows.push(["개인순증시상 미설정"]);
+      } else {
+        rows.push(["순번", "이름", "비전센터", "순증(만원)", "시상내역"]);
+        let cnt = 0;
+        byAmt.forEach((st) => {
+          const _tamt = tierAward(st.net, undefined, _pa);
+          if (_tamt <= 0) return;
+          const _tlbl = tierLabel(st.net, undefined, _pa);
+          rows.push([++cnt, st.s.name || "", st.s.center || "",
+            Math.round(st.net / 10000), `${_tlbl} (${Math.round(_tamt / 10000)}만원)`]);
+        });
+        if (!cnt) rows.push(["", "(해당자 없음)"]);
+        rows.push([]);
+        rows.push(["", "", "", "", `총 ${cnt}명 시상`]);
+      }
+      XLSX.utils.book_append_sheet(wb, makeWs(rows,
+        [{ wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 22 }]), "개인순증시상");
+    }
+
+    // ── Sheet 2: 신장률TOP ──
+    {
+      const rows = [];
+      rows.push([`${baseTitle} 신장률 TOP 시상`]);
+      rows.push([]);
+      if (!_pa.rateConfig) {
+        rows.push(["신장률TOP시상 미설정"]);
+      } else {
+        const rateN = Number(_pa.rateConfig.n) || 0;
+        rows.push([`신장률 TOP${rateN} 수상자`]);
+        rows.push([]);
+        rows.push(["순위", "이름", "비전센터", "순증(만원)", "신장률(%)", "시상내역"]);
+        let cnt = 0;
+        byRate.forEach((st) => {
+          const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
+          if (!rA || rA.status !== "mine") return;
+          rows.push([rA.effectiveRank, st.s.name || "", st.s.center || "",
+            Math.round(st.net / 10000), parseFloat(st.rate.toFixed(1)),
+            rankAwardLabel(_pa.rateConfig, rA.effectiveRank)]);
+          cnt++;
+        });
+        if (!cnt) rows.push(["", "(해당자 없음)"]);
+        rows.push([]);
+        rows.push(["", "", "", "", "", `총 ${cnt}명 시상`]);
+      }
+      XLSX.utils.book_append_sheet(wb, makeWs(rows,
+        [{ wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 20 }]), "신장률TOP");
+    }
+
+    // ── Sheet 3: 신장액TOP ──
+    {
+      const rows = [];
+      rows.push([`${baseTitle} 신장액 TOP 시상`]);
+      rows.push([]);
+      if (!_pa.amtConfig) {
+        rows.push(["신장액TOP시상 미설정"]);
+      } else {
+        const amtN = Number(_pa.amtConfig.n) || 0;
+        rows.push([`신장액 TOP${amtN} 수상자`]);
+        rows.push([]);
+        rows.push(["순위", "이름", "비전센터", "순증(만원)", "신장률(%)", "시상내역"]);
+        let cnt = 0;
+        byAmt.forEach((st) => {
+          const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
+          if (!aA || aA.status !== "mine") return;
+          rows.push([aA.effectiveRank, st.s.name || "", st.s.center || "",
+            Math.round(st.net / 10000), parseFloat(st.rate.toFixed(1)),
+            rankAwardLabel(_pa.amtConfig, aA.effectiveRank)]);
+          cnt++;
+        });
+        if (!cnt) rows.push(["", "(해당자 없음)"]);
+        rows.push([]);
+        rows.push(["", "", "", "", "", `총 ${cnt}명 시상`]);
+      }
+      XLSX.utils.book_append_sheet(wb, makeWs(rows,
+        [{ wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 20 }]), "신장액TOP");
+    }
+
+    // ── Sheet 4: 그룹시상 (설정된 경우만) ──
+    if (ga1En || ga2En) {
+      const rows = [];
+      rows.push([`${baseTitle} 그룹시상`]);
+      rows.push([]);
+      const hdr = ["순위", groupLabel, "구성원", "기준합계(만원)", "현재합계(만원)", "달성률(%)"];
+      if (ga1En) hdr.push("그룹시상1");
+      if (ga2En) hdr.push("그룹시상2");
+      rows.push(hdr);
+      groupRanking.forEach((g, i) => {
+        const row = [i + 1, g.name, g.members.join(", "),
+          Math.round(g.base / 10000), Math.round(g.current / 10000),
+          parseFloat(g.rate.toFixed(1))];
+        if (ga1En) {
+          const total = g.memberStats.length || g.members.length;
+          const metItems = ga1ItemList.filter(it =>
+            g.memberStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000) && total > 0
+          );
+          row.push(metItems.length ? metItems.map(it => payoutLabel(it.payout)).join("+") : "미달");
+        }
+        if (ga2En) {
+          const ga2LinkToGa1 = !!(ga2?.linkToGroup1 && ga1En);
+          const ga1Met = ga1En && ga1ItemList.some(it =>
+            g.memberStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000) && g.memberStats.length > 0
+          );
+          if (ga2LinkToGa1 && !ga1Met) {
+            row.push("미달(1연계)");
+          } else {
+            const metGa2 = ga2ItemList.filter(it => g.rate >= Number(it.rateThreshold || 110));
+            if (metGa2.length) {
+              const bestPay = metGa2.reduce((best, it) => {
+                const np = normPayout(it.payout ?? 15);
+                if (np.type === "item") return best || np;
+                return (!best || Number(np.val) > Number(normPayout(best || 0).val)) ? np : best;
+              }, null);
+              row.push(payoutLabel(bestPay));
+            } else {
+              row.push(`미달(${ga2ItemList[0]?.rateThreshold || 110}%↑)`);
+            }
+          }
+        }
+        rows.push(row);
+      });
+      const colW = [{ wch: 5 }, { wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
+      if (ga1En) colW.push({ wch: 20 });
+      if (ga2En) colW.push({ wch: 20 });
+      XLSX.utils.book_append_sheet(wb, makeWs(rows, colW), "그룹시상");
+    }
+
+    // ── Sheet 5: 인품왕 (데이터 있는 경우만) ──
+    if (byIpum.length > 0) {
+      const rows = [];
+      rows.push([`${baseTitle} 인품왕 순위`]);
+      rows.push([]);
+      rows.push(["순위", "이름", "비전센터", "인품건수", "인품실적(만원)"]);
+      byIpum.forEach((st, i) => {
+        const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i] || `${i + 1}위`;
+        rows.push([grade, st.s.name || "", st.s.center || "", st.ipumCount, Math.round(st.ipumAmt / 10000)]);
+      });
+      XLSX.utils.book_append_sheet(wb, makeWs(rows,
+        [{ wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 14 }]), "인품왕");
+    }
+
+    // ── Sheet 6: 전체검증 ──
+    {
+      const rows = [];
+      rows.push([`${baseTitle} 전체 교육생 시상 검증`]);
+      rows.push([]);
+      rows.push(["순번", "이름", "비전센터", "기준(만원)", "현재(만원)", "순증(만원)", "신장률(%)",
+        "개인순증시상", "신장률TOP", "신장액TOP", "인품왕"]);
+      byAmt.forEach((st, i) => {
+        const _tamt = tierAward(st.net, undefined, _pa);
+        const _tlbl = tierLabel(st.net, undefined, _pa);
+        const tierText = _tamt > 0
+          ? `${_tlbl} (${Math.round(_tamt / 10000)}만원)`
+          : (_pa.tiers.length > 0 ? "해당없음" : "-");
+        const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
+        const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
+        const rateTxt = !rA ? "-"
+          : rA.status === "mine"       ? `${rA.effectiveRank}위 (${rankAwardLabel(_pa.rateConfig, rA.effectiveRank)})`
+          : rA.status === "other"      ? "→신장액시상"
+          : rA.status === "ineligible" ? "기준미달" : "-";
+        const amtTxt = !aA ? "-"
+          : aA.status === "mine"       ? `${aA.effectiveRank}위 (${rankAwardLabel(_pa.amtConfig, aA.effectiveRank)})`
+          : aA.status === "other"      ? "→신장률시상"
+          : aA.status === "ineligible" ? "기준미달" : "-";
+        const ipumRank = ipumRankMap.get(st.s.empNo);
+        rows.push([i + 1, st.s.name || "", st.s.center || "",
+          Math.round(st.base / 10000), Math.round(st.current / 10000),
+          Math.round(st.net / 10000), parseFloat(st.rate.toFixed(1)),
+          tierText, rateTxt, amtTxt, ipumRank ? `${ipumRank}위` : "-"]);
+      });
+      XLSX.utils.book_append_sheet(wb, makeWs(rows, [
+        { wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+        { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 10 },
+      ]), "전체검증");
+    }
 
     const today   = new Date();
     const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
@@ -8310,7 +8482,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260601m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
