@@ -8872,7 +8872,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
+<<<<<<< HEAD
     const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602h)`;
+=======
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602f)`;
+>>>>>>> origin/main
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
