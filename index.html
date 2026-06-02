@@ -572,10 +572,10 @@
         <h3>🗂️ 지역단별 실적관리 — <span id="rm-region-label">─</span></h3>
         <button class="modal-close" id="rm-close">✕</button>
       </div>
-      <!-- 기수 / 스텝 선택 바 -->
+      <!-- 기수 / 스텝 선택 바 (한 줄) -->
       <div class="rm-filter-bar">
         <span class="rm-filter-label">기수</span>
-        <select id="rm-cohort-sel" class="pg-input rm-sel">
+        <select id="rm-cohort-sel" class="rm-sel">
           <option value="">기수 선택</option>
           <option value="1기">1기</option>
           <option value="2기">2기</option>
@@ -603,6 +603,39 @@
           <textarea id="rm-paste-area" class="rm-paste-textarea" rows="5" placeholder="지역단	비전센터	지점	사원번호	대리점명	성명	위촉차월	기준실적	현재실적	인품건수	인품실적
 강북지역단		강북수유지점	069563		권명숙	340	274273	199270	0	0
 강북지역단		강북수유지점	070041		김미영	339	209138	104130	0	0"></textarea>
+          <!-- 사진으로 붙여넣기 섹션 -->
+          <div class="rm-img-section">
+            <button id="btn-rm-img-paste" class="btn-outline rm-img-paste-btn" title="캡처 화면을 Ctrl+C로 복사 후 이 버튼을 클릭하고 Ctrl+V">📷 사진으로 붙여넣기</button>
+            <span class="rm-img-paste-hint">스크린샷을 클립보드에 복사한 뒤 버튼 클릭 → Ctrl+V</span>
+          </div>
+          <!-- 이미지 인식 미리보기 -->
+          <div id="rm-img-preview-wrap" class="rm-img-preview-wrap" hidden>
+            <div class="rm-img-preview-head">
+              <strong>이미지 인식 미리보기</strong>
+              <span id="rm-img-status" class="rm-img-status"></span>
+              <button id="btn-rm-img-close" class="rm-img-close-btn" title="닫기">✕</button>
+            </div>
+            <div class="rm-img-preview-grid">
+              <div class="rm-img-canvas-col">
+                <p class="rm-img-col-label">원본 이미지 <span style="font-weight:normal;color:#888">(스크롤 가능)</span></p>
+                <div class="rm-img-canvas-scroll">
+                  <canvas id="rm-img-canvas"></canvas>
+                </div>
+              </div>
+              <div class="rm-img-ocr-col">
+                <p class="rm-img-col-label">인식된 데이터 미리보기 <span style="font-weight:normal;color:#888">(이미지와 비교해 확인하세요)</span></p>
+                <div id="rm-img-table-preview" class="rm-img-table-preview">
+                  <div class="rm-img-ocr-placeholder">인식 결과가 여기 표시됩니다</div>
+                </div>
+                <p class="rm-img-col-label" style="margin-top:8px">인식된 텍스트 <span style="font-weight:normal;color:#888">(수정 후 적용)</span></p>
+                <textarea id="rm-img-ocr-text" class="rm-paste-textarea rm-img-ocr-text" rows="5" placeholder="이미지 인식 결과..."></textarea>
+                <div class="rm-img-ocr-actions">
+                  <button id="btn-rm-img-apply" class="btn-primary" disabled>📋 텍스트 적용 후 저장</button>
+                  <button id="btn-rm-img-cancel" class="btn-outline small">취소</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="rm-paste-preview" class="rm-paste-preview" hidden></div>
           <div class="pg-actions" style="margin-top:10px;">
             <button class="btn-primary" id="btn-rm-paste-apply">📥 실적진도 저장</button>
