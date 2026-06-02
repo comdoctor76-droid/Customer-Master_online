@@ -3646,8 +3646,25 @@ body {
   white-space: nowrap;
 }
 .ap-toggle-btn:active { transform: scale(0.96); }
-.ap-n-input { width: 70px; padding: 4px 8px; font-size: 13px; }
+.ap-n-input { width: 60px; padding: 4px 6px; font-size: 13px; }
+.ap-n-label { font-size: 12px; color: var(--ink-2); white-space: nowrap; border-left: 2px solid var(--orange); padding-left: 6px; margin-left: 4px; }
 .ap-add-btn { margin-left: auto; }
+
+/* 신장TOP 순증 최소 조건 행 */
+.ap-minnet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  background: #fff8f0;
+  border: 1px solid #fde0c0;
+  border-radius: 7px;
+  font-size: 13px;
+}
+.ap-minnet-input { width: 100px !important; padding: 4px 7px !important; font-size: 13px !important; }
+.ap-minnet-unit { color: var(--ink-2); white-space: nowrap; font-size: 12px; }
 .ap-list { display: flex; flex-direction: column; gap: 4px; }
 .ap-pi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
 .ap-top-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 4px; }
@@ -5071,6 +5088,30 @@ body {
 .hr-row-stats { font-size: 9px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .hr-val { font-size: 11px; font-weight: 700; color: var(--navy); white-space: nowrap; }
 .hr-award-badge { font-size: 9px; font-weight: 700; background: var(--orange); color: #fff; border-radius: 4px; padding: 1px 5px; white-space: nowrap; flex-shrink: 0; }
+.hr-award-need { background: #dc2626 !important; }
+/* 신장TOP 헤더 기준 배지 */
+.pg-top-crit-badge {
+  background: #fef9c3;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+/* 신장TOP 테이블 지급 기준 표시 */
+.pg-top-criteria {
+  font-size: 12px;
+  color: #b45309;
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-bottom: 6px;
+  display: inline-block;
+}
 .hr-empty { text-align: center; font-size: 10px; color: var(--ink-3); padding: 10px 4px; }
 .hr-dots {
   display: flex;

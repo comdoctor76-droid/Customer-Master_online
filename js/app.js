@@ -22,17 +22,15 @@
     },
     // 2. 신장X TopN (slot 1) — 기본: 신장률
     topAward1: {
-      enabled: true,
-      type: "rate",
-      n: 10,
-      payouts: [30, 20, 20, 5, 5, 5, 5, 5, 5, 5]
+      enabled: true, type: "rate", n: 10,
+      payouts: [30, 20, 20, 5, 5, 5, 5, 5, 5, 5],
+      minNetEnabled: false, minNet: 300000
     },
     // 3. 신장X TopN (slot 2) — 기본: 신장액
     topAward2: {
-      enabled: true,
-      type: "amt",
-      n: 10,
-      payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10]
+      enabled: true, type: "amt", n: 10,
+      payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10],
+      minNetEnabled: false, minNet: 300000
     },
     bothNodup: true,
     groupAward1: { enabled: false, threshold: 5, payout: 5 },
@@ -156,7 +154,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.72";
+  const APP_VERSION = "1.73";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4683,7 +4681,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       : byAmt;
     const _mkRatePrize = (st) => {
       const a = _bothAsgn.rateAsgn.get(st.s.empNo);
-      if (!a || a.status === "ineligible") return { txt: "기준미달", cls: "pg-b-no" };
+      if (!a || a.status === "ineligible") {
+        const _nTxt = a?.needsNet > 0 ? `+${Nf(a.needsNet)}원 필요` : "기준미달";
+        return { txt: _nTxt, cls: "pg-b-no" };
+      }
       if (a.status === "other") return { txt: "💰 신장액 시상", cls: "pg-rank-swap-text" };
       if (a.status === "mine") {
         if (a.effectiveAmt > 0) return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
@@ -4694,7 +4695,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     };
     const _mkAmtPrize = (st) => {
       const a = _bothAsgn.amtAsgn.get(st.s.empNo);
-      if (!a || a.status === "ineligible") return { txt: "기준미달", cls: "pg-b-no" };
+      if (!a || a.status === "ineligible") {
+        const _nTxt = a?.needsNet > 0 ? `+${Nf(a.needsNet)}원 필요` : "기준미달";
+        return { txt: _nTxt, cls: "pg-b-no" };
+      }
       if (a.status === "other") return { txt: "📈 신장률 시상", cls: "pg-rank-swap-text" };
       if (a.status === "mine") {
         if (a.effectiveAmt > 0) return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
@@ -4893,11 +4897,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         ${(_rateEnabled || _amtEnabled) ? `<div class="pg-grid2 pg-desktop-only" style="${!_rateEnabled || !_amtEnabled ? "grid-template-columns:1fr" : ""}">
           ${_rateEnabled ? `<div class="pg-card">
-            <h4>📈 신장률 TOP${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}</h4>
+            <h4>📈 신장률 TOP${_pa.rateConfig?.n || ""}${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}${_pa.rateConfig?.minNetEnabled ? ` <small class="pg-top-crit-badge">순증 ${Nf(Number(_pa.rateConfig.minNet||0))}원↑ 기준</small>` : ""}</h4>
             ${renderProgressTop10(_rateFinalDedup, "rate", undefined, _pa)}
           </div>` : ""}
           ${_amtEnabled ? `<div class="pg-card">
-            <h4>💰 신장액 TOP10</h4>
+            <h4>💰 신장액 TOP${_pa.amtConfig?.n || ""}${_pa.amtConfig?.minNetEnabled ? ` <small class="pg-top-crit-badge">순증 ${Nf(Number(_pa.amtConfig.minNet||0))}원↑ 기준</small>` : ""}</h4>
             ${renderProgressTop10(_byAmtDedup, "amt", undefined, _pa)}
           </div>` : ""}
         </div>` : ""}
@@ -5151,8 +5155,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                   const statsLine = `기준 ${cmpFmt(item.base)} · 현재 ${cmpFmt(item.current)} · 순증 ${item.net >= 0 ? '+' : ''}${cmpFmt(item.net)} (${pct}%)`;
                   nameBlock = `<div class="hr-name-wrap"><span class="hr-name">${escapeHtml(name)}</span><span class="hr-row-stats">${statsLine}</span></div>`;
                 }
-                const awardBadge = catAwards?.[i] !== undefined
-                  ? `<span class="hr-award-badge">${escapeHtml(payoutLabel(catAwards[i]))}</span>` : "";
+                // 순증 기준 미달 시 "필요" 배지 우선 표시
+                let awardBadge = "";
+                if (!isWorst && !cat.isGroup && (cat.key === "rate" || cat.key === "amt")) {
+                  const _hrAsgnMap = cat.key === "rate" ? _hrRateAsgn : _hrAmtAsgn;
+                  const _hrAsgn = empNo ? _hrAsgnMap.get(empNo) : null;
+                  if (_hrAsgn?.status === "ineligible" && _hrAsgn.needsNet > 0) {
+                    awardBadge = `<span class="hr-award-badge hr-award-need">+${Nf(_hrAsgn.needsNet)}원 필요</span>`;
+                  } else if (catAwards?.[i] !== undefined) {
+                    awardBadge = `<span class="hr-award-badge">${escapeHtml(payoutLabel(catAwards[i]))}</span>`;
+                  }
+                } else if (catAwards?.[i] !== undefined) {
+                  awardBadge = `<span class="hr-award-badge">${escapeHtml(payoutLabel(catAwards[i]))}</span>`;
+                }
                 return `<li class="hr-row${empNo ? " hr-clickable" : ""}" data-emp="${escapeHtml(empNo || "")}">
                   <span class="pg-rb ${rbCls}">${i + 1}</span>
                   ${nameBlock}
@@ -5271,7 +5286,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
     const top = (max === Infinity || max <= 0) ? list.slice() : list.slice(0, max);
     if (!top.length) return `<div class="pg-empty">데이터 없음</div>`;
-    return `
+    // 지급 기준 문구 (신장률/신장액에만 표시)
+    const _rateMinNet = pa.rateConfig?.minNetEnabled ? Number(pa.rateConfig.minNet || 0) : 0;
+    const _amtMinNet  = pa.amtConfig?.minNetEnabled  ? Number(pa.amtConfig.minNet  || 0) : 0;
+    const _criteriaHtml = (() => {
+      if (kind === "rate" && _rateMinNet > 0) {
+        return `<div class="pg-top-criteria">지급 기준: 순증 <strong>${Nf(_rateMinNet)}원</strong> 이상</div>`;
+      }
+      if (kind === "amt" && _amtMinNet > 0) {
+        return `<div class="pg-top-criteria">지급 기준: 순증 <strong>${Nf(_amtMinNet)}원</strong> 이상</div>`;
+      }
+      return "";
+    })();
+    return `${_criteriaHtml}
       <table class="pg-tbl">
         <thead><tr><th>#</th><th>성명</th><th>지점</th><th>${kind === "ipum" ? "인품실적" : kind === "rate" ? "달성률" : "순증"}</th><th>시상</th></tr></thead>
         <tbody>${top.map((st, i) => {
@@ -5282,8 +5309,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             prize = grade ? `<span class="pg-bdg pg-b-p">${grade}</span>` : "-";
           } else if (kind === "rate") {
             value = (st.rate || 0).toFixed(1) + "%";
+            const _rNetMiss = _rateMinNet > 0 && st.net < _rateMinNet;
             if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+            } else if (_rNetMiss) {
+              prize = `<span class="pg-bdg pg-b-no">+${Nf(_rateMinNet - st.net)}원 필요</span>`;
             } else {
               const v = (pa.rateConfig?.payouts || [])[i];
               const lbl = v != null ? payoutLabel(v) : (pa.rateTop10[i] > 0 ? `${Math.round(pa.rateTop10[i]/10000)}만원` : null);
@@ -5291,8 +5321,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             }
           } else {
             value = (st.net >= 0 ? "+" : "") + Nf(st.net);
+            const _aNetMiss = _amtMinNet > 0 && st.net < _amtMinNet;
             if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+            } else if (_aNetMiss) {
+              prize = `<span class="pg-bdg pg-b-no">+${Nf(_amtMinNet - st.net)}원 필요</span>`;
             } else {
               const v = (pa.amtConfig?.payouts || [])[i];
               const lbl = v != null ? payoutLabel(v) : (pa.amtTop10[i] > 0 ? `${Math.round(pa.amtTop10[i]/10000)}만원` : null);
@@ -5317,6 +5350,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const rateN   = Number(pa.rateConfig?.n) || rateTop.length;
     const amtN    = Number(pa.amtConfig?.n)  || amtTop.length;
     const bothEnabled = pa.bothEnabled && !!(pa.rateConfig && pa.amtConfig) && rateN > 0 && amtN > 0;
+    // 순증 최소 기준 (minNet 조건이 활성화된 경우에만 적용)
+    const rateMinNet = pa.rateConfig?.minNetEnabled ? Number(pa.rateConfig.minNet || 0) : 0;
+    const amtMinNet  = pa.amtConfig?.minNetEnabled  ? Number(pa.amtConfig.minNet  || 0) : 0;
 
     const amtRankMap = {};
     byAmt.forEach((st, i) => { amtRankMap[st.s.empNo] = i; });
@@ -5327,8 +5363,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const rateAsgn = new Map();
     for (const st of byRate) {
       const empNo = st.s.empNo;
-      if (!pa.isEligible(st.s)) {
-        rateAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
+      const rateNetMiss = rateMinNet > 0 && st.net < rateMinNet;
+      if (!pa.isEligible(st.s) || rateNetMiss) {
+        rateAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0,
+          needsNet: rateNetMiss ? rateMinNet - st.net : 0 });
         continue;
       }
       const inRateRange = rSlot < rateN;
@@ -5367,8 +5405,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const amtAsgn = new Map();
     for (const st of byAmt) {
       const empNo = st.s.empNo;
-      if (!pa.isEligible(st.s)) {
-        amtAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
+      const amtNetMiss = amtMinNet > 0 && st.net < amtMinNet;
+      if (!pa.isEligible(st.s) || amtNetMiss) {
+        amtAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0,
+          needsNet: amtNetMiss ? amtMinNet - st.net : 0 });
         continue;
       }
       const inAmtRange = aSlot < amtN;
@@ -5451,7 +5491,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       } else if (a.status === "ineligible") {
         // 기준미달이어도 순위(위치)는 표시
         rankCell  = RBMuted(displayRank);
-        prizeCell = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+        const _needTxt = a.needsNet > 0
+          ? `+${Nf(a.needsNet)}원 필요`
+          : "기준미달";
+        prizeCell = `<span class="pg-bdg pg-b-no">${_needTxt}</span>`;
       }
 
       return `<tr class="pg-tr-click${rowCls}" data-emp="${escapeHtml(empNo)}">
@@ -8872,11 +8915,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-<<<<<<< HEAD
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602h)`;
-=======
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602f)`;
->>>>>>> origin/main
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9245,12 +9284,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     _apSetToggle(document.getElementById("ap-t1-type"), plan.topAward1?.type || "rate",
       [{ v: "rate", t: "률(%)" }, { v: "amt", t: "금액(원)" }]);
     document.getElementById("ap-t1-n").value = plan.topAward1?.n || 10;
+    document.getElementById("ap-t1-minnet-en").checked = !!plan.topAward1?.minNetEnabled;
+    document.getElementById("ap-t1-minnet").value = plan.topAward1?.minNet ?? 300000;
     _apRenderTop("t1", (plan.topAward1?.payouts?.length ? plan.topAward1.payouts : [30]));
     // Top2
     document.getElementById("ap-t2-en").checked = !!plan.topAward2?.enabled;
     _apSetToggle(document.getElementById("ap-t2-type"), plan.topAward2?.type || "amt",
       [{ v: "rate", t: "률(%)" }, { v: "amt", t: "금액(원)" }]);
     document.getElementById("ap-t2-n").value = plan.topAward2?.n || 10;
+    document.getElementById("ap-t2-minnet-en").checked = !!plan.topAward2?.minNetEnabled;
+    document.getElementById("ap-t2-minnet").value = plan.topAward2?.minNet ?? 300000;
     _apRenderTop("t2", (plan.topAward2?.payouts?.length ? plan.topAward2.payouts : [50]));
     // 중복시상 불가 체크박스
     document.getElementById("ap-both-nodup").checked = !!plan.bothNodup;
@@ -9317,12 +9360,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         enabled: document.getElementById("ap-t1-en").checked,
         type: document.getElementById("ap-t1-type").dataset.val,
         n: Number(document.getElementById("ap-t1-n").value) || 1,
+        minNetEnabled: document.getElementById("ap-t1-minnet-en").checked,
+        minNet: Number(document.getElementById("ap-t1-minnet").value) || 0,
         payouts: topPayouts("t1")
       },
       topAward2: {
         enabled: document.getElementById("ap-t2-en").checked,
         type: document.getElementById("ap-t2-type").dataset.val,
         n: Number(document.getElementById("ap-t2-n").value) || 1,
+        minNetEnabled: document.getElementById("ap-t2-minnet-en").checked,
+        minNet: Number(document.getElementById("ap-t2-minnet").value) || 0,
         payouts: topPayouts("t2")
       },
       bothNodup: document.getElementById("ap-both-nodup").checked,
