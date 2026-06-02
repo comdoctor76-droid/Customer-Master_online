@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.67";
+  const APP_VERSION = "1.68";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4326,8 +4326,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       .map((it) => ({
         min: Number(it.critVal) * 10000,
         type: it.payType,
-        val: it.payType === "pct" ? Number(it.payVal) / 100 : Number(it.payVal) * 10000,
-        payVal: Number(it.payVal),
+        val: it.payType === "pct" ? Number(it.payVal) / 100 : it.payType === "item" ? 0 : Number(it.payVal) * 10000,
+        payVal: it.payType === "item" ? 0 : Number(it.payVal),
+        itemName: it.payType === "item" ? String(it.payVal || "물품") : "",
         payType: it.payType
       }));
     const top1 = plan.topAward1?.enabled ? plan.topAward1 : null;
@@ -4361,7 +4362,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const _pa = pa || getProgressAwardConfig(region || state.progressRegion || DEFAULT_REGION);
     for (const t of _pa.tiers) {
       if (net >= t.min) {
-        return t.type === "pct" ? `${t.payVal}% 지급` : `${t.payVal}만원`;
+        if (t.type === "pct") return `${t.payVal}% 지급`;
+        if (t.type === "item") return t.itemName || "물품";
+        return `${t.payVal}만원`;
       }
     }
     return "-";
@@ -8164,13 +8167,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         rows.push(["순번", "이름", "비전센터", "기준실적(원)", "현재실적(원)", "순증(원)", "달성률(%)", "시상내역"]);
         let cnt = 0;
         byAmt.forEach((st) => {
-          const _tamt = tierAward(st.net, undefined, _pa);
-          if (_tamt <= 0) return;
           const _tlbl = tierLabel(st.net, undefined, _pa);
+          if (_tlbl === "-") return;
+          const _tamt = tierAward(st.net, undefined, _pa);
+          const tierDisp = _tamt > 0 ? `${_tlbl} (${Math.round(_tamt / 10000)}만원)` : _tlbl;
           rows.push([++cnt, st.s.name || "", st.s.center || "",
             st.base, st.current, st.net,
-            parseFloat(st.rate.toFixed(1)),
-            `${_tlbl} (${Math.round(_tamt / 10000)}만원)`]);
+            parseFloat(st.rate.toFixed(1)), tierDisp]);
         });
         if (!cnt) rows.push(["", "(해당자 없음)"]);
         rows.push([]);
@@ -8316,6 +8319,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const _tlbl = tierLabel(st.net, undefined, _pa);
         const tierText = _tamt > 0
           ? `${_tlbl} (${Math.round(_tamt / 10000)}만원)`
+          : _tlbl !== "-" ? _tlbl
           : (_pa.tiers.length > 0 ? "해당없음" : "-");
         const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
         const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
@@ -8609,7 +8613,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
