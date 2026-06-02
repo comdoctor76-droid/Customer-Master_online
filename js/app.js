@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.71";
+  const APP_VERSION = "1.72";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8280,12 +8280,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return v != null ? payoutLabel(v) : "-";
     };
 
+    // 비전센터 + 지점 합산 표시 헬퍼
+    const ctbr = (s) => [s.center, s.branch].filter(Boolean).join(" / ") || "";
+
     // 시트 생성 헬퍼 (첫 행 전체 병합)
     const makeWs = (rows, colWidths) => {
       const ws = XLSX.utils.aoa_to_sheet(rows);
       if (colWidths) ws["!cols"] = colWidths;
       const ncols = colWidths?.length || 5;
       ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: ncols - 1 } }];
+      return ws;
+    };
+    // 숫자 열에 3자리 콤마 포맷 적용 헬퍼 (0-indexed 열 배열)
+    const applyNumFmt = (ws, numCols) => {
+      if (!numCols || !numCols.length) return ws;
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      for (let R = range.s.r; R <= range.e.r; R++) {
+        for (const C of numCols) {
+          const addr = XLSX.utils.encode_cell({ r: R, c: C });
+          const cell = ws[addr];
+          if (cell && cell.t === "n") cell.z = "#,##0";
+        }
+      }
       return ws;
     };
 
@@ -8404,14 +8420,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (!_pa.tiers.length) {
         rows.push(["개인순증시상 미설정"]);
       } else {
-        rows.push(["순번", "이름", "비전센터", "기준실적(원)", "현재실적(원)", "순증(원)", "달성률(%)", "시상내역"]);
+        rows.push(["순번", "이름", "비전센터/지점", "기준실적(원)", "현재실적(원)", "순증(원)", "달성률(%)", "시상내역"]);
         let cnt = 0;
         byAmt.forEach((st) => {
           const _tlbl = tierLabel(st.net, undefined, _pa);
           if (_tlbl === "-") return;
           const _tamt = tierAward(st.net, undefined, _pa);
           const tierDisp = _tamt > 0 ? `${_tlbl} (${Math.round(_tamt / 10000)}만원)` : _tlbl;
-          rows.push([++cnt, st.s.name || "", st.s.center || "",
+          rows.push([++cnt, st.s.name || "", ctbr(st.s),
             st.base, st.current, st.net,
             parseFloat(st.rate.toFixed(1)), tierDisp]);
         });
@@ -8419,68 +8435,65 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         rows.push([]);
         rows.push(["", "", "", "", "", "", "", `총 ${cnt}명 시상`]);
       }
-      XLSX.utils.book_append_sheet(wb, makeWs(rows,
-        [{ wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 22 }]), "개인순증시상");
+      const _ws1 = makeWs(rows, [{ wch: 5 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 22 }]);
+      applyNumFmt(_ws1, [3, 4, 5]);
+      XLSX.utils.book_append_sheet(wb, _ws1, "개인순증시상");
     }
 
-    // ── Sheet 2: 신장률TOP ──
+    // ── Sheet 2: 신장TOP (신장률+신장액 통합, 순위별 두 행 interleaved) ──
     {
       const rows = [];
-      rows.push([`${baseTitle} 신장률 TOP 시상`]);
+      rows.push([`${baseTitle} 신장률·신장액 TOP 시상`]);
       rows.push([]);
-      if (!_pa.rateConfig) {
-        rows.push(["신장률TOP시상 미설정"]);
+      const _colHdr = ["순위", "구분", "이름", "비전센터/지점", "기준실적(원)", "현재실적(원)", "순증(원)", "달성률(%)", "시상내역"];
+      if (!_pa.rateConfig && !_pa.amtConfig) {
+        rows.push(["신장TOP 시상 미설정"]);
       } else {
-        const rateN = Number(_pa.rateConfig.n) || 0;
-        rows.push([`신장률 TOP${rateN} 수상자`]);
-        rows.push([]);
-        rows.push(["순위", "이름", "비전센터", "기준실적(원)", "현재실적(원)", "순증(원)", "달성률(%)", "시상내역"]);
-        let cnt = 0;
-        byRate.forEach((st) => {
+        rows.push(_colHdr);
+        // 수상자 목록을 rank → student 맵으로 정리
+        const _rateWinMap = new Map(); // effectiveRank → st
+        byRate.forEach(st => {
           const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
-          if (!rA || rA.status !== "mine") return;
-          rows.push([rA.effectiveRank, st.s.name || "", st.s.center || "",
-            st.base, st.current, st.net,
-            parseFloat(st.rate.toFixed(1)),
-            rankAwardLabel(_pa.rateConfig, rA.effectiveRank)]);
-          cnt++;
+          if (rA && rA.status === "mine") _rateWinMap.set(rA.effectiveRank, { st, rA });
         });
-        if (!cnt) rows.push(["", "(해당자 없음)"]);
-        rows.push([]);
-        rows.push(["", "", "", "", "", "", "", `총 ${cnt}명 시상`]);
-      }
-      XLSX.utils.book_append_sheet(wb, makeWs(rows,
-        [{ wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 22 }]), "신장률TOP");
-    }
-
-    // ── Sheet 3: 신장액TOP ──
-    {
-      const rows = [];
-      rows.push([`${baseTitle} 신장액 TOP 시상`]);
-      rows.push([]);
-      if (!_pa.amtConfig) {
-        rows.push(["신장액TOP시상 미설정"]);
-      } else {
-        const amtN = Number(_pa.amtConfig.n) || 0;
-        rows.push([`신장액 TOP${amtN} 수상자`]);
-        rows.push([]);
-        rows.push(["순위", "이름", "비전센터", "기준실적(원)", "현재실적(원)", "순증(원)", "달성률(%)", "시상내역"]);
-        let cnt = 0;
-        byAmt.forEach((st) => {
+        const _amtWinMap = new Map();
+        byAmt.forEach(st => {
           const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
-          if (!aA || aA.status !== "mine") return;
-          rows.push([aA.effectiveRank, st.s.name || "", st.s.center || "",
-            st.base, st.current, st.net,
-            parseFloat(st.rate.toFixed(1)),
-            rankAwardLabel(_pa.amtConfig, aA.effectiveRank)]);
-          cnt++;
+          if (aA && aA.status === "mine") _amtWinMap.set(aA.effectiveRank, { st, aA });
         });
-        if (!cnt) rows.push(["", "(해당자 없음)"]);
+        const maxN = Math.max(
+          _pa.rateConfig ? Number(_pa.rateConfig.n) || 0 : 0,
+          _pa.amtConfig  ? Number(_pa.amtConfig.n)  || 0 : 0
+        );
+        let rateCnt = 0, amtCnt = 0;
+        for (let rank = 1; rank <= maxN; rank++) {
+          const rEntry = _rateWinMap.get(rank);
+          const aEntry = _amtWinMap.get(rank);
+          const hasR = !!rEntry && !!_pa.rateConfig && rank <= Number(_pa.rateConfig.n);
+          const hasA = !!aEntry && !!_pa.amtConfig  && rank <= Number(_pa.amtConfig.n);
+          if (hasR) {
+            const { st, rA } = rEntry;
+            rows.push([rank, "신장률", st.s.name || "", ctbr(st.s),
+              st.base, st.current, st.net, parseFloat(st.rate.toFixed(1)),
+              rankAwardLabel(_pa.rateConfig, rA.effectiveRank)]);
+            rateCnt++;
+          }
+          if (hasA) {
+            const { st, aA } = aEntry;
+            rows.push([hasR ? "" : rank, "신장액", st.s.name || "", ctbr(st.s),
+              st.base, st.current, st.net, parseFloat(st.rate.toFixed(1)),
+              rankAwardLabel(_pa.amtConfig, aA.effectiveRank)]);
+            amtCnt++;
+          }
+          if (!hasR && !hasA && rank <= maxN) break;
+          if (hasR || hasA) rows.push(["", "", "", "", "", "", "", "", ""]);
+        }
         rows.push([]);
-        rows.push(["", "", "", "", "", "", "", `총 ${cnt}명 시상`]);
+        rows.push(["", "", "", "", "", "", "", "", `신장률 ${rateCnt}명 · 신장액 ${amtCnt}명 시상`]);
       }
-      XLSX.utils.book_append_sheet(wb, makeWs(rows,
-        [{ wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 22 }]), "신장액TOP");
+      const _ws2 = makeWs(rows, [{ wch: 5 }, { wch: 7 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 22 }]);
+      applyNumFmt(_ws2, [4, 5, 6]);
+      XLSX.utils.book_append_sheet(wb, _ws2, "신장TOP");
     }
 
     // ── Sheet 4: 그룹시상 (설정된 경우만) ──
@@ -8528,7 +8541,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const colW = [{ wch: 5 }, { wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
       if (ga1En) colW.push({ wch: 20 });
       if (ga2En) colW.push({ wch: 20 });
-      XLSX.utils.book_append_sheet(wb, makeWs(rows, colW), "그룹시상");
+      const _wsGrp = makeWs(rows, colW);
+      applyNumFmt(_wsGrp, [3, 4]);
+      XLSX.utils.book_append_sheet(wb, _wsGrp, "그룹시상");
     }
 
     // ── Sheet 5: 인품왕 (데이터 있는 경우만) ──
@@ -8536,15 +8551,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const rows = [];
       rows.push([`${baseTitle} 인품왕 순위`]);
       rows.push([]);
-      rows.push(["순위", "이름", "비전센터", "기준실적(원)", "현재실적(원)", "달성률(%)", "인품건수", "인품실적(원)"]);
+      rows.push(["순위", "이름", "비전센터/지점", "기준실적(원)", "현재실적(원)", "달성률(%)", "인품건수", "인품실적(원)"]);
       byIpum.forEach((st, i) => {
         const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i] || `${i + 1}위`;
-        rows.push([grade, st.s.name || "", st.s.center || "",
+        rows.push([grade, st.s.name || "", ctbr(st.s),
           st.base, st.current, parseFloat(st.rate.toFixed(1)),
           st.ipumCount, st.ipumAmt]);
       });
-      XLSX.utils.book_append_sheet(wb, makeWs(rows,
-        [{ wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 14 }]), "인품왕");
+      const _wsIpum = makeWs(rows,
+        [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 14 }]);
+      applyNumFmt(_wsIpum, [3, 4, 7]);
+      XLSX.utils.book_append_sheet(wb, _wsIpum, "인품왕");
     }
 
     // ── Sheet 6: 전체검증 ──
@@ -8552,7 +8569,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const rows = [];
       rows.push([`${baseTitle} 전체 교육생 시상 검증`]);
       rows.push([]);
-      rows.push(["순번", "이름", "비전센터", "기준(원)", "현재(원)", "순증(원)", "달성률(%)",
+      rows.push(["순번", "이름", "비전센터/지점", "기준(원)", "현재(원)", "순증(원)", "달성률(%)",
         "개인순증시상", "신장률TOP", "신장액TOP", "인품왕"]);
       byAmt.forEach((st, i) => {
         const _tamt = tierAward(st.net, undefined, _pa);
@@ -8572,15 +8589,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           : aA.status === "other"      ? "→신장률시상"
           : aA.status === "ineligible" ? "기준미달" : "-";
         const ipumRank = ipumRankMap.get(st.s.empNo);
-        rows.push([i + 1, st.s.name || "", st.s.center || "",
+        rows.push([i + 1, st.s.name || "", ctbr(st.s),
           st.base, st.current, st.net,
           parseFloat(st.rate.toFixed(1)),
           tierText, rateTxt, amtTxt, ipumRank ? `${ipumRank}위` : "-"]);
       });
-      XLSX.utils.book_append_sheet(wb, makeWs(rows, [
-        { wch: 5 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+      const _wsAll = makeWs(rows, [
+        { wch: 5 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
         { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 10 },
-      ]), "전체검증");
+      ]);
+      applyNumFmt(_wsAll, [3, 4, 5]);
+      XLSX.utils.book_append_sheet(wb, _wsAll, "전체검증");
     }
 
     const today   = new Date();
@@ -8853,7 +8872,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
