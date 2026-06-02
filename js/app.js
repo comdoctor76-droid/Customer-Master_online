@@ -157,7 +157,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.77";
+  const APP_VERSION = "1.78";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1799,7 +1799,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             const sc = (s.cohort || "").replace(/기$/, "");
             return s.region === _region && (!_cohort || sc === _cohort);
           });
-          const _elig   = _peers.map((s) => getProgressStat(s)).filter((st) => _pa.isEligible(st.s));
+          const _chkPeerTop = _pa.isTopEligible || _pa.isEligible;
+          const _elig   = _peers.map((s) => getProgressStat(s)).filter((st) => _chkPeerTop(st.s));
           const _byRate = sortStatsForType(_elig, "rate");
           const _byAmt  = sortStatsForType(_elig, "amt");
           // dedup은 현금 비교용 — 아이템 시상은 effectiveAmt=0이므로 별도 처리
@@ -4348,7 +4349,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       rateConfig,
       amtConfig,
       bothEnabled: !!(rateConfig && amtConfig) && !!plan.bothNodup,
-      isEligible: (student) => isEligibleForAward(student, plan, _sfx)
+      isEligible: (student) => isEligibleForAward(student, plan, _sfx),
+      // Step 2+: TOP10 순위시상은 환산실적 조건 미적용 — 순증 기준으로만 판단
+      isTopEligible: _sfx ? () => true : (student) => isEligibleForAward(student, plan, _sfx)
     };
   }
 
@@ -4635,7 +4638,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const _pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
     const _pgStep   = state.progressStep || state.filter.step || "1";
     const _pa = getProgressAwardConfig(state.progressRegion, _pgCohort, _pgStep);
-    const elig = stats.filter((s) => _pa.isEligible(s.s));
+    const elig = stats.filter((s) => s.net >= 300000); // 순증 30만원 이상
     const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byAmt  = [...stats].sort((a, b) => b.net - a.net);
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
@@ -5320,7 +5323,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           } else if (kind === "rate") {
             value = (st.rate || 0).toFixed(1) + "%";
             const _rNetMiss = _rateMinNet > 0 && st.net < _rateMinNet;
-            if (!pa.isEligible(st.s)) {
+            const _chkTop10 = pa.isTopEligible || pa.isEligible;
+            if (!_chkTop10(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else if (_rNetMiss) {
               prize = `<span class="pg-bdg pg-b-no">+${Nf(_rateMinNet - st.net)}원 필요</span>`;
@@ -5332,7 +5336,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           } else {
             value = (st.net >= 0 ? "+" : "") + Nf(st.net);
             const _aNetMiss = _amtMinNet > 0 && st.net < _amtMinNet;
-            if (!pa.isEligible(st.s)) {
+            const _chkTop10 = pa.isTopEligible || pa.isEligible;
+            if (!_chkTop10(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else if (_aNetMiss) {
               prize = `<span class="pg-bdg pg-b-no">+${Nf(_amtMinNet - st.net)}원 필요</span>`;
@@ -5369,12 +5374,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     // Pass 1: rate prizes
     // 물품(item) 시상은 calcRankAward=0 → 현금 비교 불가 → 순위(rank)로 비교
+    const _chkTopElig = pa.isTopEligible || pa.isEligible;
     let rSlot = 0;
     const rateAsgn = new Map();
     for (const st of byRate) {
       const empNo = st.s.empNo;
       const rateNetMiss = rateMinNet > 0 && st.net < rateMinNet;
-      if (!pa.isEligible(st.s) || rateNetMiss) {
+      if (!_chkTopElig(st.s) || rateNetMiss) {
         rateAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0,
           needsNet: rateNetMiss ? rateMinNet - st.net : 0 });
         continue;
@@ -5416,7 +5422,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     for (const st of byAmt) {
       const empNo = st.s.empNo;
       const amtNetMiss = amtMinNet > 0 && st.net < amtMinNet;
-      if (!pa.isEligible(st.s) || amtNetMiss) {
+      if (!_chkTopElig(st.s) || amtNetMiss) {
         amtAsgn.set(empNo, { status: "ineligible", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0,
           needsNet: amtNetMiss ? amtMinNet - st.net : 0 });
         continue;
@@ -8925,7 +8931,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602n)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
