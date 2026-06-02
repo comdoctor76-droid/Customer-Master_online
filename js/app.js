@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.65";
+  const APP_VERSION = "1.66";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4671,18 +4671,33 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     // Compute two-pass duplicate-award assignments once; reuse for preview cards + full modals
     const _bothAsgn = computeBothAwardAssignments(byRate, byAmt, _pa);
+    // 중복시상 없음 적용: "other" 대상자를 각 TOP 테이블에서 제외 (슬라이딩카드와 동일한 방식)
+    const _rateFinalDedup = _pa.bothEnabled
+      ? rateFinalList.filter(st => (_bothAsgn.rateAsgn.get(st.s.empNo)?.status ?? "none") !== "other")
+      : rateFinalList;
+    const _byAmtDedup = _pa.bothEnabled
+      ? byAmt.filter(st => (_bothAsgn.amtAsgn.get(st.s.empNo)?.status ?? "none") !== "other")
+      : byAmt;
     const _mkRatePrize = (st) => {
       const a = _bothAsgn.rateAsgn.get(st.s.empNo);
       if (!a || a.status === "ineligible") return { txt: "기준미달", cls: "pg-b-no" };
       if (a.status === "other") return { txt: "💰 신장액 시상", cls: "pg-rank-swap-text" };
-      if (a.status === "mine") return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
+      if (a.status === "mine") {
+        if (a.effectiveAmt > 0) return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
+        const v = (_pa.rateConfig?.payouts || [])[a.effectiveRank - 1];
+        return { txt: v != null ? payoutLabel(v) : "물품", cls: "" };
+      }
       return { txt: "-", cls: "" };
     };
     const _mkAmtPrize = (st) => {
       const a = _bothAsgn.amtAsgn.get(st.s.empNo);
       if (!a || a.status === "ineligible") return { txt: "기준미달", cls: "pg-b-no" };
       if (a.status === "other") return { txt: "📈 신장률 시상", cls: "pg-rank-swap-text" };
-      if (a.status === "mine") return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
+      if (a.status === "mine") {
+        if (a.effectiveAmt > 0) return { txt: `시상 ${Math.round(a.effectiveAmt / 10000)}만원`, cls: "" };
+        const v = (_pa.amtConfig?.payouts || [])[a.effectiveRank - 1];
+        return { txt: v != null ? payoutLabel(v) : "물품", cls: "" };
+      }
       return { txt: "-", cls: "" };
     };
     const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
@@ -4861,11 +4876,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         ${(_rateEnabled || _amtEnabled) ? `<div class="pg-grid2 pg-desktop-only" style="${!_rateEnabled || !_amtEnabled ? "grid-template-columns:1fr" : ""}">
           ${_rateEnabled ? `<div class="pg-card">
             <h4>📈 신장률 TOP${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}</h4>
-            ${renderProgressTop10(rateFinalList, "rate", undefined, _pa)}
+            ${renderProgressTop10(_rateFinalDedup, "rate", undefined, _pa)}
           </div>` : ""}
           ${_amtEnabled ? `<div class="pg-card">
             <h4>💰 신장액 TOP10</h4>
-            ${renderProgressTop10(byAmt, "amt", undefined, _pa)}
+            ${renderProgressTop10(_byAmtDedup, "amt", undefined, _pa)}
           </div>` : ""}
         </div>` : ""}
 
@@ -5250,16 +5265,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else {
-              const amt = pa.rateTop10[i] || 0;
-              prize = amt > 0 ? `<span class="pg-bdg pg-b-g">${Math.round(amt/10000)}만원</span>` : "-";
+              const v = (pa.rateConfig?.payouts || [])[i];
+              const lbl = v != null ? payoutLabel(v) : (pa.rateTop10[i] > 0 ? `${Math.round(pa.rateTop10[i]/10000)}만원` : null);
+              prize = lbl ? `<span class="pg-bdg pg-b-g">${escapeHtml(lbl)}</span>` : "-";
             }
           } else {
             value = (st.net >= 0 ? "+" : "") + Nf(st.net);
             if (!pa.isEligible(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
             } else {
-              const amt = pa.amtTop10[i] || 0;
-              prize = amt > 0 ? `<span class="pg-bdg pg-b-g">${Math.round(amt/10000)}만원</span>` : "-";
+              const v = (pa.amtConfig?.payouts || [])[i];
+              const lbl = v != null ? payoutLabel(v) : (pa.amtTop10[i] > 0 ? `${Math.round(pa.amtTop10[i]/10000)}만원` : null);
+              prize = lbl ? `<span class="pg-bdg pg-b-g">${escapeHtml(lbl)}</span>` : "-";
             }
           }
           return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s.empNo)}"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${value}</td><td>${prize}</td></tr>`;
@@ -8482,7 +8499,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
