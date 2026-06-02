@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.68";
+  const APP_VERSION = "1.69";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7969,6 +7969,187 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
   }
 
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+      script.onload  = () => resolve(window.Tesseract);
+      script.onerror = () => reject(new Error("Tesseract.js 로드 실패"));
+      document.head.appendChild(script);
+    });
+  }
+
+  // OCR 텍스트에서 탭 구분 테이블 데이터 재구성
+  function _ocrTextToTsv(rawText) {
+    const lines = rawText.split(/\n/).map(l => l.trimEnd()).filter(l => l.trim());
+    return lines.map(line => {
+      // 2칸 이상 공백을 탭으로 치환 (열 구분자)
+      const cols = line.trim().split(/\s{2,}/);
+      return cols.length >= 3 ? cols.join("\t") : line.trim().replace(/\s+/g, "\t");
+    }).join("\n");
+  }
+
+  // TSV 문자열을 HTML 미리보기 테이블로 변환
+  function _tsvToPreviewTable(tsv) {
+    const lines = tsv.split(/\n/).filter(l => l.trim());
+    if (!lines.length) return "<div class='rm-img-ocr-placeholder'>인식된 데이터 없음</div>";
+    const isNumeric = v => /^[0-9,.\-+]+$/.test(v.replace(/\s/g, ""));
+    let html = "<table><thead><tr>";
+    const firstCols = lines[0].split("\t");
+    // 첫 행이 한글 등 헤더처럼 보이면 thead로
+    const hasHeader = firstCols.some(c => /[가-힣]/.test(c));
+    if (hasHeader) {
+      firstCols.forEach(c => { html += `<th>${escapeHtml(c)}</th>`; });
+      html += "</tr></thead><tbody>";
+      lines.slice(1).forEach(line => {
+        html += "<tr>";
+        line.split("\t").forEach(c => {
+          html += `<td class="${isNumeric(c) ? "rm-cell-num" : ""}">${escapeHtml(c)}</td>`;
+        });
+        html += "</tr>";
+      });
+    } else {
+      html += "<tr></tr></thead><tbody>";
+      lines.forEach(line => {
+        html += "<tr>";
+        line.split("\t").forEach(c => {
+          html += `<td class="${isNumeric(c) ? "rm-cell-num" : ""}">${escapeHtml(c)}</td>`;
+        });
+        html += "</tr>";
+      });
+    }
+    html += "</tbody></table>";
+    return html;
+  }
+
+  function _bindRmImagePaste() {
+    const btn     = document.getElementById("btn-rm-img-paste");
+    const wrap    = document.getElementById("rm-img-preview-wrap");
+    const canvas  = document.getElementById("rm-img-canvas");
+    const ocrText = document.getElementById("rm-img-ocr-text");
+    const statusEl = document.getElementById("rm-img-status");
+    const applyBtn = document.getElementById("btn-rm-img-apply");
+    const closeBtn  = document.getElementById("btn-rm-img-close");
+    const cancelBtn = document.getElementById("btn-rm-img-cancel");
+    const tablePreview = document.getElementById("rm-img-table-preview");
+    if (!btn || !canvas) return;
+
+    let _pasteActive = false;
+    let _pasteHandler = null;
+
+    function _deactivate() {
+      if (_pasteHandler) document.removeEventListener("paste", _pasteHandler);
+      _pasteHandler = null;
+      _pasteActive = false;
+      btn.textContent = "📷 사진으로 붙여넣기";
+      btn.classList.remove("active");
+      btn.disabled = false;
+    }
+
+    async function _processImageFile(file) {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = async () => {
+        canvas.width  = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d").drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        ocrText.value = "";
+        applyBtn.disabled = true;
+        statusEl.textContent = "OCR 초기화 중… (첫 실행 시 언어 데이터 다운로드)";
+        if (tablePreview) tablePreview.innerHTML = "<div class='rm-img-ocr-placeholder'>인식 중...</div>";
+        wrap.hidden = false;
+
+        try {
+          const Tesseract = await loadTesseract();
+          const worker = await Tesseract.createWorker(["kor", "eng"], 1, {
+            logger: (m) => {
+              if (m.status === "recognizing text") {
+                statusEl.textContent = `인식 중… ${Math.round((m.progress || 0) * 100)}%`;
+              } else if (m.status && m.status !== "initialized api") {
+                statusEl.textContent = m.status;
+              }
+            }
+          });
+          await worker.setParameters({ tessedit_pageseg_mode: "6" });
+          const { data } = await worker.recognize(canvas);
+          await worker.terminate();
+
+          const tsv = _ocrTextToTsv(data.text);
+          ocrText.value = tsv;
+          if (tablePreview) tablePreview.innerHTML = _tsvToPreviewTable(tsv);
+          applyBtn.disabled = false;
+          statusEl.textContent = `✅ 인식 완료 — 이미지와 비교해 오류를 수정하세요`;
+        } catch (err) {
+          console.error("[OCR]", err);
+          statusEl.textContent = `❌ 인식 실패: ${err.message}`;
+          if (tablePreview) tablePreview.innerHTML = "<div class='rm-img-ocr-placeholder'>인식 실패. 텍스트를 직접 입력하세요.</div>";
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); toast("이미지를 불러올 수 없습니다.", "error"); };
+      img.src = url;
+    }
+
+    btn.addEventListener("click", () => {
+      if (_pasteActive) { _deactivate(); return; }
+      _pasteActive = true;
+      btn.textContent = "⏳ Ctrl+V로 이미지 붙여넣기…";
+      btn.classList.add("active");
+      btn.disabled = false;
+
+      _pasteHandler = (e) => {
+        const items = e.clipboardData?.items || [];
+        let imgFile = null;
+        for (const item of items) {
+          if (item.type.startsWith("image/")) { imgFile = item.getAsFile(); break; }
+        }
+        if (!imgFile) { toast("이미지를 찾을 수 없습니다. 이미지를 먼저 복사(Ctrl+C)해 주세요.", "warn"); return; }
+        e.preventDefault();
+        _deactivate();
+        _processImageFile(imgFile);
+      };
+      document.addEventListener("paste", _pasteHandler);
+
+      // 15초 후 자동 해제
+      setTimeout(() => { if (_pasteActive) { _deactivate(); } }, 15000);
+    });
+
+    // textarea에 직접 이미지 드래그 드롭
+    const pasteArea = document.getElementById("rm-paste-area");
+    if (pasteArea) {
+      pasteArea.addEventListener("dragover", e => e.preventDefault());
+      pasteArea.addEventListener("drop", e => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file?.type.startsWith("image/")) {
+          e.preventDefault();
+          _processImageFile(file);
+        }
+      });
+    }
+
+    closeBtn?.addEventListener("click", () => {
+      wrap.hidden = true;
+      ocrText.value = "";
+      statusEl.textContent = "";
+      if (tablePreview) tablePreview.innerHTML = "<div class='rm-img-ocr-placeholder'>인식 결과가 여기 표시됩니다</div>";
+    });
+    cancelBtn?.addEventListener("click", () => closeBtn?.click());
+
+    applyBtn?.addEventListener("click", () => {
+      const text = ocrText.value.trim();
+      if (!text) return;
+      const area = document.getElementById("rm-paste-area");
+      if (area) area.value = text;
+      wrap.hidden = true;
+      ocrText.value = "";
+      statusEl.textContent = "";
+      // 자동으로 저장 플로우 시작
+      document.getElementById("btn-rm-paste-apply")?.click();
+    });
+  }
+
   async function exportProgressAwardExcel() {
     const region    = state.progressRegion || state.filter.region || "";
     const _pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
@@ -8613,7 +8794,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -10623,6 +10804,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (activeTab === "table") _rmRenderTable();
       });
     });
+    _bindRmImagePaste();
   }
 
   document.addEventListener("DOMContentLoaded", init);
