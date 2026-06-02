@@ -3620,8 +3620,9 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-bottom: 10px;
+  overflow-x: auto;
 }
 .ap-chk-label {
   display: inline-flex;
@@ -3647,8 +3648,10 @@ body {
 }
 .ap-toggle-btn:active { transform: scale(0.96); }
 .ap-n-input { width: 60px; padding: 4px 6px; font-size: 13px; }
-.ap-n-label { font-size: 12px; color: var(--ink-2); white-space: nowrap; border-left: 2px solid var(--orange); padding-left: 6px; margin-left: 4px; }
-.ap-add-btn { margin-left: auto; }
+.ap-n-label { font-size: 12px; color: var(--ink-2); white-space: nowrap; border-left: 2px solid var(--orange); padding-left: 6px; }
+.ap-n-unit { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.ap-n-group { display: flex; align-items: center; gap: 5px; margin-left: auto; flex-shrink: 0; }
+.ap-add-btn { flex-shrink: 0; }
 
 /* 신장TOP 순증 최소 조건 행 */
 .ap-minnet-row {
@@ -3663,6 +3666,13 @@ body {
   border-radius: 7px;
   font-size: 13px;
 }
+.ap-minnet-cond {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+.ap-minnet-cond.ap-disabled { opacity: 0.4; pointer-events: none; }
 .ap-minnet-input { width: 100px !important; padding: 4px 7px !important; font-size: 13px !important; }
 .ap-minnet-unit { color: var(--ink-2); white-space: nowrap; font-size: 12px; }
 .ap-list { display: flex; flex-direction: column; gap: 4px; }
@@ -3697,6 +3707,7 @@ body {
 }
 .ap-row-compact { padding: 3px 5px; gap: 3px; }
 .ap-row-prefix, .ap-row-suffix { font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.ap-pay-unit { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
 .ap-row-arrow { color: var(--ink-3); font-weight: 700; }
 .ap-del-btn {
   background: transparent;
@@ -3715,7 +3726,8 @@ body {
 }
 .ap-del-btn:hover { color: #e53935; border-color: #e53935; }
 @media (max-width: 640px) {
-  .ap-sec-head .ap-add-btn { margin-left: 0; }
+  .ap-sec-head { flex-wrap: wrap; overflow-x: visible; }
+  .ap-n-group { margin-left: 0; }
   .ap-row { font-size: 12px; }
   .ap-pi-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
   .ap-top-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }

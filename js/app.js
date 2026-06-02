@@ -157,7 +157,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.78";
+  const APP_VERSION = "1.79";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8931,7 +8931,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9258,13 +9258,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const isCash = np.type !== "item";
       return `
       <div class="ap-row ap-row-compact" data-i="${i}">
-        <span class="ap-row-prefix">${i + 1}위</span>
-        <button type="button" class="ap-toggle-btn ap-pay-type" data-val="${isCash ? "cash" : "item"}">${isCash ? "만원" : "물품"}</button>
+        <span class="ap-row-prefix">${i + 1}위 시상</span>
+        <button type="button" class="ap-toggle-btn ap-pay-type" data-val="${isCash ? "cash" : "item"}">${isCash ? "현금" : "물품"}</button>
         <input type="number" class="pg-input ap-pay-cash" value="${isCash ? escapeHtml(String(np.val)) : 0}" min="0" step="1" style="width:52px;${isCash ? "" : "display:none"}">
+        <span class="ap-pay-unit" style="${isCash ? "" : "display:none"}">만원</span>
         <input type="text" class="pg-input ap-pay-item" value="${isCash ? "" : escapeHtml(String(np.val || ""))}" placeholder="물품명" style="width:80px;${isCash ? "display:none" : ""}">
         <button type="button" class="ap-del-btn" title="삭제">✕</button>
       </div>`;
     }).join("");
+  }
+
+  function _apUpdateMinnetState(slot) {
+    const en = document.getElementById(`ap-${slot}-minnet-en`)?.checked;
+    const cond = document.getElementById(`ap-${slot}-minnet-cond`);
+    if (cond) cond.classList.toggle("ap-disabled", !en);
   }
 
   function _apRenderElig(conds) {
@@ -9313,6 +9320,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("ap-t2-minnet-en").checked = !!plan.topAward2?.minNetEnabled;
     document.getElementById("ap-t2-minnet").value = plan.topAward2?.minNet ?? 300000;
     _apRenderTop("t2", (plan.topAward2?.payouts?.length ? plan.topAward2.payouts : [50]));
+    // 순증 기준 활성 상태 초기화
+    _apUpdateMinnetState("t1");
+    _apUpdateMinnetState("t2");
     // 중복시상 불가 체크박스
     document.getElementById("ap-both-nodup").checked = !!plan.bothNodup;
     // Eligibility
@@ -9448,14 +9458,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const next = tg.dataset.val === "and" ? "or" : "and";
           _apSetToggle(tg, next, [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
         } else if (tg.classList.contains("ap-pay-type")) {
-          // 만원 ↔ 물품 토글
+          // 현금 ↔ 물품 토글
           const newType = tg.dataset.val === "item" ? "cash" : "item";
           tg.dataset.val = newType;
-          tg.textContent = newType === "item" ? "물품" : "만원";
+          tg.textContent = newType === "item" ? "물품" : "현금";
           const container = tg.closest(".ap-row, .ap-ga-row, .ap-ga1-row, .ap-ga2-row");
           const cashInp = container?.querySelector(".ap-pay-cash");
+          const unitSpan = container?.querySelector(".ap-pay-unit");
           const itemInp = container?.querySelector(".ap-pay-item");
           if (cashInp) cashInp.style.display = newType === "item" ? "none" : "";
+          if (unitSpan) unitSpan.style.display = newType === "item" ? "none" : "";
           if (itemInp) itemInp.style.display = newType === "item" ? "" : "none";
         } else if (tg.classList.contains("ap-pi-type")) {
           // 3-way 순환: pct → fixed → item → pct
@@ -9483,6 +9495,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         if (row) row.remove();
       }
     });
+
+    // 순증 기준 체크박스 토글
+    document.getElementById("ap-t1-minnet-en")?.addEventListener("change", () => _apUpdateMinnetState("t1"));
+    document.getElementById("ap-t2-minnet-en")?.addEventListener("change", () => _apUpdateMinnetState("t2"));
 
     // 추가 버튼들
     document.getElementById("ap-pi-add")?.addEventListener("click", () => {

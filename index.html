@@ -839,15 +839,19 @@
             <div class="ap-sec-head">
               <label class="ap-chk-label"><input type="checkbox" id="ap-t1-en"> <span class="ap-label-inline">신장</span></label>
               <button type="button" class="ap-toggle-btn" id="ap-t1-type" data-val="rate">률(%)</button>
-              <span class="ap-label-inline">Top</span>
-              <span class="ap-n-label">시상인원</span>
-              <input type="number" id="ap-t1-n" class="pg-input ap-n-input" min="1" max="50" value="10">
-              <button type="button" class="btn-outline small ap-add-btn" id="ap-t1-add">＋ 추가</button>
+              <div class="ap-n-group">
+                <span class="ap-n-label">시상인원</span>
+                <input type="number" id="ap-t1-n" class="pg-input ap-n-input" min="1" max="50" value="10">
+                <span class="ap-n-unit">명</span>
+                <button type="button" class="btn-outline small ap-add-btn" id="ap-t1-add">＋ 추가</button>
+              </div>
             </div>
-            <div class="ap-minnet-row">
+            <div class="ap-minnet-row" id="ap-t1-minnet-row">
               <label class="ap-chk-label"><input type="checkbox" id="ap-t1-minnet-en"><span>순증 기준 적용</span></label>
-              <input type="number" id="ap-t1-minnet" class="pg-input ap-minnet-input" value="300000" step="10000" min="0">
-              <span class="ap-minnet-unit">원 이상 순증시 지급 대상</span>
+              <div class="ap-minnet-cond" id="ap-t1-minnet-cond">
+                <input type="number" id="ap-t1-minnet" class="pg-input ap-minnet-input" value="300000" step="10000" min="0">
+                <span class="ap-minnet-unit">원 이상 순증시 지급 대상</span>
+              </div>
             </div>
             <div id="ap-t1-list" class="ap-list ap-top-grid"></div>
           </div>
@@ -856,15 +860,19 @@
             <div class="ap-sec-head">
               <label class="ap-chk-label"><input type="checkbox" id="ap-t2-en"> <span class="ap-label-inline">신장</span></label>
               <button type="button" class="ap-toggle-btn" id="ap-t2-type" data-val="amt">금액(원)</button>
-              <span class="ap-label-inline">Top</span>
-              <span class="ap-n-label">시상인원</span>
-              <input type="number" id="ap-t2-n" class="pg-input ap-n-input" min="1" max="50" value="10">
-              <button type="button" class="btn-outline small ap-add-btn" id="ap-t2-add">＋ 추가</button>
+              <div class="ap-n-group">
+                <span class="ap-n-label">시상인원</span>
+                <input type="number" id="ap-t2-n" class="pg-input ap-n-input" min="1" max="50" value="10">
+                <span class="ap-n-unit">명</span>
+                <button type="button" class="btn-outline small ap-add-btn" id="ap-t2-add">＋ 추가</button>
+              </div>
             </div>
-            <div class="ap-minnet-row">
+            <div class="ap-minnet-row" id="ap-t2-minnet-row">
               <label class="ap-chk-label"><input type="checkbox" id="ap-t2-minnet-en"><span>순증 기준 적용</span></label>
-              <input type="number" id="ap-t2-minnet" class="pg-input ap-minnet-input" value="300000" step="10000" min="0">
-              <span class="ap-minnet-unit">원 이상 순증시 지급 대상</span>
+              <div class="ap-minnet-cond" id="ap-t2-minnet-cond">
+                <input type="number" id="ap-t2-minnet" class="pg-input ap-minnet-input" value="300000" step="10000" min="0">
+                <span class="ap-minnet-unit">원 이상 순증시 지급 대상</span>
+              </div>
             </div>
             <div id="ap-t2-list" class="ap-list ap-top-grid"></div>
           </div>
