@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.70";
+  const APP_VERSION = "1.71";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4646,7 +4646,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 시상안 체크박스 활성화 여부 — 비활성 섹션은 숨김
     const _rateEnabled  = !!_pa.rateConfig;
     const _amtEnabled   = !!_pa.amtConfig;
-    const _groupEnabled = !!(_pa.plan.groupAward1?.enabled || _pa.plan.groupAward2?.enabled);
+    const _groupEnabled = groupRanking.length >= 2;
 
     // 그룹 시상 — team 필드가 설정된 학생이 있으면 team 기준, 아니면 branch(지점)
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
@@ -4774,6 +4774,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     state._hrankGroupData = {};
     groupRanking.forEach(g => { state._hrankGroupData[g.name] = g; });
 
+    // 공유 모드 배너 — 공유 링크로 열었을 때 상단에 표시
+    const _shareCenter = (() => {
+      const cs = [...new Set(list.map(s => s.center).filter(Boolean))];
+      return cs.length === 1 ? cs[0] : (cs[0] || "");
+    })();
+    const _shareBannerHtml = state.pgShareMode ? `
+      <div class="pg-share-banner">
+        <h2>고객컨설팅 마스터 ${escapeHtml(state.progressRegion)}${_pgCohort ? ` ${_pgCohort}기` : ""}${_shareCenter ? ` ${escapeHtml(_shareCenter)}` : ""} Step${escapeHtml(_pgStep)}과정 실적진도</h2>
+        <span class="pg-share-badge">공유 보기</span>
+      </div>` : "";
+
     // 시상안 박스 + KPI 영역
     const _plan = _pa.plan;
     let _tiersHtml = "";
@@ -4805,8 +4816,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     })();
     return `
       <div class="pg-wrap">
+        ${_shareBannerHtml}
         <div class="pg-award-box">
-          <h3>📋 ${escapeHtml(state.progressRegion)}${_pgCohort ? ` ${_pgCohort}기` : ""} Step ${_pgStep} 활성화 시상안</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+            <h3 style="margin:0">📋 ${escapeHtml(state.progressRegion)}${_pgCohort ? ` ${_pgCohort}기` : ""} Step ${_pgStep} 활성화 시상안</h3>
+            ${!state.pgShareMode ? `<button id="btn-pg-share" class="btn-outline pg-share-btn">🔗 링크 공유</button>` : ""}
+          </div>
           ${_plan.title ? `<div class="pg-award-subtitle">${escapeHtml(_plan.title)}</div>` : ""}
           ${_tiersHtml ? `<div class="pg-tier-row">${_tiersHtml}</div>` : ""}
           ${_topToHtml(_plan.topAward1)}
@@ -5006,7 +5021,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const _hrRateEnabled  = !!_hrankPa.rateConfig;
     const _hrAmtEnabled   = !!_hrankPa.amtConfig;
-    const _hrGroupEnabled = !!(_hrAwardPlan.groupAward1?.enabled || _hrAwardPlan.groupAward2?.enabled);
+    const _hrGroupEnabled = groupRanking.length >= 2;
 
     const hrCats = [
       { key: "rate", icon: "📈", title: "최고 신장률", sub: "달성률 (현재실적 ÷ 기준실적)", cls: "hr-rate",
@@ -5177,12 +5192,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       section.querySelectorAll(".hr-clickable[data-emp]").forEach(el => {
         el.addEventListener("click", e => {
           e.stopPropagation();
+          if (state.pgShareMode) return;
           if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
         });
       });
       section.querySelectorAll(".hr-member-click[data-emp]").forEach(el => {
         el.addEventListener("click", e => {
           e.stopPropagation();
+          if (state.pgShareMode) return;
           if (el.dataset.emp) openProgressStudentPopup(el.dataset.emp);
         });
       });
@@ -5453,15 +5470,34 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
   function bindProgressHomeEvents(list) {
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
-      tr.addEventListener("click", () => openProgressStudentPopup(tr.dataset.emp));
+      tr.addEventListener("click", () => {
+        if (state.pgShareMode) return;
+        openProgressStudentPopup(tr.dataset.emp);
+      });
     });
     // 모바일 TOP3 미리보기 카드의 이름 행 클릭 → 교육생 팝업 (버블링 방지)
     document.querySelectorAll("#progress-body .pg-pcard-row[data-emp]").forEach((row) => {
       row.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
+        if (state.pgShareMode) return;
         openProgressStudentPopup(row.dataset.emp);
       });
+    });
+    // 공유 링크 생성 버튼
+    document.getElementById("btn-pg-share")?.addEventListener("click", () => {
+      const region = state.progressRegion || "";
+      const cohort = (state.progressCohort || "").replace(/기$/, "");
+      const step   = state.progressStep || state.filter.step || "1";
+      const base   = location.origin + location.pathname;
+      const shareUrl = `${base}#share?r=${encodeURIComponent(region)}&c=${encodeURIComponent(cohort)}&s=${encodeURIComponent(step)}`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(shareUrl)
+          .then(() => toast("링크가 클립보드에 복사되었습니다!", "success"))
+          .catch(() => prompt("아래 링크를 복사하세요:", shareUrl));
+      } else {
+        prompt("아래 링크를 복사하세요:", shareUrl);
+      }
     });
     // 모바일 카드 자체 클릭 → 풀스크린 TOP10 모달
     document.querySelectorAll("#progress-body .pg-pcard[data-pcard]").forEach((card) => {
@@ -5733,11 +5769,34 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const extraBtn = modal.querySelector("#pg-full-modal-extra");
     if (extraBtn) { extraBtn.hidden = true; extraBtn.onclick = null; extraBtn.textContent = ""; }
     modal.hidden = false;
+    // 랭킹 테이블 포함 시 이름 검색바 삽입 (내 순위 찾기)
+    const _modalBody = modal.querySelector("#pg-full-modal-body");
+    if (_modalBody && _modalBody.querySelector(".pg-tbl")) {
+      const _srchWrap = document.createElement("div");
+      _srchWrap.className = "pg-modal-search";
+      _srchWrap.innerHTML = `<input type="text" id="pg-modal-name-search" placeholder="이름으로 내 순위 찾기..." class="pg-modal-search-input" autocomplete="off">`;
+      _modalBody.insertBefore(_srchWrap, _modalBody.firstChild);
+      const _inp = _srchWrap.querySelector("input");
+      _inp.addEventListener("input", () => {
+        const q = _inp.value.trim();
+        _modalBody.querySelectorAll(".pg-tbl tbody tr").forEach(tr => {
+          const nm = tr.querySelector("td:nth-child(2)")?.textContent?.trim() || "";
+          const hit = !q || nm.includes(q);
+          tr.classList.toggle("pg-modal-search-match", hit && !!q);
+          tr.classList.toggle("pg-modal-search-nomatch", !hit && !!q);
+        });
+        if (q) {
+          const first = _modalBody.querySelector(".pg-modal-search-match");
+          if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    }
     // 모달 바디의 이름 클릭 → 교육생 상세 팝업(스택 push)
     modal.querySelectorAll(".pg-tr-click, .pg-pcard-row[data-emp]").forEach((el) => {
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         const emp = el.dataset.emp;
+        if (state.pgShareMode) return;
         if (emp) openProgressStudentPopup(emp, true /* pushStack */);
       });
     });
@@ -8794,7 +8853,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9879,13 +9938,33 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
   }
 
+  // 공유 링크 파라미터 감지 — #share?r=지역단&c=기수&s=스텝
+  function _checkShareMode() {
+    const hash = location.hash;
+    if (!hash.startsWith("#share?")) return;
+    const params = new URLSearchParams(hash.slice(7));
+    const r = decodeURIComponent(params.get("r") || "");
+    if (!r) return;
+    const c = params.get("c") || "";
+    const s = params.get("s") || "1";
+    state.pgShareMode    = true;
+    state.progressRegion = r;
+    state.progressCohort = c;
+    state.progressStep   = s;
+    state.filter.cohort  = c ? `${c}기` : "";
+    state.filter.step    = s;
+    document.body.classList.add("pg-share-mode");
+    switchView("#progress");
+  }
+
   function init() {
     bindEvents();
     bindRegionMgrEvents();
     initDraggableModals();
     initErrorReportModal();
-    // 기본 view = 교육생 관리
+    // 기본 view = 교육생 관리 (공유 링크인 경우 _checkShareMode가 오버라이드)
     switchView("#students");
+    _checkShareMode();
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
     const fsEl = document.getElementById("filter-step"); if (fsEl) fsEl.value = state.filter.step || "1";

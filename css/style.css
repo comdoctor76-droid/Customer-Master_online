@@ -5392,3 +5392,67 @@ body {
 .ta-grp-sel.ta-grp-set { background: #eff6ff; font-weight: 700; }
 .ta-table tbody tr:nth-child(even) { background: #fafafa; }
 .ta-table tbody tr:hover { background: #eff6ff; }
+
+/* ── 실적진도 공유 모드 ──────────────────────────────── */
+body.pg-share-mode .sidebar,
+body.pg-share-mode .top-nav,
+body.pg-share-mode .mobile-bottom-nav,
+body.pg-share-mode .header-actions,
+body.pg-share-mode #btn-error-report,
+body.pg-share-mode #btn-hard-refresh,
+body.pg-share-mode .panel-tools select,
+body.pg-share-mode #btn-pg-excel { display: none !important; }
+body.pg-share-mode .main-content { margin-left: 0 !important; }
+body.pg-share-mode .panel-head { border-bottom: none; }
+
+.pg-share-banner {
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  color: #fff;
+  padding: 16px 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pg-share-banner h2 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; }
+.pg-share-badge {
+  background: var(--orange);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pg-share-btn {
+  font-size: 12px !important;
+  padding: 4px 10px !important;
+  white-space: nowrap;
+}
+
+/* ── 전체 순위 모달 이름 검색 ───────────────────────── */
+.pg-modal-search {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 5;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 8px;
+}
+.pg-modal-search-input {
+  width: 100%;
+  padding: 8px 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+.pg-modal-search-input:focus { border-color: var(--orange); }
+tr.pg-modal-search-match { background: #fff9c4 !important; outline: 2px solid #f59e0b; outline-offset: -2px; }
+tr.pg-modal-search-nomatch { opacity: 0.28; }
