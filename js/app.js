@@ -154,7 +154,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.73";
+  const APP_VERSION = "1.74";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4644,7 +4644,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     // 시상안 체크박스 활성화 여부 — 비활성 섹션은 숨김
     const _rateEnabled  = !!_pa.rateConfig;
     const _amtEnabled   = !!_pa.amtConfig;
-    const _groupEnabled = groupRanking.length >= 2;
 
     // 그룹 시상 — team 필드가 설정된 학생이 있으면 team 기준, 아니면 branch(지점)
     const hasAnyTeam = stats.some((s) => (s.s.team || "").toString().trim());
@@ -4669,6 +4668,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       current: g.current
     })).sort((a, b) => b.rate - a.rate);
     const groupLabel = hasAnyTeam ? "팀별 인보험 순증" : "지점별 인보험 순증 (팀 미배정)";
+    const _groupEnabled = groupRanking.length >= 2;
 
     // Compute two-pass duplicate-award assignments once; reuse for preview cards + full modals
     const _bothAsgn = computeBothAwardAssignments(byRate, byAmt, _pa);
@@ -8915,7 +8915,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
