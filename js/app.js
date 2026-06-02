@@ -156,7 +156,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.69";
+  const APP_VERSION = "1.70";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8794,7 +8794,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260602f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -8803,7 +8803,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     );
     bindAwardPlanModal();
     document.getElementById("pg-cohort-sel")?.addEventListener("change", (e) => {
+      const prevCohortNum = parseInt(state.filter.cohort, 10) || 0;  // "2기" → 2
+      const newCohortNum  = parseInt(e.target.value, 10) || 0;       // "1" → 1
       state.progressCohort = e.target.value;
+      state.filter.cohort  = e.target.value ? `${e.target.value}기` : "";
+      // 사이드바 filter-cohort 동기화
+      const sidebarCohort = document.getElementById("filter-cohort");
+      if (sidebarCohort) sidebarCohort.value = state.filter.cohort;
+      // 자동 스텝 전환: 상위기수(낮은 번호) 선택 → Step 2 / 하위기수(높은 번호) 선택 → Step 1
+      const autoStep = (newCohortNum > 0 && prevCohortNum > 0 && newCohortNum < prevCohortNum) ? "2" : "1";
+      state.filter.step  = autoStep;
+      state.progressStep = autoStep;
+      const fsEl = document.getElementById("filter-step");
+      if (fsEl) fsEl.value = autoStep;
+      const pgStepSel = document.getElementById("pg-step-sel");
+      if (pgStepSel) pgStepSel.value = autoStep;
+      persistFilter();
       if (isPanelVisible("progress-panel")) renderProgressPanel();
     });
     document.getElementById("pg-step-sel")?.addEventListener("change", (e) => {
