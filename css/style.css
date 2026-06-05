@@ -4936,6 +4936,25 @@ body {
   .form-grid { grid-template-columns: 1fr; }
 }
 
+/* ============ 640px 후처리 — 1024px 규칙 재정의 ============
+   아래 블록은 반드시 @media (max-width: 1024px) 보다 뒤에 있어야
+   cascade 우선순위가 유지됩니다.                              */
+@media (max-width: 640px) {
+  /* ① 하단 메뉴 고정 문제:
+     1024px 규칙이 body { overflow: auto } 로 body를 스크롤 컨테이너로
+     만들면 Android Chrome 일부 버전에서 position:fixed가 body 기준으로
+     동작해 하단 메뉴가 같이 스크롤됨.
+     → body의 overflow를 visible/height:auto로 바꾸어 브라우저 뷰포트
+       자체가 스크롤 루트가 되도록 함. */
+  body { overflow: visible; height: auto; min-height: 100%; }
+  /* 사이드바 열렸을 때 html 스크롤 차단 (body는 이제 스크롤 안 함) */
+  html.mobile-sidebar-open { overflow: hidden; }
+  /* ② 사이드바 스크롤:
+     1024px 규칙이 .sidebar { overflow-y: visible } 을 이 블록보다
+     늦게 적용해 모바일에서 드로어 스크롤이 막힘 → !important 재정의 */
+  .sidebar { overflow-y: scroll !important; -webkit-overflow-scrolling: touch; }
+}
+
 /* ============ 모바일 헤더 2행 레이아웃 ============ */
 @media (max-width: 768px) {
   .header-inner {
