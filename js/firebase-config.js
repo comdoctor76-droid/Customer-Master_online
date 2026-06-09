@@ -30,6 +30,7 @@ import {
   doc,
   addDoc,
   setDoc,
+  getDoc,
   deleteDoc,
   onSnapshot,
   getDocs,
@@ -540,6 +541,25 @@ window.DataAPI = {
   // 오류신고 삭제
   async deleteErrorReport(id) {
     await deleteDoc(doc(db, "errorReports", id));
+  },
+
+  // 시상안 전체 저장 (appSettings/awardPlans 단일 문서)
+  async saveAwardPlans(plansObj) {
+    await setDoc(
+      doc(db, "appSettings", "awardPlans"),
+      { plans: plansObj, updatedAt: serverTimestamp() }
+    );
+  },
+
+  // 시상안 전체 불러오기
+  async loadAwardPlans() {
+    try {
+      const snap = await getDoc(doc(db, "appSettings", "awardPlans"));
+      if (snap.exists()) return snap.data().plans || {};
+    } catch (e) {
+      console.warn("[Firebase] 시상안 불러오기 실패:", e);
+    }
+    return {};
   },
 };
 

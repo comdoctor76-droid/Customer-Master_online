@@ -76,7 +76,28 @@
       const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
       stored[region] = plan;
       localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
+      // Firestore 백업 (비동기 — 실패해도 로컬 저장은 유지)
+      if (window.DataAPI?.saveAwardPlans) {
+        window.DataAPI.saveAwardPlans(stored)
+          .catch((e) => console.warn("[AwardPlan] Firestore 저장 실패:", e));
+      }
     } catch (e) { console.error("[AwardPlan] save error:", e); }
+  }
+
+  // Firestore → localStorage 시상안 동기화 (앱 초기화 시 1회 호출)
+  async function syncAwardPlansFromFirestore() {
+    if (!window.DataAPI?.loadAwardPlans) return;
+    try {
+      const fsPlans = await window.DataAPI.loadAwardPlans();
+      if (!fsPlans || !Object.keys(fsPlans).length) return;
+      const local = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+      // Firestore를 우선하여 병합 (다른 기기에서 저장한 플랜 포함)
+      const merged = { ...local, ...fsPlans };
+      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(merged));
+      console.info(`[AwardPlan] Firestore 동기화: ${Object.keys(fsPlans).length}개 시상안`);
+    } catch (e) {
+      console.warn("[AwardPlan] Firestore 동기화 실패 (로컬 데이터 유지):", e);
+    }
   }
 
   // 시상 payout 정규화: 구형(숫자) → {type:"cash",val:N}, 신형 그대로
@@ -157,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.81";
+  const APP_VERSION = "1.82";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4263,6 +4284,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const _pgCohortSel = document.getElementById("pg-cohort-sel");
     if (_pgCohortSel && _pgCohortSel.value !== pgCohort) _pgCohortSel.value = pgCohort;
     const _pgStepVal = state.filter.step || state.progressStep || "1";
+    state.progressStep = _pgStepVal; // filter.step 와 progressStep 항상 동기화
     const _pgStepSel = document.getElementById("pg-step-sel");
     if (_pgStepSel && _pgStepSel.value !== _pgStepVal) _pgStepSel.value = _pgStepVal;
     const list = state.students.filter((s) => {
@@ -8935,7 +8957,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260605a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9135,9 +9157,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return html;
   }
 
-  function _apOpenLoadPopup() {
-    let stored = {};
-    try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
+  function _apRenderLoadList(stored) {
     const keys = Object.keys(stored);
     const el = document.getElementById("ap-load-list");
     if (!keys.length) {
@@ -9159,7 +9179,29 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         item.addEventListener("click", () => _apShowLoadPreview(item.dataset.key, stored[item.dataset.key]));
       });
     }
+  }
+
+  async function _apOpenLoadPopup() {
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
+
+    const el = document.getElementById("ap-load-list");
     document.getElementById("ap-load-popup").hidden = false;
+
+    // 로컬에 데이터가 없으면 Firestore에서 가져오기
+    if (!Object.keys(stored).length && window.DataAPI?.loadAwardPlans) {
+      el.innerHTML = `<div class="ap-load-empty">Firestore에서 불러오는 중...</div>`;
+      try {
+        const fsPlans = await window.DataAPI.loadAwardPlans();
+        if (fsPlans && Object.keys(fsPlans).length) {
+          localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(fsPlans));
+          stored = fsPlans;
+        }
+      } catch (e) {
+        console.warn("[AwardPlan] Firestore 불러오기 실패:", e);
+      }
+    }
+    _apRenderLoadList(stored);
   }
 
   function _apShowLoadPreview(key, plan) {
@@ -10099,6 +10141,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       renderDebounced();
       prefetchConsultCountsOnce();
     });
+    // 시상안 Firestore → localStorage 동기화 (1회)
+    syncAwardPlansFromFirestore();
   }
 
   // 구 단위 마이그레이션 — 원 단위 저장으로 전환됨에 따라 비활성화
