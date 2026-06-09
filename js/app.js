@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.83";
+  const APP_VERSION = "1.84";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4307,7 +4307,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   function _pgStepSfx() {
-    const s = String(state.progressStep || state.filter.step || "1");
+    const s = String(state.filter.step || state.progressStep || "1");
     return s === "1" ? "" : s;
   }
 
@@ -4317,7 +4317,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const base    = Number(s.base || 0);
     const current = sfx
       ? Number(s[`pgCurrent${sfx}`] || 0)
-      : (s.pgCurrent !== undefined ? Number(s.pgCurrent) : Number(s.current || 0));
+      : Number(s.pgCurrent || s.current || 0);
     const hiCap     = Number(s[`hiCap${sfx}`]        || 0);
     const ipumCount = Number(s[`pgIpumCount${sfx}`]  || 0);
     const ipumAmt   = Number(s[`pgIpumAmt${sfx}`]    || 0);
@@ -4658,7 +4658,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const avgR = stats.reduce((a, s) => a + s.rate, 0) / total;
     const over5 = stats.filter((s) => s.net >= 50000).length;
     const _pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
-    const _pgStep   = state.progressStep || state.filter.step || "1";
+    const _pgStep   = state.filter.step || state.progressStep || "1";
     const _pa = getProgressAwardConfig(state.progressRegion, _pgCohort, _pgStep);
     const elig = stats.filter((s) => s.net >= 300000); // 순증 30만원 이상
     const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
@@ -4996,7 +4996,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (mainKpi) mainKpi.style.display = "none";
 
     const cohort = state.filter.cohort || "";
-    const step = state.progressStep || state.filter.step || "1";
+    const step = state.filter.step || state.progressStep || "1";
 
     // 같은 지역단+기수+스텝으로 캐러셀이 이미 동작 중이면 재렌더 생략 (타이머 리셋 방지)
     if (state._hrankTimer && section.dataset.hrRegion === region && section.dataset.hrCohort === cohort && section.dataset.hrStep === step && section.querySelector(".hr-slide")) return;
@@ -8957,7 +8957,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
