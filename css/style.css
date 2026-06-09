@@ -107,7 +107,7 @@ body {
   width: fit-content;
 }
 
-.top-nav { display: flex; gap: 4px; flex: 1; }
+.top-nav { display: flex; gap: 4px; flex: 1; min-width: 0; }
 .top-nav a {
   padding: 8px 14px;
   color: rgba(255, 255, 255, 0.75);
@@ -120,7 +120,7 @@ body {
 .top-nav a:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .top-nav a.active { background: var(--orange); color: #fff; }
 
-.header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .btn-hard-refresh {
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
@@ -4949,6 +4949,11 @@ body {
 @media (max-width: 560px) {
   .kpi-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
+}
+
+/* ============ brand-contact 숨김: 1280px 이하 ============ */
+@media (max-width: 1280px) {
+  .brand-contact { display: none; }
 }
 
 /* ============ 640px 후처리 — 1024px 규칙 재정의 ============
