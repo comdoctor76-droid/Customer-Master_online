@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.85";
+  const APP_VERSION = "1.86";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7480,6 +7480,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     state._bulkCohort = "";
     editingEmpNo = null;
     state.formTgtAddAmount = null;
+    const _delBtn = document.getElementById("btn-modal-del-student");
+    if (_delBtn) _delBtn.hidden = true;
     syncOrgLabels();
   }
 
@@ -7506,6 +7508,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     syncOrgLabels();
     switchTab("single");
     openModal("#modal-add");
+    // 수정 모드: 삭제 버튼 표시 및 핸들러 바인딩
+    const _delBtn = document.getElementById("btn-modal-del-student");
+    if (_delBtn) {
+      _delBtn.hidden = false;
+      _delBtn.onclick = async () => {
+        const _s = state.students.find((x) => x.empNo === empNo);
+        const _label = _s ? `${_s.name}(${empNo})` : empNo;
+        if (!confirm(`"${_label}" 교육생을 완전히 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.`)) return;
+        await window.DataAPI.removeStudentWithConsultations(empNo);
+        closeModal("#modal-add");
+        toast(`${_label} 삭제되었습니다.`, "success");
+      };
+    }
   }
 
   function switchTab(name) {
@@ -8957,7 +8972,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
