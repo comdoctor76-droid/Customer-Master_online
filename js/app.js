@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.84";
+  const APP_VERSION = "1.85";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4331,7 +4331,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function getProgressAwardConfig(region, cohortOverride, stepOverride) {
     // state.filter.cohort 는 "1기" 형식, 시상안 키는 "1" 형식 — "기" 제거 후 비교
     const _cohort = (cohortOverride || state.progressCohort || "").replace(/기$/, "");
-    const _step   = stepOverride   || state.progressStep;
+    const _step   = stepOverride   || state.filter.step || state.progressStep;
     let _planKey = region;
     if (_cohort && _step) {
       const _y = state.progressYear || String(new Date().getFullYear());
@@ -5573,7 +5573,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-share")?.addEventListener("click", () => {
       const region = state.progressRegion || "";
       const cohort = (state.progressCohort || "").replace(/기$/, "");
-      const step   = state.progressStep || state.filter.step || "1";
+      const step   = state.filter.step || state.progressStep || "1";
       const base   = location.origin + location.pathname;
       const shareUrl = `${base}#share?r=${encodeURIComponent(region)}&c=${encodeURIComponent(cohort)}&s=${encodeURIComponent(step)}`;
       if (navigator.clipboard) {
@@ -8957,7 +8957,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
