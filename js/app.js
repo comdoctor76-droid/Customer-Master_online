@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.82";
+  const APP_VERSION = "1.83";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8957,7 +8957,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260609b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -10532,9 +10532,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const { region, cohort, sfx } = _rmGetState();
     const wrap = document.getElementById("rm-table-wrap");
     if (!wrap) return;
-    const rows = state.students.filter((s) =>
-      s.region === region && (!cohort || !s.cohort || s.cohort === cohort)
-    );
+    const rows = state.students
+      .filter((s) => s.region === region && (!cohort || !s.cohort || s.cohort === cohort))
+      .sort((a, b) => (a.branch || "").localeCompare(b.branch || "", "ko") || (a.name || "").localeCompare(b.name || "", "ko"));
     if (!rows.length) {
       wrap.innerHTML = `<div class="rm-table-empty">해당 기수/스텝의 교육생이 없습니다.</div>`;
       return;

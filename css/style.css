@@ -519,7 +519,22 @@ body {
   resize: vertical;
 }
 .rm-table-empty { padding: 24px; text-align: center; color: #aaa; font-size: 14px; }
-.rm-tbl th:last-child, .rm-tbl td:last-child { min-width: 110px; }
+/* rm-tbl 칼럼 너비 고정 — 입력란 크기 줄여 지점·성명 줄바뀜 방지 */
+.rm-tbl { table-layout: fixed; min-width: 860px; }
+.rm-tbl th, .rm-tbl td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rm-tbl th:nth-child(1),  .rm-tbl td:nth-child(1)  { width: 32px; }      /* # */
+.rm-tbl th:nth-child(2),  .rm-tbl td:nth-child(2)  { width: 90px; }      /* 지점 */
+.rm-tbl th:nth-child(3),  .rm-tbl td:nth-child(3)  { width: 54px; }      /* 성명 */
+.rm-tbl th:nth-child(4),  .rm-tbl td:nth-child(4)  { width: 90px; }      /* 기준실적 */
+.rm-tbl th:nth-child(5),  .rm-tbl td:nth-child(5)  { width: 96px; }      /* 현재실적 input */
+.rm-tbl th:nth-child(6),  .rm-tbl td:nth-child(6)  { width: 100px; }     /* 마스터목표 input */
+.rm-tbl th:nth-child(7),  .rm-tbl td:nth-child(7)  { width: 58px; }      /* 달성률 */
+.rm-tbl th:nth-child(8),  .rm-tbl td:nth-child(8)  { width: 80px; }      /* 순증 */
+.rm-tbl th:nth-child(9),  .rm-tbl td:nth-child(9)  { width: 62px; }      /* 인품건 input */
+.rm-tbl th:nth-child(10), .rm-tbl td:nth-child(10) { width: 90px; }      /* 인품실적 input */
+.rm-tbl th:nth-child(11), .rm-tbl td:nth-child(11) { width: 112px; }     /* 전화번호 input */
+.rm-tbl .pg-input { width: 100%; min-width: unset; box-sizing: border-box; }
+.rm-tbl th:last-child, .rm-tbl td:last-child { min-width: unset; }
 .rm-base-inp { background: #f0f7ff; border-color: #93c5fd; }
 .rm-base-inp:focus { background: #fff; border-color: #3b82f6; }
 .pg-base-ref { color: var(--ink-3); font-size: 12px; }
