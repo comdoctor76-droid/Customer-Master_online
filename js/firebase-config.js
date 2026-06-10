@@ -91,7 +91,8 @@ window.DataAPI = {
       ref,
       (snap) => {
         const list = [];
-        snap.forEach((d) => list.push({ _docId: d.id, ...d.data() }));
+        // __로 시작하는 시스템 문서(시상안 등)는 교육생 목록에서 제외
+        snap.forEach((d) => { if (!d.id.startsWith("__")) list.push({ _docId: d.id, ...d.data() }); });
         const fromCache = snap.metadata.fromCache;
         const pending  = snap.metadata.hasPendingWrites;
         if (firstFire) {
@@ -543,10 +544,10 @@ window.DataAPI = {
     await deleteDoc(doc(db, "errorReports", id));
   },
 
-  // 시상안 전체 저장 (appSettings/awardPlans 단일 문서)
+  // 시상안 전체 저장 (students/__award_plans__ — 기존 students 컬렉션 권한 재사용)
   async saveAwardPlans(plansObj) {
     await setDoc(
-      doc(db, "appSettings", "awardPlans"),
+      doc(db, "students", "__award_plans__"),
       { plans: plansObj, updatedAt: serverTimestamp() }
     );
   },
@@ -554,7 +555,7 @@ window.DataAPI = {
   // 시상안 전체 불러오기
   async loadAwardPlans() {
     try {
-      const snap = await getDoc(doc(db, "appSettings", "awardPlans"));
+      const snap = await getDoc(doc(db, "students", "__award_plans__"));
       if (snap.exists()) return snap.data().plans || {};
     } catch (e) {
       console.warn("[Firebase] 시상안 불러오기 실패:", e);
