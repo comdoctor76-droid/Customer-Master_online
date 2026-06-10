@@ -4,6 +4,7 @@
   const LS_KEY = "cmf.filter.v1";
   const LS_DEFAULTS_KEY = "cmf.masterTargetDefaults.v1";
   const LS_AWARD_PLANS_KEY = "cmf.awardPlans.v1";
+  const LS_TARGET_GOALS_KEY = "cmf.targetGoals.v1";
   const DEFAULT_MASTER_TARGET = 200000; // 원 (= 200,000원)
   const DEFAULT_REGION = "호남지역단";
 
@@ -7656,6 +7657,161 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
     });
   }
 
+  // ========== 목표 금액 설정 모달 ==========
+  function _tgMakeKey(region, cohort, step) {
+    return `TG:${region}:${cohort}:${step}`;
+  }
+
+  function _tgGetStored() {
+    try { return JSON.parse(localStorage.getItem(LS_TARGET_GOALS_KEY) || "{}"); } catch { return {}; }
+  }
+
+  function _tgFilteredStudents() {
+    const region = document.getElementById("tg-region")?.value || "";
+    const cohort = document.getElementById("tg-cohort")?.value || "";
+    return state.students.filter((s) => {
+      if (region && s.region !== region) return false;
+      if (cohort) {
+        const sc = String(s.cohort || "").replace(/기$/, "");
+        if (sc !== cohort) return false;
+      }
+      return true;
+    }).slice().sort((a, b) => (a.branch || "").localeCompare(b.branch || "") || (a.name || "").localeCompare(b.name || ""));
+  }
+
+  function _tgRenderStudentList() {
+    const list = _tgFilteredStudents();
+    const container = document.getElementById("tg-student-list");
+    const countLabel = document.getElementById("tg-count-label");
+    if (countLabel) countLabel.textContent = `${list.length}명`;
+    if (!container) return;
+    if (!list.length) {
+      container.innerHTML = `<p style="color:#999;font-size:13px;padding:12px 0;">선택한 조건에 해당하는 교육생이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f3f4f6;border-bottom:2px solid #d1d5db;">
+            <th style="padding:7px 10px;text-align:left;font-weight:600;">이름</th>
+            <th style="padding:7px 10px;text-align:left;font-weight:600;">지점</th>
+            <th style="padding:7px 10px;text-align:left;font-weight:600;">기수</th>
+            <th style="padding:7px 10px;text-align:right;font-weight:600;">현재 목표</th>
+            <th style="padding:7px 10px;text-align:right;font-weight:600;">새 목표 (원)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map((s) => `
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <td style="padding:6px 10px;">${escapeHtml(s.name || "")}</td>
+              <td style="padding:6px 10px;color:#6b7280;">${escapeHtml(s.branch || "")}</td>
+              <td style="padding:6px 10px;color:#6b7280;">${escapeHtml(s.cohort || "")}</td>
+              <td style="padding:6px 10px;text-align:right;color:#9ca3af;">${Number(s.target || 0).toLocaleString()}</td>
+              <td style="padding:6px 10px;text-align:right;">
+                <input type="number" class="tg-target-input" data-id="${escapeHtml(s.id)}"
+                  value="${Number(s.target || 0)}" min="0" step="10000"
+                  style="width:120px;text-align:right;padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;">
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function openTargetGoalsModal() {
+    const regionSel = document.getElementById("tg-region");
+    const cohortSel = document.getElementById("tg-cohort");
+    const stepSel   = document.getElementById("tg-step");
+    const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && (r.endsWith("지역단") || r.endsWith("사업부"))))].sort();
+    if (!regions.length) { toast("등록된 교육생이 없습니다.", "error"); return; }
+    regionSel.innerHTML = regions.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
+
+    // 현재 필터 값으로 초기화
+    const curRegion = state.filter.region || state.progressRegion || regions[0];
+    if (curRegion && regions.includes(curRegion)) regionSel.value = curRegion;
+    if (state.filter.cohort && cohortSel) {
+      const c = String(state.filter.cohort).replace(/기$/, "");
+      cohortSel.value = c || "";
+    }
+    if (state.progressStep && stepSel) stepSel.value = state.progressStep;
+
+    _tgRenderStudentList();
+    [regionSel, cohortSel, stepSel].forEach((sel) => {
+      if (sel) sel.onchange = () => _tgRenderStudentList();
+    });
+
+    const bulkBtn = document.getElementById("btn-tg-bulk-apply");
+    if (bulkBtn) {
+      bulkBtn.onclick = () => {
+        const val = parseInt(document.getElementById("tg-bulk-val")?.value || "0", 10);
+        if (isNaN(val) || val < 0) { toast("올바른 금액을 입력하세요.", "error"); return; }
+        document.querySelectorAll(".tg-target-input").forEach((inp) => { inp.value = val; });
+      };
+    }
+
+    const doSave = async () => {
+      const inputs = [...document.querySelectorAll(".tg-target-input")];
+      if (!inputs.length) { toast("저장할 데이터가 없습니다.", ""); return; }
+      const saveBtn  = document.getElementById("btn-tg-save");
+      const saveBtn2 = document.getElementById("btn-tg-save2");
+      const saveMsg  = document.getElementById("tg-save-msg");
+      if (saveBtn)  saveBtn.disabled  = true;
+      if (saveBtn2) saveBtn2.disabled = true;
+      if (saveMsg)  { saveMsg.textContent = "저장 중..."; saveMsg.className = "pg-msg"; }
+
+      // 변경된 학생 수집
+      const updated = [];
+      inputs.forEach((inp) => {
+        const id  = inp.dataset.id;
+        const val = parseInt(inp.value, 10);
+        const s   = state.students.find((x) => x.id === id);
+        if (s && !isNaN(val) && val >= 0 && val !== Number(s.target || 0)) {
+          updated.push({ ...s, target: val });
+        }
+      });
+
+      if (!updated.length) {
+        if (saveMsg) { saveMsg.textContent = "변경된 항목이 없습니다."; saveMsg.className = "pg-msg"; setTimeout(() => { saveMsg.textContent = ""; }, 2500); }
+        if (saveBtn)  saveBtn.disabled  = false;
+        if (saveBtn2) saveBtn2.disabled = false;
+        return;
+      }
+
+      try {
+        if (typeof window.DataAPI?.saveMany === "function") {
+          await window.DataAPI.saveMany(updated);
+        } else {
+          for (const r of updated) await window.DataAPI.save(r);
+        }
+        // state 업데이트
+        updated.forEach((u) => {
+          const idx = state.students.findIndex((x) => x.id === u.id);
+          if (idx >= 0) state.students[idx] = u;
+        });
+        if (saveMsg) { saveMsg.textContent = `✅ ${updated.length}명 저장 완료`; saveMsg.className = "pg-msg ok"; setTimeout(() => { saveMsg.textContent = ""; }, 4000); }
+        toast(`목표 금액 ${updated.length}명 저장 완료`, "success");
+        _tgRenderStudentList(); // 목록 갱신 (현재 목표 열 업데이트)
+      } catch (e) {
+        console.error("[TargetGoals] 저장 실패:", e);
+        if (saveMsg) { saveMsg.textContent = "❌ 저장 실패: " + e.message; saveMsg.className = "pg-msg err"; }
+        toast("저장 실패: " + e.message, "error");
+      } finally {
+        if (saveBtn)  saveBtn.disabled  = false;
+        if (saveBtn2) saveBtn2.disabled = false;
+      }
+    };
+
+    const closeTgModal = () => closeModal("#modal-target-goals");
+    document.getElementById("btn-tg-save").onclick   = doSave;
+    document.getElementById("btn-tg-save2").onclick  = doSave;
+    document.getElementById("btn-tg-close").onclick  = closeTgModal;
+    document.getElementById("btn-tg-close2").onclick = closeTgModal;
+    document.querySelector("#modal-target-goals .modal-backdrop").onclick = closeTgModal;
+
+    openModal("#modal-target-goals");
+  }
+
   // ========== 폼 ==========
   function resetForm() {
     state.form = { region: "", center: "", branch: "" };
@@ -9168,6 +9324,7 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
+    $("#btn-open-target-goals")?.addEventListener("click", openTargetGoalsModal);
     $("#btn-open-award-plan")?.addEventListener("click", () =>
       openAwardPlanModal({ region: state.filter.region, cohort: state.filter.cohort, step: state.filter.step || "1" })
     );
