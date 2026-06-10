@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.89";
+  const APP_VERSION = "1.90";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4458,10 +4458,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       let ga2Cell = "";
       if (ga2En) {
         const g2items = _ga2Items(ga2);
-        // 그룹시상1 연계: linkToGroup1 활성화 시 ga1 미달이면 ga2도 미달 표시
-        const ga2LinkToGa1 = !!(ga2?.linkToGroup1 && ga1En);
-        if (ga2LinkToGa1 && !metGa1Items.length) {
-          ga2Cell = `<td><span class="pg-grp-miss">미달(1연계)</span></td>`;
+        // 그룹시상1이 활성화된 경우 항상 연계 — ga1 미달이면 ga2도 미달
+        if (ga1En && !metGa1Items.length) {
+          ga2Cell = `<td><span class="pg-grp-miss">미달(그룹1↑필요)</span></td>`;
         } else {
           const metGa2Items = g2items.filter(it => g.rate >= Number(it.rateThreshold || 110));
           if (metGa2Items.length > 0) {
@@ -4496,7 +4495,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const total = mStats.length || g.members.length;
       const ga1Ach = ga1En ? mStats.filter(st => (st.net || 0) >= ga1Thr).length : 0;
       const ga1All = ga1En && ga1Ach === total && total > 0;
-      const ga2Met = ga2En && _ga2Items(ga2).some(it => g.rate >= Number(it.rateThreshold || 110));
+      // ga1 활성화 시 항상 연계 — ga1 미달이면 ga2도 미달
+      const ga2Met = ga2En && (!ga1En || ga1All) && _ga2Items(ga2).some(it => g.rate >= Number(it.rateThreshold || 110));
       let cardCls = "tac-gray";
       if (ga1En || ga2En) {
         if ((!ga1En || ga1All) && (!ga2En || ga2Met)) cardCls = "tac-green";
@@ -8626,12 +8626,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           row.push(metItems.length ? metItems.map(it => payoutLabel(it.payout)).join("+") : "미달");
         }
         if (ga2En) {
-          const ga2LinkToGa1 = !!(ga2?.linkToGroup1 && ga1En);
+          // ga1 활성화 시 항상 연계 — ga1 미달이면 ga2도 미달
           const ga1Met = ga1En && ga1ItemList.some(it =>
             g.memberStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000) && g.memberStats.length > 0
           );
-          if (ga2LinkToGa1 && !ga1Met) {
-            row.push("미달(1연계)");
+          if (ga1En && !ga1Met) {
+            row.push("미달(그룹1↑필요)");
           } else {
             const metGa2 = ga2ItemList.filter(it => g.rate >= Number(it.rateThreshold || 110));
             if (metGa2.length) {
@@ -8982,7 +8982,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
