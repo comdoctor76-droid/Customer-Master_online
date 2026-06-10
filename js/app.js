@@ -5747,21 +5747,47 @@ ${hasRate || hasAmt || hasGrp ? `
 
     document.body.appendChild(overlay);
 
-    // ── 인쇄 버튼: body.pg-printing 로 레이아웃 전환 후 print() ──
+    // ── 인쇄 버튼: JS 직접 스타일 조작 + rAF 리플로우 보장 ──
     document.getElementById("btn-pp-print")?.addEventListener("click", () => {
-      document.body.classList.add("pg-printing");
-      const restoreFn = () => {
-        document.body.classList.remove("pg-printing");
-        window.removeEventListener("afterprint", restoreFn);
+      const ov   = document.getElementById("pg-print-overlay");
+      const ctrl = document.getElementById("pg-print-ctrl");
+      if (!ov) return;
+
+      // 1) 오버레이 → static 전환 (inline style 직접 덮어쓰기)
+      const savedStyle = ov.style.cssText;
+      ov.style.cssText = "position:static;height:auto;overflow:visible;background:#fff;" +
+        "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;color:#111;width:100%;";
+
+      // 2) 컨트롤바 숨김
+      if (ctrl) ctrl.style.display = "none";
+
+      // 3) 나머지 body 자식 모두 숨김
+      const hidden = [];
+      Array.from(document.body.children).forEach((el) => {
+        if (el !== ov) { hidden.push([el, el.style.display]); el.style.display = "none"; }
+      });
+
+      // 4) 복원 함수
+      const restore = () => {
+        ov.style.cssText = savedStyle;
+        if (ctrl) ctrl.style.display = "";
+        hidden.forEach(([el, d]) => { el.style.display = d; });
+        window.removeEventListener("afterprint", restore);
       };
-      window.addEventListener("afterprint", restoreFn);
-      window.print();
-      setTimeout(() => { if (document.body.classList.contains("pg-printing")) restoreFn(); }, 3000);
+      window.addEventListener("afterprint", restore);
+
+      // 5) rAF 2회로 리플로우 완전 보장 후 print()
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.print();
+          // afterprint 미지원 브라우저 fallback
+          setTimeout(restore, 4000);
+        });
+      });
     });
 
     document.getElementById("btn-pp-close")?.addEventListener("click", () => {
       document.getElementById("pg-print-overlay")?.remove();
-      document.body.classList.remove("pg-printing");
     });
 
     // ── 체크박스 섹션 토글 ──
