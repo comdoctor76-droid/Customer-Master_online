@@ -24,13 +24,13 @@
     topAward1: {
       enabled: true, type: "rate", n: 10,
       payouts: [30, 20, 20, 5, 5, 5, 5, 5, 5, 5],
-      minNetEnabled: false, minNet: 300000
+      minNetEnabled: true, minNet: 300000
     },
     // 3. 신장X TopN (slot 2) — 기본: 신장액
     topAward2: {
       enabled: true, type: "amt", n: 10,
       payouts: [50, 30, 30, 10, 10, 10, 10, 10, 10, 10],
-      minNetEnabled: false, minNet: 300000
+      minNetEnabled: true, minNet: 300000
     },
     bothNodup: true,
     groupAward1: { enabled: false, threshold: 5, payout: 5 },
@@ -9308,9 +9308,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     };
   }
 
-  function _apRefreshFromSelectors() {
+  async function _apRefreshFromSelectors() {
+    const key = _apGetCurrentKey();
     _apGenerateTitle();
-    loadAwardPlanForm(_apGetCurrentKey());
+    // localStorage에 없으면 Firestore에서 전체 재로드 시도
+    if (key) {
+      let stored = {};
+      try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
+      if (!stored[key] && window.DataAPI?.loadAwardPlans) {
+        try {
+          const fsPlans = await window.DataAPI.loadAwardPlans();
+          if (fsPlans && Object.keys(fsPlans).length) {
+            const merged = { ...stored, ...fsPlans };
+            localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(merged));
+          }
+        } catch (e) {
+          console.warn("[AwardPlan] 셀렉터 변경 시 Firestore 로드 실패:", e);
+        }
+      }
+    }
+    loadAwardPlanForm(key);
   }
 
   function _apRenderGa1(items) {
@@ -9435,6 +9452,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   function loadAwardPlanForm(key) {
+    // 저장 여부 확인 → 배너 표시/숨김
+    const noBanner   = document.getElementById("ap-no-plan-banner");
+    const noBannerKey = document.getElementById("ap-no-plan-key");
+    if (key) {
+      let stored = {};
+      try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
+      const hasSaved = !!stored[key];
+      if (noBanner)    noBanner.hidden = hasSaved;
+      if (noBannerKey && !hasSaved) noBannerKey.textContent = key.replace(/^AP:/, "").replace(/:/g, " / ");
+    } else {
+      if (noBanner) noBanner.hidden = true;
+    }
     const plan = key ? getAwardPlan(key) : JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN));
     document.getElementById("ap-notes").value = plan.notes || "";
     // 개인순증시상
