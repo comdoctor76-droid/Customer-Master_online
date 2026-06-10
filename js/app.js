@@ -7568,6 +7568,11 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
     const zeroTargetCount = state.students.filter((s) => !s.target || Number(s.target) === 0).length;
     const nonHonamCount = state.students.filter((s) => s.region && s.region !== "호남지역단").length;
     container.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <button class="btn-primary" id="btn-open-target-goals-inline" style="width:100%;padding:10px;font-size:14px;">
+          🎯 기수·지역단·스텝별 목표 금액 설정
+        </button>
+      </div>
       <div class="settings-defaults-grid">${regions.map((r) => {
         const val = stored[r] !== undefined ? stored[r] : DEFAULT_MASTER_TARGET;
         return `<div class="settings-defaults-item">
@@ -7584,6 +7589,7 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
         <span id="settings-default-targets-msg" class="pg-msg"></span>
       </div>
     `;
+    document.getElementById("btn-open-target-goals-inline")?.addEventListener("click", openTargetGoalsModal);
     document.getElementById("btn-save-default-targets")?.addEventListener("click", () => {
       const newDefaults = {};
       container.querySelectorAll(".settings-target-input").forEach((inp) => {
@@ -9340,7 +9346,6 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
-    $("#btn-open-target-goals")?.addEventListener("click", openTargetGoalsModal);
     $("#btn-open-award-plan")?.addEventListener("click", () =>
       openAwardPlanModal({ region: state.filter.region, cohort: state.filter.cohort, step: state.filter.step || "1" })
     );
