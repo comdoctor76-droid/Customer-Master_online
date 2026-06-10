@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.87";
+  const APP_VERSION = "1.88";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6667,6 +6667,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (progressPasteApply) progressPasteApply.addEventListener("click", async () => {
       const txt = $("#pg-progress-paste").value.trim();
       const m = $("#pg-progress-paste-msg");
+      // 기수 선택을 루프 전에 먼저 검증 — 기수 미선택 시 데이터가 엉뚱한 기수에 저장되는 것을 방지
+      const _cohort = $("#pg-paste-cohort-sel")?.value || "";
+      if (!_cohort) {
+        if (m) { m.textContent = "❌ 기수를 먼저 선택하세요."; m.className = "pg-msg err"; }
+        toast("기수를 선택한 뒤 저장하세요.", "error");
+        return;
+      }
       if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
 
       const pasteStepVal = (root.querySelector('input[name="pg-progress-paste-step"]:checked') || {}).value || "1";
@@ -6737,8 +6744,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const getCol = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? (p[i] || "") : ""; };
       const getAmt = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? parseAmt(p[i]) : 0; };
 
-      const updateRecords = [];
-      const newRecords    = [];
+      const updateRecords   = [];
+      const newRecords      = [];
+      const cohortMismatch  = []; // 다른 기수에 등록된 사번 — 저장 대상에서 제외
 
       dataLines.forEach((line) => {
         const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
@@ -6759,7 +6767,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const pgIpumCount = getAmt(p, "pgIpumCount");
         const pgIpumAmt   = getAmt(p, "pgIpumAmt");
 
-        const existing = state.students.find((x) => x.empNo === empNo);
+        // 기수 필터: 선택한 기수와 일치하는 학생만 매칭
+        const existing = state.students.find((x) => x.empNo === empNo && (!_cohort || !x.cohort || x.cohort === _cohort));
+        // 동일 사번이 다른 기수에 등록되어 있으면 건너뜀 (데이터 혼재 방지)
+        if (!existing && state.students.some((x) => x.empNo === empNo)) {
+          cohortMismatch.push(empNo);
+          return;
+        }
 
         let pgFields, baseUpdate;
         if (isCombinedFormat) {
@@ -6803,23 +6817,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           const baseFields = isCombinedFormat
             ? { base: pgBase }
             : { base: pgBase, current: pgCurrent, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt };
-          newRecords.push({ region, center, branch, empNo, name, ...pgFields, ...baseFields, target: newTarget });
+          newRecords.push({ region, center, branch, cohort: _cohort, empNo, name, ...pgFields, ...baseFields, target: newTarget });
         }
       });
 
       if (updateRecords.length === 0 && newRecords.length === 0) {
-        if (m) { m.textContent = "❌ 파싱된 행이 없습니다. 사원번호 열 매핑을 확인하세요."; m.className = "pg-msg err"; }
+        const mismatchHint = cohortMismatch.length ? ` (${cohortMismatch.length}건은 다른 기수 학생으로 건너뜀)` : "";
+        if (m) { m.textContent = `❌ 파싱된 행이 없습니다. 사원번호 열 매핑을 확인하세요.${mismatchHint}`; m.className = "pg-msg err"; }
         return;
       }
 
       // ── 최종 저장 확인 ────────────────────────────────────────────
-      const _cohort = $("#pg-paste-cohort-sel")?.value || "";
       const _region = state.filter.region || "?";
-      if (!_cohort) {
-        if (m) { m.textContent = "❌ 기수를 선택하세요."; m.className = "pg-msg err"; }
-        toast("기수를 선택한 뒤 저장하세요.", "error");
-        return;
-      }
       if (!await openPasteSaveConfirmModal(_region, _cohort, pasteStepVal, updateRecords, newRecords)) return;
 
       // 저장 — 진행 상황 실시간 표시
@@ -6858,6 +6867,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           let msgTxt = committed > 0 ? `✅ ${committed}명 저장 완료` : `❌ 저장된 건 없음`;
           if (saveErrors.length) msgTxt += ` (오류 ${saveErrors.length}건: ${(saveErrors[0]?.message || "").slice(0, 40)})`;
           if (newRecords.length) msgTxt += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
+          if (cohortMismatch.length) msgTxt += ` · 기수 불일치 ${cohortMismatch.length}건 제외`;
           setMsg(msgTxt, (committed === 0 || saveErrors.length) ? "pg-msg err" : "pg-msg ok");
           setTimeout(() => { if (m) m.textContent = ""; }, 15000);
           toast(`${committed}명 실적진도현황 저장`, committed > 0 ? "success" : "error");
@@ -8972,7 +8982,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -10982,7 +10992,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
       const empNo = getCol(p, "empNo").replace(/[/\\\s]/g, "");
       if (!empNo) return;
-      const st = state.students.find((s) => s.empNo === empNo);
+      const st = state.students.find((s) => s.empNo === empNo && (!cohort || !s.cohort || s.cohort === cohort));
       if (!st) { unmatched.push(empNo); return; }
 
       const pgBase      = getAmt(p, "pgBase");
