@@ -5609,7 +5609,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function openProgressPrintWindow() {
     const d = state.pgPrintData;
     if (!d || !d.stats?.length) { toast("표시할 데이터가 없습니다.", "error"); return; }
-    const { byRate, byAmt, _pa, groupRanking, plan, stats, region, cohort, step, hasAnyTeam, _rateFinalDedup, _byAmtDedup } = d;
+    const { byRate, byAmt, _pa, groupRanking, plan, stats, region, cohort, step, hasAnyTeam } = d;
     const title = `${region}${cohort ? ` ${cohort}기` : ""} Step${step} 실적진도`;
     const today = new Date().toLocaleDateString("ko-KR");
     const shareUrl = `${location.origin}${location.pathname}#share?r=${encodeURIComponent(region)}&c=${encodeURIComponent(cohort || "")}&s=${encodeURIComponent(step)}`;
@@ -5636,98 +5636,89 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       </tr>`;
     }).join("");
 
-    const html = `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8">
-<title>${escapeHtml(title)}</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px;color:#111;background:#fff;}
-.ctrl{position:fixed;top:0;left:0;right:0;z-index:999;background:#1e293b;color:#fff;display:flex;align-items:center;gap:10px;padding:8px 16px;flex-wrap:wrap;}
-.ctrl span{flex:1;font-weight:700;font-size:13px;}
-.cbtn{background:#3b82f6;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;}
-.cbtn.kk{background:#ffd700;color:#381f00;}
-.page{padding:12mm 10mm;min-height:100vh;}
-.page+.page{border-top:3px dashed #e2e8f0;}
-.ph{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;}
-.ph h1{font-size:15px;font-weight:800;}
-.ph small{font-size:10px;color:#64748b;}
-.pg2{grid-template-columns:1fr 1fr;display:grid;gap:12px;}
-.sect h3{font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;}
-.pg-tbl{width:100%;border-collapse:collapse;font-size:10px;}
-.pg-tbl th{background:#334155;color:#fff;padding:4px 5px;text-align:center;font-size:9px;}
-.pg-tbl td{padding:3px 5px;border-bottom:1px solid #e2e8f0;}
-.pg-tbl tr:nth-child(even) td{background:#f8fafc;}
-.pg-rb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:9px;font-weight:800;color:#fff;}
-.pg-rb.r1{background:#f59e0b;}.pg-rb.r2{background:#94a3b8;}.pg-rb.r3{background:#b45309;}
-.pg-rb.rt{background:#cbd5e1;color:#334155;}
-.pg-bdg{font-size:9px;padding:2px 5px;border-radius:3px;font-weight:600;}
-.pg-b-g{background:#dcfce7;color:#166534;}.pg-b-no{background:#fee2e2;color:#991b1b;}
-.pg-rank-swap{background:#dbeafe;color:#1e40af;}
-.pg-rank-notice{font-size:9px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px;}
-.pg-tbl-wrap,.pg-tbl-scroll{overflow:visible!important;}
-.pg-grp-tbl{width:100%;border-collapse:collapse;font-size:10px;}
-.pg-grp-tbl th{background:#334155;color:#fff;padding:4px 5px;text-align:center;font-size:9px;}
-.pg-grp-tbl td{padding:3px 5px;border-bottom:1px solid #e2e8f0;}
-.pg-grp-badge{font-size:9px;padding:1px 4px;border-radius:3px;font-weight:600;display:inline-block;}
-.pg-grp-ok{background:#dcfce7;color:#166534;}.pg-grp-half{background:#fef3c7;color:#92400e;}.pg-grp-no{background:#fee2e2;color:#991b1b;}
-.pg-grp-award{background:#dcfce7;color:#166534;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;}
-.pg-grp-miss{color:#9ca3af;font-size:9px;}
-.r{text-align:right!important;}.c{text-align:center!important;}
-.note{font-size:9px;color:#64748b;margin-top:4px;}
-@media print{
-  @page{margin:8mm;}
-  .ctrl{display:none!important;}
-  .page{padding:0;min-height:unset;}
-  .page+.page{border-top:none;page-break-before:always;}
-  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-}
-</style></head>
-<body>
-<div class="ctrl">
-  <span>🖨️ ${escapeHtml(title)} — ${today}</span>
-  <button class="cbtn" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
-  <button class="cbtn kk" onclick="doKakaoShare()" id="btn-kk" style="display:none;">💬 카카오톡 공유</button>
-  <button class="cbtn" style="background:#475569;" onclick="window.close()">✕ 닫기</button>
+    // ─── 기존 오버레이 제거 후 재생성 ───
+    const old = document.getElementById("pg-print-overlay");
+    if (old) old.remove();
+
+    // 인쇄 전용 스타일 (한 번만 삽입)
+    if (!document.getElementById("pg-print-style")) {
+      const st = document.createElement("style");
+      st.id = "pg-print-style";
+      st.textContent = `
+/* 오버레이 내 공통 유틸 */
+#pg-print-overlay td.r { text-align:right; font-family:"Consolas","Menlo",monospace; }
+#pg-print-overlay td.c { text-align:center; }
+#pg-print-overlay .pg-grp-half { background:#fef3c7;color:#92400e; }
+#pg-print-overlay .pg-grp-no   { background:#fee2e2;color:#991b1b; }
+#pg-print-overlay .pg-grp-miss { color:#9ca3af;font-size:9px; }
+#pg-print-overlay .pg-b-no     { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
+#pg-print-overlay .pg-rank-notice { font-size:9px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
+#pg-print-overlay .pg-tbl-wrap, #pg-print-overlay .pg-tbl-scroll { overflow:visible!important; }
+@media print {
+  body > *:not(#pg-print-overlay) { display:none!important; }
+  #pg-print-overlay { position:static!important; height:auto!important; overflow:visible!important; }
+  #pg-print-ctrl { display:none!important; }
+  .pp-page { padding:0!important; min-height:unset!important; }
+  .pp-page+.pp-page { border-top:none!important; page-break-before:always; }
+  body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @page { margin:8mm; }
+}`;
+      document.head.appendChild(st);
+    }
+
+    const canShare = !!(navigator.share);
+    const overlay  = document.createElement("div");
+    overlay.id     = "pg-print-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:#fff;overflow-y:auto;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px;color:#111;";
+    overlay.innerHTML = `
+<div id="pg-print-ctrl" style="position:sticky;top:0;z-index:1000;background:#1e293b;color:#fff;display:flex;align-items:center;gap:8px;padding:8px 14px;flex-wrap:wrap;">
+  <span style="flex:1;font-weight:700;font-size:13px;">🖨️ ${escapeHtml(title)} — ${today}</span>
+  <button onclick="window.print()" style="background:#3b82f6;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
+  ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
+  <button onclick="document.getElementById('pg-print-overlay').remove()" style="background:#475569;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">✕ 닫기</button>
 </div>
 
-<div class="page" style="padding-top:48px;">
-  <div class="ph"><h1>🏆 ${escapeHtml(title)} — 신장 시상 현황</h1><small>기준일: ${today}</small></div>
-  <div class="pg2">
-    ${_pa.rateConfig ? `<div class="sect"><h3>📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
-    ${_pa.amtConfig  ? `<div class="sect"><h3>💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled  ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑`  : ""}</h3>${amtHtml}</div>` : ""}
+<div class="pp-page" style="padding:50px 10mm 12mm;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;">
+    <h1 style="font-size:15px;font-weight:800;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
+    <small style="font-size:10px;color:#64748b;">기준일: ${today}</small>
   </div>
-  ${grpHtml ? `<div class="sect" style="margin-top:10px;"><h3>🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
-  ${plan.notes ? `<div class="note">※ ${escapeHtml(plan.notes)}</div>` : ""}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    ${_pa.rateConfig ? `<div><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
+    ${_pa.amtConfig  ? `<div><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled  ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑`  : ""}</h3>${amtHtml}</div>` : ""}
+  </div>
+  ${grpHtml ? `<div style="margin-top:10px;"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
+  ${plan.notes ? `<div style="font-size:9px;color:#64748b;margin-top:4px;">※ ${escapeHtml(plan.notes)}</div>` : ""}
 </div>
 
-<div class="page" style="padding-top:12mm;">
-  <div class="ph"><h1>📊 ${escapeHtml(title)} — 개인 실적</h1><small>기준일: ${today} · 총 ${stats.length}명</small></div>
-  <table class="pg-tbl">
-    <thead><tr><th style="width:30px">#</th><th>성명</th><th>지점</th><th class="r">기준실적</th><th class="r">현재실적</th><th class="r">달성률</th><th class="r">순증</th><th>개인시상</th></tr></thead>
+<div class="pp-page" style="padding:12mm 10mm;border-top:3px dashed #e2e8f0;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;">
+    <h1 style="font-size:15px;font-weight:800;">📊 ${escapeHtml(title)} — 개인 실적</h1>
+    <small style="font-size:10px;color:#64748b;">기준일: ${today} · 총 ${stats.length}명</small>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:10px;">
+    <thead><tr style="background:#334155;color:#fff;">
+      <th style="padding:4px 5px;text-align:center;font-size:9px;width:28px;">#</th>
+      <th style="padding:4px 5px;font-size:9px;">성명</th>
+      <th style="padding:4px 5px;font-size:9px;">지점</th>
+      <th style="padding:4px 5px;text-align:right;font-size:9px;">기준실적</th>
+      <th style="padding:4px 5px;text-align:right;font-size:9px;">현재실적</th>
+      <th style="padding:4px 5px;text-align:right;font-size:9px;">달성률</th>
+      <th style="padding:4px 5px;text-align:right;font-size:9px;">순증</th>
+      <th style="padding:4px 5px;font-size:9px;">개인시상</th>
+    </tr></thead>
     <tbody>${piRows}</tbody>
   </table>
-</div>
+</div>`;
 
-<script>
-(function(){
-  if (navigator.share || navigator.canShare) {
-    document.getElementById("btn-kk").style.display = "";
-  }
-  window.doKakaoShare = function() {
-    if (navigator.share) {
-      navigator.share({ title: "${escapeHtml(title).replace(/"/g, '\\"')} 실적진도", text: "${escapeHtml(today)} 기준 실적진도 공유", url: "${shareUrl}" })
-        .catch(function(){});
+    document.body.appendChild(overlay);
+
+    // 카카오톡 공유 버튼
+    if (canShare) {
+      document.getElementById("btn-pg-share-print")?.addEventListener("click", () => {
+        navigator.share({ title: `${title} 실적진도`, text: `${today} 기준 실적진도`, url: shareUrl }).catch(() => {});
+      });
     }
-  };
-})();
-<\/script>
-</body></html>`;
-
-    const win = window.open("", "_blank", "noopener,noreferrer");
-    if (!win) { toast("팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.", "error"); return; }
-    win.document.write(html);
-    win.document.close();
   }
 
   function bindProgressHomeEvents(list) {
