@@ -71,17 +71,19 @@
     } catch { return JSON.parse(JSON.stringify(DEFAULT_AWARD_PLAN)); }
   }
 
-  function saveAwardPlan(region, plan) {
+  async function saveAwardPlan(region, plan) {
     try {
       const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
       stored[region] = plan;
-      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
-      // Firestore 백업 (비동기 — 실패해도 로컬 저장은 유지)
+      // Firestore 우선 저장 — 성공 후 로컬 캐시 업데이트
       if (window.DataAPI?.saveAwardPlans) {
-        window.DataAPI.saveAwardPlans(stored)
-          .catch((e) => console.warn("[AwardPlan] Firestore 저장 실패:", e));
+        await window.DataAPI.saveAwardPlans(stored);
       }
-    } catch (e) { console.error("[AwardPlan] save error:", e); }
+      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
+    } catch (e) {
+      console.error("[AwardPlan] Firestore 저장 실패:", e);
+      throw e;
+    }
   }
 
   // Firestore → localStorage 시상안 동기화 (앱 초기화 시 1회 호출)
@@ -90,10 +92,8 @@
     try {
       const fsPlans = await window.DataAPI.loadAwardPlans();
       if (!fsPlans || !Object.keys(fsPlans).length) return;
-      const local = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
-      // Firestore를 우선하여 병합 (다른 기기에서 저장한 플랜 포함)
-      const merged = { ...local, ...fsPlans };
-      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(merged));
+      // Firestore가 정본 — 로컬 캐시를 완전히 덮어씀
+      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(fsPlans));
       console.info(`[AwardPlan] Firestore 동기화: ${Object.keys(fsPlans).length}개 시상안`);
     } catch (e) {
       console.warn("[AwardPlan] Firestore 동기화 실패 (로컬 데이터 유지):", e);
@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.91";
+  const APP_VERSION = "1.92";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8982,7 +8982,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9207,25 +9207,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   async function _apOpenLoadPopup() {
-    let stored = {};
-    try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
-
     const el = document.getElementById("ap-load-list");
     document.getElementById("ap-load-popup").hidden = false;
 
-    // 로컬에 데이터가 없으면 Firestore에서 가져오기
-    if (!Object.keys(stored).length && window.DataAPI?.loadAwardPlans) {
+    // Firestore가 정본 — 항상 최신 데이터를 조회
+    if (window.DataAPI?.loadAwardPlans) {
       el.innerHTML = `<div class="ap-load-empty">Firestore에서 불러오는 중...</div>`;
       try {
         const fsPlans = await window.DataAPI.loadAwardPlans();
         if (fsPlans && Object.keys(fsPlans).length) {
           localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(fsPlans));
-          stored = fsPlans;
+          _apRenderLoadList(fsPlans);
+          return;
         }
       } catch (e) {
-        console.warn("[AwardPlan] Firestore 불러오기 실패:", e);
+        console.warn("[AwardPlan] Firestore 불러오기 실패, 로컬 캐시 사용:", e);
       }
     }
+    // Firestore 미연결이거나 데이터 없음 → 로컬 캐시 표시
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}"); } catch {}
     _apRenderLoadList(stored);
   }
 
@@ -9604,18 +9605,23 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
 
     // 저장 확인 오버레이 버튼
-    document.getElementById("ap-save-confirm-yes")?.addEventListener("click", () => {
+    document.getElementById("ap-save-confirm-yes")?.addEventListener("click", async () => {
       document.getElementById("ap-save-confirm").hidden = true;
       // 저장 실행
       const region = document.getElementById("award-plan-region").value;
       if (region) {
         const plan = _apCollect();
         plan.title = _apGenerateTitle();
-        saveAwardPlan(_apGetCurrentKey(), plan);
-        _apOriginalJSON = JSON.stringify(_apCollect());
-        _apSaveLastSel();
-        toast(`시상안 저장 완료: ${plan.title}`, "success");
-        if (state.progressRegion === region) renderProgressPanel();
+        try {
+          await saveAwardPlan(_apGetCurrentKey(), plan);
+          _apOriginalJSON = JSON.stringify(_apCollect());
+          _apSaveLastSel();
+          toast(`시상안 저장 완료: ${plan.title}`, "success");
+          if (state.progressRegion === region) renderProgressPanel();
+        } catch (e) {
+          toast("Firestore 저장 실패 — 네트워크를 확인하세요.", "error");
+          return;
+        }
       }
       _apDirectSaveMode = false;
       // 저장 후 원래 대기 중이던 액션 실행
