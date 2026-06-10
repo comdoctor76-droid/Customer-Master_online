@@ -9145,6 +9145,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     [yearSel, cohortSel, stepSel, regionSel].forEach((sel) => {
       if (sel) sel.onchange = () => { _apSaveLastSel(); _apMaybeSaveConfirm(_apRefreshFromSelectors); };
     });
+    // 모달 열 때 오류 배너 초기화
+    const errBanner = document.getElementById("ap-save-error-banner");
+    if (errBanner) errBanner.hidden = true;
     openModal("#modal-award-plan");
   }
 
@@ -9712,7 +9715,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           fsSaveErr = e;
           console.error("[AwardPlan] Firestore 저장 실패 (로컬 저장 완료):", e);
         }
-        // localStorage에는 이미 저장됨 — UI 갱신 진행
+        // localStorage에는 이미 저장됨 — no-plan 배너 즉시 숨김
+        const noPlanBanner = document.getElementById("ap-no-plan-banner");
+        if (noPlanBanner) noPlanBanner.hidden = true;
         _apOriginalJSON = JSON.stringify(_apCollect());
         _apSaveLastSel();
         renderDebounced();
@@ -9723,7 +9728,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             ? "권한 없음 — Firebase 보안 규칙 확인 필요"
             : code === "unavailable" || code === "deadline-exceeded"
             ? "서버 연결 불가"
-            : code || fsSaveErr?.message || "알 수 없는 오류";
+            : code || fsSaveErr?.message || String(fsSaveErr) || "알 수 없는 오류";
           const banner = document.getElementById("ap-save-error-banner");
           const bannerMsg = document.getElementById("ap-save-error-msg");
           if (banner && bannerMsg) {
