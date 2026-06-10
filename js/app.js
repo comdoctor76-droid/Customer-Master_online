@@ -5614,38 +5614,55 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const today = new Date().toLocaleDateString("ko-KR");
     const shareUrl = `${location.origin}${location.pathname}#share?r=${encodeURIComponent(region)}&c=${encodeURIComponent(cohort || "")}&s=${encodeURIComponent(step)}`;
 
-    // ─── 페이지 1: 신장 시상 + 그룹 시상 ───
+    // ─── 섹션 HTML ───
     const rateHtml = _pa.rateConfig ? renderProgressRankFullBothAware(byRate, byAmt, _pa, "rate") : "";
     const amtHtml  = _pa.amtConfig  ? renderProgressRankFullBothAware(byRate, byAmt, _pa, "amt")  : "";
     const grpHtml  = groupRanking.length >= 2 ? renderGroupTable(groupRanking, plan, hasAnyTeam) : "";
+    const hasRate  = !!(_pa.rateConfig && rateHtml);
+    const hasAmt   = !!(_pa.amtConfig  && amtHtml);
+    const hasGrp   = !!grpHtml;
 
-    // ─── 페이지 2: 개인 실적 ───
+    // ─── 개인실적 행 — 마스터목표 기준 달성률 + 남은금액 + 컬러 ───
+    const MEDAL = ["#f59e0b", "#94a3b8", "#b45309"];
     const piRows = byAmt.map((st, i) => {
-      const rateStr = st.rate.toFixed(1);
-      const netStr  = (st.net >= 0 ? "+" : "") + Nf(st.net);
-      const aw = tierLabel(st.net, region, _pa);
-      return `<tr>
-        <td class="c">${i + 1}</td>
-        <td>${escapeHtml(st.s.name || "")}</td>
-        <td>${escapeHtml(st.s.branch || "")}</td>
-        <td class="r">${Nf(st.base)}</td>
-        <td class="r">${Nf(st.current)}</td>
-        <td class="r">${rateStr}%</td>
-        <td class="r">${netStr}</td>
-        <td>${escapeHtml(aw)}</td>
+      const tgt    = Number(st.s.target || 0);
+      const achR   = tgt > 0 ? st.current / tgt * 100 : null;
+      const remain = tgt > 0 ? tgt - st.current : null;
+
+      const achBg  = achR == null ? "transparent" : achR >= 100 ? "#dcfce7" : achR >= 70 ? "#fef3c7" : "#fee2e2";
+      const achClr = achR == null ? "#9ca3af"      : achR >= 100 ? "#166534" : achR >= 70 ? "#92400e" : "#991b1b";
+      const achStr = achR == null ? "-" : achR.toFixed(1) + "%";
+
+      const remClr = remain == null ? "#9ca3af" : remain <= 0 ? "#166534" : "#dc2626";
+      const remStr = remain == null ? "-" : remain <= 0 ? "✓ " + Nf(Math.abs(remain)) : Nf(remain);
+
+      const netClr = st.net >= 0 ? "#1d4ed8" : "#dc2626";
+      const netStr = (st.net >= 0 ? "+" : "") + Nf(st.net);
+      const aw     = tierLabel(st.net, region, _pa);
+      const rowBg  = i % 2 === 1 ? "background:#f8fafc;" : "";
+
+      return `<tr style="border-bottom:1px solid #e5e7eb;${rowBg}">
+        <td style="padding:3px 5px;text-align:center;font-weight:700;color:${i < 3 ? MEDAL[i] : "#64748b"};">${i + 1}</td>
+        <td style="padding:3px 5px;font-weight:${i < 3 ? "700" : "400"};">${escapeHtml(st.s.name || "")}</td>
+        <td style="padding:3px 5px;color:#6b7280;">${escapeHtml(st.s.branch || "")}</td>
+        <td style="padding:3px 5px;text-align:right;">${Nf(st.base)}</td>
+        <td style="padding:3px 5px;text-align:right;">${Nf(st.current)}</td>
+        <td style="padding:3px 5px;text-align:right;background:${achBg};color:${achClr};font-weight:600;border-radius:3px;">${achStr}</td>
+        <td style="padding:3px 5px;text-align:right;color:${remClr};font-weight:600;">${remStr}</td>
+        <td style="padding:3px 5px;text-align:right;color:${netClr};font-weight:600;">${netStr}</td>
+        <td style="padding:3px 5px;color:${aw ? "#166534" : "#9ca3af"};font-weight:${aw ? "600" : "400"};">${escapeHtml(aw || "-")}</td>
       </tr>`;
     }).join("");
 
-    // ─── 기존 오버레이 제거 후 재생성 ───
+    // ─── 오버레이/스타일 ───
     const old = document.getElementById("pg-print-overlay");
     if (old) old.remove();
 
-    // 인쇄 전용 스타일 (한 번만 삽입)
-    if (!document.getElementById("pg-print-style")) {
-      const st = document.createElement("style");
-      st.id = "pg-print-style";
-      st.textContent = `
-/* 오버레이 내 공통 유틸 */
+    const styleEl = document.getElementById("pg-print-style");
+    if (styleEl) styleEl.remove(); // 항상 최신 스타일로 재생성
+    const st = document.createElement("style");
+    st.id = "pg-print-style";
+    st.textContent = `
 #pg-print-overlay td.r { text-align:right; font-family:"Consolas","Menlo",monospace; }
 #pg-print-overlay td.c { text-align:center; }
 #pg-print-overlay .pg-grp-half { background:#fef3c7;color:#92400e; }
@@ -5663,55 +5680,92 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @page { margin:8mm; }
 }`;
-      document.head.appendChild(st);
-    }
+    document.head.appendChild(st);
 
     const canShare = !!(navigator.share);
+    const ckStyle  = "display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#e2e8f0;user-select:none;";
     const overlay  = document.createElement("div");
     overlay.id     = "pg-print-overlay";
     overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:#fff;overflow-y:auto;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px;color:#111;";
     overlay.innerHTML = `
-<div id="pg-print-ctrl" style="position:sticky;top:0;z-index:1000;background:#1e293b;color:#fff;display:flex;align-items:center;gap:8px;padding:8px 14px;flex-wrap:wrap;">
-  <span style="flex:1;font-weight:700;font-size:13px;">🖨️ ${escapeHtml(title)} — ${today}</span>
-  <button onclick="window.print()" style="background:#3b82f6;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
-  ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
-  <button onclick="document.getElementById('pg-print-overlay').remove()" style="background:#475569;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">✕ 닫기</button>
+<div id="pg-print-ctrl" style="position:sticky;top:0;z-index:1000;background:#1e293b;color:#fff;padding:8px 14px;">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="flex:1;font-weight:700;font-size:13px;">🖨️ ${escapeHtml(title)} — ${today}</span>
+    <button onclick="window.print()" style="background:#3b82f6;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
+    ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
+    <button onclick="document.getElementById('pg-print-overlay').remove()" style="background:#475569;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">✕ 닫기</button>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #334155;">
+    <span style="font-size:11px;color:#94a3b8;">인쇄 항목:</span>
+    ${hasRate ? `<label style="${ckStyle}"><input type="checkbox" id="pck-rate" checked style="accent-color:#3b82f6;width:15px;height:15px;"> 📈 신장률 시상</label>` : ""}
+    ${hasAmt  ? `<label style="${ckStyle}"><input type="checkbox" id="pck-amt"  checked style="accent-color:#3b82f6;width:15px;height:15px;"> 💰 신장액 시상</label>` : ""}
+    ${hasGrp  ? `<label style="${ckStyle}"><input type="checkbox" id="pck-grp"  checked style="accent-color:#3b82f6;width:15px;height:15px;"> 🏅 그룹별 시상</label>` : ""}
+    <label style="${ckStyle} opacity:0.5;cursor:default;"><input type="checkbox" checked disabled style="width:15px;height:15px;"> 📊 개인실적 (필수)</label>
+  </div>
 </div>
 
-<div class="pp-page" style="padding:50px 10mm 12mm;">
+${hasRate || hasAmt || hasGrp ? `
+<div class="pp-page" id="pp-page1" style="padding:54px 10mm 12mm;">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;">
     <h1 style="font-size:15px;font-weight:800;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
     <small style="font-size:10px;color:#64748b;">기준일: ${today}</small>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-    ${_pa.rateConfig ? `<div><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
-    ${_pa.amtConfig  ? `<div><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled  ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑`  : ""}</h3>${amtHtml}</div>` : ""}
+  <div id="pp-rate-amt-grid" style="display:grid;grid-template-columns:${hasRate && hasAmt ? "1fr 1fr" : "1fr"};gap:12px;">
+    ${hasRate ? `<div id="pp-sec-rate"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#eff6ff;border-left:3px solid #3b82f6;border-radius:0 4px 4px 0;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
+    ${hasAmt  ? `<div id="pp-sec-amt"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:0 4px 4px 0;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled  ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑`  : ""}</h3>${amtHtml}</div>` : ""}
   </div>
-  ${grpHtml ? `<div style="margin-top:10px;"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f1f5f9;border-radius:4px;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
+  ${hasGrp ? `<div id="pp-sec-grp" style="margin-top:10px;"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#fff7ed;border-left:3px solid #f97316;border-radius:0 4px 4px 0;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
   ${plan.notes ? `<div style="font-size:9px;color:#64748b;margin-top:4px;">※ ${escapeHtml(plan.notes)}</div>` : ""}
-</div>
+</div>` : ""}
 
-<div class="pp-page" style="padding:12mm 10mm;border-top:3px dashed #e2e8f0;">
+<div class="pp-page" style="padding:${hasRate || hasAmt || hasGrp ? "12mm" : "54px"} 10mm 12mm;${hasRate || hasAmt || hasGrp ? "border-top:3px dashed #e2e8f0;" : ""}">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;">
     <h1 style="font-size:15px;font-weight:800;">📊 ${escapeHtml(title)} — 개인 실적</h1>
     <small style="font-size:10px;color:#64748b;">기준일: ${today} · 총 ${stats.length}명</small>
   </div>
+  <div style="font-size:9px;color:#64748b;margin-bottom:6px;">※ 달성률 = 현재실적 / 마스터목표 · 남은금액 = 목표 - 현재 (✓ = 달성)</div>
   <table style="width:100%;border-collapse:collapse;font-size:10px;">
-    <thead><tr style="background:#334155;color:#fff;">
-      <th style="padding:4px 5px;text-align:center;font-size:9px;width:28px;">#</th>
-      <th style="padding:4px 5px;font-size:9px;">성명</th>
-      <th style="padding:4px 5px;font-size:9px;">지점</th>
-      <th style="padding:4px 5px;text-align:right;font-size:9px;">기준실적</th>
-      <th style="padding:4px 5px;text-align:right;font-size:9px;">현재실적</th>
-      <th style="padding:4px 5px;text-align:right;font-size:9px;">달성률</th>
-      <th style="padding:4px 5px;text-align:right;font-size:9px;">순증</th>
-      <th style="padding:4px 5px;font-size:9px;">개인시상</th>
-    </tr></thead>
+    <thead>
+      <tr style="background:#1e293b;color:#fff;">
+        <th style="padding:4px 5px;text-align:center;font-size:9px;width:24px;">#</th>
+        <th style="padding:4px 5px;font-size:9px;">성명</th>
+        <th style="padding:4px 5px;font-size:9px;">지점</th>
+        <th style="padding:4px 5px;text-align:right;font-size:9px;">기준실적</th>
+        <th style="padding:4px 5px;text-align:right;font-size:9px;">현재실적</th>
+        <th style="padding:4px 5px;text-align:right;font-size:9px;background:#1e40af;">달성률</th>
+        <th style="padding:4px 5px;text-align:right;font-size:9px;background:#166534;">남은금액</th>
+        <th style="padding:4px 5px;text-align:right;font-size:9px;">순증</th>
+        <th style="padding:4px 5px;font-size:9px;">개인시상</th>
+      </tr>
+    </thead>
     <tbody>${piRows}</tbody>
   </table>
 </div>`;
 
     document.body.appendChild(overlay);
+
+    // 체크박스 이벤트 — 섹션 토글
+    function updatePrintLayout() {
+      const r = document.getElementById("pck-rate")?.checked ?? false;
+      const a = document.getElementById("pck-amt")?.checked  ?? false;
+      const g = document.getElementById("pck-grp")?.checked  ?? false;
+      const secRate = document.getElementById("pp-sec-rate");
+      const secAmt  = document.getElementById("pp-sec-amt");
+      const secGrp  = document.getElementById("pp-sec-grp");
+      const grid    = document.getElementById("pp-rate-amt-grid");
+      const page1   = document.getElementById("pp-page1");
+      if (secRate) secRate.style.display = r ? "" : "none";
+      if (secAmt)  secAmt.style.display  = a ? "" : "none";
+      if (secGrp)  secGrp.style.display  = g ? "" : "none";
+      if (grid) {
+        grid.style.display = (!r && !a) ? "none" : "grid";
+        grid.style.gridTemplateColumns = (r && a) ? "1fr 1fr" : "1fr";
+      }
+      if (page1) page1.style.display = (r || a || g) ? "" : "none";
+    }
+    ["pck-rate", "pck-amt", "pck-grp"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", updatePrintLayout);
+    });
 
     // 카카오톡 공유 버튼
     if (canShare) {
