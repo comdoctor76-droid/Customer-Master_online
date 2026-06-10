@@ -5540,10 +5540,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const otherIcon = kind === "rate" ? "💰" : "📈";
     const otherName = kind === "rate" ? "신장액" : "신장률";
 
-    // 순위 표시 헬퍼: 불투명도 조절 버전
+    // 이 종류의 시상 지급 내역 (payouts 배열)
+    const myPayouts    = kind === "rate" ? (pa.rateConfig?.payouts || []) : (pa.amtConfig?.payouts  || []);
+    const otherPayouts = kind === "rate" ? (pa.amtConfig?.payouts  || []) : (pa.rateConfig?.payouts || []);
+
+    // 순위 표시 헬퍼: 불투명도 조절 버전 (미사용 유지)
     const RBMuted = (r) => `<span class="pg-rb rt" style="opacity:.38">${r}</span>`;
-    // 시상금 문자열: 현금이면 "N만원", 물품(0원)이면 "물품"
-    const prizeStr = (amt) => amt > 0 ? `${Math.round(amt / 10000)}만원` : "물품";
+    // 시상 라벨: payouts 배열에서 해당 순위 아이템 찾아 표시 (물품명 포함)
+    const prizeLabel = (rank, payoutsArr, fallbackAmt) => {
+      const p = payoutsArr[rank - 1];
+      return p != null ? payoutLabel(p) : (fallbackAmt > 0 ? `${Math.round(fallbackAmt / 10000)}만원` : "물품");
+    };
 
     const rows = list.map((st, listIdx) => {
       const empNo      = st.s.empNo;
@@ -5559,20 +5566,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
         prizeCell = `<span style="color:#bbb">-</span>`;
       } else if (a.status === "mine") {
-        rankCell  = RB(a.effectiveRank || displayRank);  // 중복배제 후 실제 순위
-        prizeCell = `<span class="pg-bdg pg-b-g">${prizeStr(a.effectiveAmt)}</span>`;
+        const rank = a.effectiveRank || displayRank;
+        rankCell  = RB(rank);
+        prizeCell = `<span class="pg-bdg pg-b-g">${escapeHtml(prizeLabel(rank, myPayouts, a.effectiveAmt))}</span>`;
       } else if (a.status === "other") {
-        // 이 카테고리는 제외 → 순위 표시 없음, 상대 카테고리 시상만 표시
-        const oa       = otherAsgnMap.get(empNo);
-        const oRank    = oa?.effectiveRank || 0;
-        const oAmt     = oa?.effectiveAmt  || 0;
-        const rankSuf  = oRank > 0 ? ` ${oRank}위` : "";
-        rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;  // 순위 미표시
-        prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName}${rankSuf} ${prizeStr(oAmt)} 시상</span>`;
+        // 이 카테고리는 제외 → 순위 표시 없음, 상대 카테고리 시상명 표시
+        const oa      = otherAsgnMap.get(empNo);
+        const oRank   = oa?.effectiveRank || 0;
+        const rankSuf = oRank > 0 ? ` ${oRank}위` : "";
+        const oPrize  = oRank > 0 ? escapeHtml(prizeLabel(oRank, otherPayouts, oa?.effectiveAmt || 0)) : "";
+        rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
+        prizeCell = `<span class="pg-bdg pg-rank-swap">${otherIcon} ${otherName}${rankSuf}${oPrize ? ` ${oPrize}` : ""} 시상</span>`;
         rowCls    = " pg-rank-deferred";
       } else if (a.status === "ineligible") {
-        // 기준미달이어도 순위(위치)는 표시
-        rankCell  = RBMuted(displayRank);
+        // 순증기준 미달 — 순위 숨김
+        rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
         const _needTxt = a.needsNet > 0
           ? `+${Nf(a.needsNet)}원 필요`
           : "기준미달";
@@ -9678,20 +9686,30 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         // localStorage에는 이미 저장됨 — UI 갱신 진행
         _apOriginalJSON = JSON.stringify(_apCollect());
         _apSaveLastSel();
+        renderDebounced();
         if (fsSaveErr) {
+          // Firestore 실패 — 배너로 알리고 모달 유지
           const code = fsSaveErr?.code || "";
           const reason = code === "permission-denied"
             ? "권한 없음 — Firebase 보안 규칙 확인 필요"
             : code === "unavailable" || code === "deadline-exceeded"
             ? "서버 연결 불가"
             : code || fsSaveErr?.message || "알 수 없는 오류";
-          toast(`로컬 저장 완료 (Firestore 동기화 실패: ${reason})`, "warning");
-        } else {
-          toast(`시상안 저장 완료: ${plan.title}`, "success");
+          const banner = document.getElementById("ap-save-error-banner");
+          const bannerMsg = document.getElementById("ap-save-error-msg");
+          if (banner && bannerMsg) {
+            bannerMsg.textContent = `로컬에는 저장되었으나 서버 동기화 실패: ${reason}`;
+            banner.hidden = false;
+          }
+          _apDirectSaveMode = false;
+          return; // 모달 유지, 후속 액션 취소
         }
-        renderDebounced();
+        // 성공 — 배너 초기화 후 모달 닫기
+        document.getElementById("ap-save-error-banner").hidden = true;
+        toast(`시상안 저장 완료: ${plan.title}`, "success");
       }
       _apDirectSaveMode = false;
+      document.getElementById("modal-award-plan").hidden = true;
       // 저장 후 원래 대기 중이던 액션 실행
       if (_apPendingAction) { const fn = _apPendingAction; _apPendingAction = null; fn(); }
     });

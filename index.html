@@ -783,6 +783,10 @@
           <button class="btn-outline small" id="btn-award-plan-close">닫기</button>
         </div>
       </div>
+      <div id="ap-save-error-banner" hidden style="background:#fee2e2;color:#991b1b;padding:10px 20px;border-bottom:2px solid #fca5a5;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span style="font-size:13px;font-weight:600;">⚠️ <span id="ap-save-error-msg"></span></span>
+        <button onclick="document.getElementById('ap-save-error-banner').hidden=true" style="background:none;border:none;cursor:pointer;font-size:18px;color:#991b1b;padding:0 4px;line-height:1;">✕</button>
+      </div>
       <div class="modal-body" style="overflow-y:auto;padding:16px 20px;flex:1;">
         <div class="ap-key-row">
           <div class="ap-key-field">
