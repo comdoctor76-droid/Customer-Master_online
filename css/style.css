@@ -4776,6 +4776,7 @@ body {
 .toast[hidden] { display: none; }
 .toast.success { background: var(--success); }
 .toast.error { background: var(--danger); }
+.toast.warning { background: #e08000; }
 
 /* 휴대폰 전용 하단 메인 메뉴 — 기본 숨김, 좁은 폰 해상도에서만 노출 */
 .mobile-bottom-nav { display: none; }

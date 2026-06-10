@@ -72,18 +72,12 @@
   }
 
   async function saveAwardPlan(region, plan) {
-    try {
-      const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
-      // 저장 시각 기록 — 기기 간 동기화 시 최신 버전 판별에 사용
-      stored[region] = { ...plan, _ts: Date.now() };
-      // Firestore 우선 저장 — 성공 후 로컬 캐시 업데이트
-      if (window.DataAPI?.saveAwardPlans) {
-        await window.DataAPI.saveAwardPlans(stored);
-      }
-      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
-    } catch (e) {
-      console.error("[AwardPlan] Firestore 저장 실패:", e);
-      throw e;
+    const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+    stored[region] = { ...plan, _ts: Date.now() };
+    // localStorage에 먼저 저장 — Firestore 실패해도 데이터 보호
+    localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(stored));
+    if (window.DataAPI?.saveAwardPlans) {
+      await window.DataAPI.saveAwardPlans(stored); // 실패 시 호출자가 처리
     }
   }
 
@@ -9674,16 +9668,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (region) {
         const plan = _apCollect();
         plan.title = _apGenerateTitle();
+        let fsSaveErr = null;
         try {
           await saveAwardPlan(_apGetCurrentKey(), plan);
-          _apOriginalJSON = JSON.stringify(_apCollect());
-          _apSaveLastSel();
-          toast(`시상안 저장 완료: ${plan.title}`, "success");
-          renderDebounced();
         } catch (e) {
-          toast("Firestore 저장 실패 — 네트워크를 확인하세요.", "error");
-          return;
+          fsSaveErr = e;
+          console.error("[AwardPlan] Firestore 저장 실패 (로컬 저장 완료):", e);
         }
+        // localStorage에는 이미 저장됨 — UI 갱신 진행
+        _apOriginalJSON = JSON.stringify(_apCollect());
+        _apSaveLastSel();
+        if (fsSaveErr) {
+          const code = fsSaveErr?.code || "";
+          const reason = code === "permission-denied"
+            ? "권한 없음 — Firebase 보안 규칙 확인 필요"
+            : code === "unavailable" || code === "deadline-exceeded"
+            ? "서버 연결 불가"
+            : code || fsSaveErr?.message || "알 수 없는 오류";
+          toast(`로컬 저장 완료 (Firestore 동기화 실패: ${reason})`, "warning");
+        } else {
+          toast(`시상안 저장 완료: ${plan.title}`, "success");
+        }
+        renderDebounced();
       }
       _apDirectSaveMode = false;
       // 저장 후 원래 대기 중이던 액션 실행
