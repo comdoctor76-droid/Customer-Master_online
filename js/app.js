@@ -74,7 +74,8 @@
   async function saveAwardPlan(region, plan) {
     try {
       const stored = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
-      stored[region] = plan;
+      // 저장 시각 기록 — 기기 간 동기화 시 최신 버전 판별에 사용
+      stored[region] = { ...plan, _ts: Date.now() };
       // Firestore 우선 저장 — 성공 후 로컬 캐시 업데이트
       if (window.DataAPI?.saveAwardPlans) {
         await window.DataAPI.saveAwardPlans(stored);
@@ -86,17 +87,60 @@
     }
   }
 
-  // Firestore → localStorage 시상안 동기화 (앱 초기화 시 1회 호출)
+  // Firestore ↔ localStorage 시상안 동기화 (앱 초기화 시 1회 호출)
+  // 타임스탬프(_ts) 기반 last-write-wins: 더 최근에 저장된 버전이 항상 우선
   async function syncAwardPlansFromFirestore() {
     if (!window.DataAPI?.loadAwardPlans) return;
     try {
       const fsPlans = await window.DataAPI.loadAwardPlans();
-      if (!fsPlans || !Object.keys(fsPlans).length) return;
-      // Firestore가 정본 — 로컬 캐시를 완전히 덮어씀
-      localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(fsPlans));
-      console.info(`[AwardPlan] Firestore 동기화: ${Object.keys(fsPlans).length}개 시상안`);
-      // 시상안 로드 완료 후 화면 재렌더링 (새 기기에서 로컬 캐시 없이 시작한 경우 반영)
-      renderDebounced();
+      const local   = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+
+      // 모든 키를 합집합으로 처리
+      const allKeys = new Set([...Object.keys(local), ...(fsPlans ? Object.keys(fsPlans) : [])]);
+      if (!allKeys.size) return;
+
+      let localUpdated = false;
+      let fsNeedsUpdate = false;
+      const merged = {};
+
+      allKeys.forEach((k) => {
+        const lPlan = local[k];
+        const fPlan = fsPlans?.[k];
+        if (!lPlan && fPlan) {
+          // Firestore에만 있는 키 (다른 기기에서 저장) → 로컬로 가져옴
+          merged[k] = fPlan;
+          localUpdated = true;
+        } else if (lPlan && !fPlan) {
+          // 로컬에만 있는 키 (Firestore에 아직 없음) → Firestore로 올림
+          merged[k] = lPlan;
+          fsNeedsUpdate = true;
+        } else {
+          // 양쪽 모두 있음: _ts가 더 큰 쪽 우선, 같으면 로컬 유지
+          const lTs = lPlan._ts || 0;
+          const fTs = fPlan._ts || 0;
+          if (fTs > lTs) {
+            merged[k] = fPlan;
+            localUpdated = true;
+          } else {
+            merged[k] = lPlan;
+            if (lTs > fTs) fsNeedsUpdate = true;
+          }
+        }
+      });
+
+      // 로컬 캐시 업데이트
+      if (localUpdated || fsNeedsUpdate) {
+        localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(merged));
+      }
+      // 로컬에 최신 데이터가 있으면 Firestore도 업데이트
+      if (fsNeedsUpdate && window.DataAPI?.saveAwardPlans) {
+        window.DataAPI.saveAwardPlans(merged)
+          .catch((e) => console.warn("[AwardPlan] Firestore 역동기화 실패:", e));
+      }
+
+      console.info(`[AwardPlan] 동기화 완료: ${allKeys.size}개 시상안`);
+      // 로컬이 갱신된 경우 화면 재렌더링
+      if (localUpdated) renderDebounced();
     } catch (e) {
       console.warn("[AwardPlan] Firestore 동기화 실패 (로컬 데이터 유지):", e);
     }
@@ -180,7 +224,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.93";
+  const APP_VERSION = "1.94";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8984,7 +9028,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
