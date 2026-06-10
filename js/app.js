@@ -5614,7 +5614,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const today = new Date().toLocaleDateString("ko-KR");
     const shareUrl = `${location.origin}${location.pathname}#share?r=${encodeURIComponent(region)}&c=${encodeURIComponent(cohort || "")}&s=${encodeURIComponent(step)}`;
 
-    // ─── 섹션 HTML ───
+    // ─── 섹션 HTML (세로 정렬 — 각각 전체 너비) ───
     const rateHtml = _pa.rateConfig ? renderProgressRankFullBothAware(byRate, byAmt, _pa, "rate") : "";
     const amtHtml  = _pa.amtConfig  ? renderProgressRankFullBothAware(byRate, byAmt, _pa, "amt")  : "";
     const grpHtml  = groupRanking.length >= 2 ? renderGroupTable(groupRanking, plan, hasAnyTeam) : "";
@@ -5622,7 +5622,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const hasAmt   = !!(_pa.amtConfig  && amtHtml);
     const hasGrp   = !!grpHtml;
 
-    // ─── 개인실적 행 — 마스터목표 기준 달성률 + 남은금액 + 컬러 ───
+    // ─── 개인실적 행 (폰트 +3px, 마스터목표 컬럼 추가, 달성률 강조) ───
     const MEDAL = ["#f59e0b", "#94a3b8", "#b45309"];
     const piRows = byAmt.map((st, i) => {
       const tgt    = Number(st.s.target || 0);
@@ -5632,110 +5632,113 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const achBg  = achR == null ? "transparent" : achR >= 100 ? "#dcfce7" : achR >= 70 ? "#fef3c7" : "#fee2e2";
       const achClr = achR == null ? "#9ca3af"      : achR >= 100 ? "#166534" : achR >= 70 ? "#92400e" : "#991b1b";
       const achStr = achR == null ? "-" : achR.toFixed(1) + "%";
-
       const remClr = remain == null ? "#9ca3af" : remain <= 0 ? "#166534" : "#dc2626";
-      const remStr = remain == null ? "-" : remain <= 0 ? "✓ " + Nf(Math.abs(remain)) : Nf(remain);
-
+      const remStr = remain == null ? "-" : remain <= 0 ? "✓" + Nf(Math.abs(remain)) : Nf(remain);
       const netClr = st.net >= 0 ? "#1d4ed8" : "#dc2626";
-      const netStr = (st.net >= 0 ? "+" : "") + Nf(st.net);
       const aw     = tierLabel(st.net, region, _pa);
-      const rowBg  = i % 2 === 1 ? "background:#f8fafc;" : "";
+      const rowBg  = i % 2 === 1 ? "#f8fafc" : "#ffffff";
 
-      return `<tr style="border-bottom:1px solid #e5e7eb;${rowBg}">
-        <td style="padding:3px 5px;text-align:center;font-weight:700;color:${i < 3 ? MEDAL[i] : "#64748b"};">${i + 1}</td>
-        <td style="padding:3px 5px;font-weight:${i < 3 ? "700" : "400"};">${escapeHtml(st.s.name || "")}</td>
-        <td style="padding:3px 5px;color:#6b7280;">${escapeHtml(st.s.branch || "")}</td>
-        <td style="padding:3px 5px;text-align:right;">${Nf(st.base)}</td>
-        <td style="padding:3px 5px;text-align:right;">${Nf(st.current)}</td>
-        <td style="padding:3px 5px;text-align:right;background:${achBg};color:${achClr};font-weight:600;border-radius:3px;">${achStr}</td>
-        <td style="padding:3px 5px;text-align:right;color:${remClr};font-weight:600;">${remStr}</td>
-        <td style="padding:3px 5px;text-align:right;color:${netClr};font-weight:600;">${netStr}</td>
-        <td style="padding:3px 5px;color:${aw ? "#166534" : "#9ca3af"};font-weight:${aw ? "600" : "400"};">${escapeHtml(aw || "-")}</td>
+      return `<tr style="border-bottom:1px solid #e2e8f0;background:${rowBg};">
+        <td style="padding:4px 5px;text-align:center;font-weight:700;color:${i < 3 ? MEDAL[i] : "#64748b"};">${i + 1}</td>
+        <td style="padding:4px 5px;font-weight:${i < 3 ? "700" : "400"};">${escapeHtml(st.s.name || "")}</td>
+        <td style="padding:4px 5px;color:#475569;">${escapeHtml(st.s.branch || "")}</td>
+        <td style="padding:4px 5px;text-align:right;">${Nf(st.base)}</td>
+        <td style="padding:4px 5px;text-align:right;background:#eff6ff;color:#1e40af;font-weight:700;">${tgt > 0 ? Nf(tgt) : '<span style="color:#9ca3af">미설정</span>'}</td>
+        <td style="padding:4px 5px;text-align:right;">${Nf(st.current)}</td>
+        <td style="padding:4px 5px;text-align:right;background:${achBg};color:${achClr};font-weight:800;font-size:14px;">${achStr}</td>
+        <td style="padding:4px 5px;text-align:right;color:${remClr};font-weight:700;">${remStr}</td>
+        <td style="padding:4px 5px;text-align:right;color:${netClr};font-weight:600;">${(st.net >= 0 ? "+" : "") + Nf(st.net)}</td>
+        <td style="padding:4px 5px;color:${aw ? "#166534" : "#9ca3af"};font-weight:${aw ? "600" : "400"};">${escapeHtml(aw || "-")}</td>
       </tr>`;
     }).join("");
 
-    // ─── 오버레이/스타일 ───
+    // ─── 오버레이 재생성 ───
     const old = document.getElementById("pg-print-overlay");
     if (old) old.remove();
-
     const styleEl = document.getElementById("pg-print-style");
-    if (styleEl) styleEl.remove(); // 항상 최신 스타일로 재생성
-    const st = document.createElement("style");
-    st.id = "pg-print-style";
-    st.textContent = `
-#pg-print-overlay td.r { text-align:right; font-family:"Consolas","Menlo",monospace; }
+    if (styleEl) styleEl.remove();
+
+    // ── 인쇄 스타일: body.pg-printing 클래스 기반 (position:fixed 블랭크 버그 회피) ──
+    const stel = document.createElement("style");
+    stel.id = "pg-print-style";
+    stel.textContent = `
+#pg-print-overlay td.r { text-align:right; }
 #pg-print-overlay td.c { text-align:center; }
 #pg-print-overlay .pg-grp-half { background:#fef3c7;color:#92400e; }
 #pg-print-overlay .pg-grp-no   { background:#fee2e2;color:#991b1b; }
-#pg-print-overlay .pg-grp-miss { color:#9ca3af;font-size:9px; }
+#pg-print-overlay .pg-grp-miss { color:#9ca3af;font-size:11px; }
 #pg-print-overlay .pg-b-no     { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
-#pg-print-overlay .pg-rank-notice { font-size:9px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
+#pg-print-overlay .pg-rank-notice { font-size:11px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
 #pg-print-overlay .pg-tbl-wrap, #pg-print-overlay .pg-tbl-scroll { overflow:visible!important; }
+body.pg-printing > *:not(#pg-print-overlay) { display:none!important; }
+body.pg-printing #pg-print-overlay {
+  position:static!important; overflow:visible!important;
+  height:auto!important; z-index:auto!important; inset:auto!important;
+}
 @media print {
-  body > *:not(#pg-print-overlay) { display:none!important; }
-  #pg-print-overlay { position:static!important; height:auto!important; overflow:visible!important; }
   #pg-print-ctrl { display:none!important; }
-  .pp-page { padding:0!important; min-height:unset!important; }
-  .pp-page+.pp-page { border-top:none!important; page-break-before:always; }
+  .pp-page + .pp-page { page-break-before:always; }
   body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  @page { margin:8mm; }
+  @page { margin:10mm; size:portrait; }
 }`;
-    document.head.appendChild(st);
+    document.head.appendChild(stel);
 
     const canShare = !!(navigator.share);
-    const ckStyle  = "display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#e2e8f0;user-select:none;";
-    const overlay  = document.createElement("div");
-    overlay.id     = "pg-print-overlay";
-    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:#fff;overflow-y:auto;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px;color:#111;";
+    const ckS = "display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:#e2e8f0;user-select:none;";
+    const overlay = document.createElement("div");
+    overlay.id    = "pg-print-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:#fff;overflow-y:auto;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;color:#111;";
     overlay.innerHTML = `
-<div id="pg-print-ctrl" style="position:sticky;top:0;z-index:1000;background:#1e293b;color:#fff;padding:8px 14px;">
+<div id="pg-print-ctrl" style="position:sticky;top:0;z-index:1000;background:#1e293b;color:#fff;padding:9px 16px;">
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="flex:1;font-weight:700;font-size:13px;">🖨️ ${escapeHtml(title)} — ${today}</span>
-    <button onclick="window.print()" style="background:#3b82f6;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
-    ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
-    <button onclick="document.getElementById('pg-print-overlay').remove()" style="background:#475569;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">✕ 닫기</button>
+    <span style="flex:1;font-weight:700;font-size:14px;">🖨️ ${escapeHtml(title)} — ${today}</span>
+    <button id="btn-pp-print" style="background:#3b82f6;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
+    ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
+    <button id="btn-pp-close" style="background:#475569;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">✕ 닫기</button>
   </div>
   <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #334155;">
-    <span style="font-size:11px;color:#94a3b8;">인쇄 항목:</span>
-    ${hasRate ? `<label style="${ckStyle}"><input type="checkbox" id="pck-rate" checked style="accent-color:#3b82f6;width:15px;height:15px;"> 📈 신장률 시상</label>` : ""}
-    ${hasAmt  ? `<label style="${ckStyle}"><input type="checkbox" id="pck-amt"  checked style="accent-color:#3b82f6;width:15px;height:15px;"> 💰 신장액 시상</label>` : ""}
-    ${hasGrp  ? `<label style="${ckStyle}"><input type="checkbox" id="pck-grp"  checked style="accent-color:#3b82f6;width:15px;height:15px;"> 🏅 그룹별 시상</label>` : ""}
-    <label style="${ckStyle} opacity:0.5;cursor:default;"><input type="checkbox" checked disabled style="width:15px;height:15px;"> 📊 개인실적 (필수)</label>
+    <span style="font-size:12px;color:#94a3b8;">인쇄 항목 선택:</span>
+    ${hasRate ? `<label style="${ckS}"><input type="checkbox" id="pck-rate" checked style="accent-color:#3b82f6;width:15px;height:15px;"> 📈 신장률 시상</label>` : ""}
+    ${hasAmt  ? `<label style="${ckS}"><input type="checkbox" id="pck-amt"  checked style="accent-color:#3b82f6;width:15px;height:15px;"> 💰 신장액 시상</label>` : ""}
+    ${hasGrp  ? `<label style="${ckS}"><input type="checkbox" id="pck-grp"  checked style="accent-color:#3b82f6;width:15px;height:15px;"> 🏅 그룹별 시상</label>` : ""}
+    <label style="${ckS} opacity:0.5;cursor:default;"><input type="checkbox" checked disabled style="width:15px;height:15px;"> 📊 개인실적 (필수)</label>
   </div>
 </div>
 
 ${hasRate || hasAmt || hasGrp ? `
-<div class="pp-page" id="pp-page1" style="padding:54px 10mm 12mm;">
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;">
-    <h1 style="font-size:15px;font-weight:800;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
-    <small style="font-size:10px;color:#64748b;">기준일: ${today}</small>
+<div class="pp-page" id="pp-page1" style="padding:72px 12mm 14mm;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:7px;margin-bottom:12px;">
+    <h1 style="font-size:17px;font-weight:800;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
+    <small style="font-size:12px;color:#64748b;">기준일: ${today}</small>
   </div>
-  <div id="pp-rate-amt-grid" style="display:grid;grid-template-columns:${hasRate && hasAmt ? "1fr 1fr" : "1fr"};gap:12px;">
-    ${hasRate ? `<div id="pp-sec-rate"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#eff6ff;border-left:3px solid #3b82f6;border-radius:0 4px 4px 0;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
-    ${hasAmt  ? `<div id="pp-sec-amt"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:0 4px 4px 0;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled  ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑`  : ""}</h3>${amtHtml}</div>` : ""}
-  </div>
-  ${hasGrp ? `<div id="pp-sec-grp" style="margin-top:10px;"><h3 style="font-size:12px;font-weight:700;margin-bottom:6px;padding:4px 8px;background:#fff7ed;border-left:3px solid #f97316;border-radius:0 4px 4px 0;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
-  ${plan.notes ? `<div style="font-size:9px;color:#64748b;margin-top:4px;">※ ${escapeHtml(plan.notes)}</div>` : ""}
+  ${hasRate ? `<div id="pp-sec-rate" style="margin-bottom:14px;">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;padding:5px 10px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:0 5px 5px 0;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
+  ${hasAmt  ? `<div id="pp-sec-amt" style="margin-bottom:14px;">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;padding:5px 10px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:0 5px 5px 0;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑` : ""}</h3>${amtHtml}</div>` : ""}
+  ${hasGrp  ? `<div id="pp-sec-grp">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;padding:5px 10px;background:#fff7ed;border-left:4px solid #f97316;border-radius:0 5px 5px 0;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
+  ${plan.notes ? `<div style="font-size:11px;color:#64748b;margin-top:6px;">» ${escapeHtml(plan.notes)}</div>` : ""}
 </div>` : ""}
 
-<div class="pp-page" style="padding:${hasRate || hasAmt || hasGrp ? "12mm" : "54px"} 10mm 12mm;${hasRate || hasAmt || hasGrp ? "border-top:3px dashed #e2e8f0;" : ""}">
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1e293b;padding-bottom:6px;margin-bottom:10px;">
-    <h1 style="font-size:15px;font-weight:800;">📊 ${escapeHtml(title)} — 개인 실적</h1>
-    <small style="font-size:10px;color:#64748b;">기준일: ${today} · 총 ${stats.length}명</small>
+<div class="pp-page" id="pp-page2" style="padding:${hasRate || hasAmt || hasGrp ? "14mm" : "72px"} 12mm 14mm;${hasRate || hasAmt || hasGrp ? "border-top:3px dashed #e2e8f0;" : ""}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:7px;margin-bottom:10px;">
+    <h1 style="font-size:17px;font-weight:800;">📊 ${escapeHtml(title)} — 개인 실적</h1>
+    <small style="font-size:12px;color:#64748b;">기준일: ${today} · 전 ${stats.length}명</small>
   </div>
-  <div style="font-size:9px;color:#64748b;margin-bottom:6px;">※ 달성률 = 현재실적 / 마스터목표 · 남은금액 = 목표 - 현재 (✓ = 달성)</div>
-  <table style="width:100%;border-collapse:collapse;font-size:10px;">
+  <div style="font-size:11px;color:#64748b;margin-bottom:7px;">» 달성률 = 현재실적 ÷ 마스터목표 &nbsp;|  남은금액 = 목표 − 현재 (✓ = 달성)</div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
     <thead>
       <tr style="background:#1e293b;color:#fff;">
-        <th style="padding:4px 5px;text-align:center;font-size:9px;width:24px;">#</th>
-        <th style="padding:4px 5px;font-size:9px;">성명</th>
-        <th style="padding:4px 5px;font-size:9px;">지점</th>
-        <th style="padding:4px 5px;text-align:right;font-size:9px;">기준실적</th>
-        <th style="padding:4px 5px;text-align:right;font-size:9px;">현재실적</th>
-        <th style="padding:4px 5px;text-align:right;font-size:9px;background:#1e40af;">달성률</th>
-        <th style="padding:4px 5px;text-align:right;font-size:9px;background:#166534;">남은금액</th>
-        <th style="padding:4px 5px;text-align:right;font-size:9px;">순증</th>
-        <th style="padding:4px 5px;font-size:9px;">개인시상</th>
+        <th style="padding:5px 5px;text-align:center;font-size:12px;width:26px;">#</th>
+        <th style="padding:5px 6px;font-size:12px;">성명</th>
+        <th style="padding:5px 6px;font-size:12px;">지점</th>
+        <th style="padding:5px 6px;text-align:right;font-size:12px;">기준실적</th>
+        <th style="padding:5px 6px;text-align:right;font-size:12px;background:#1e40af;">🎯마스터목표</th>
+        <th style="padding:5px 6px;text-align:right;font-size:12px;">현재실적</th>
+        <th style="padding:5px 6px;text-align:right;font-size:12px;background:#166534;">✅달성률</th>
+        <th style="padding:5px 6px;text-align:right;font-size:12px;">남은금액</th>
+        <th style="padding:5px 6px;text-align:right;font-size:12px;">순증</th>
+        <th style="padding:5px 6px;font-size:12px;">개인시상</th>
       </tr>
     </thead>
     <tbody>${piRows}</tbody>
@@ -5744,36 +5747,45 @@ ${hasRate || hasAmt || hasGrp ? `
 
     document.body.appendChild(overlay);
 
-    // 체크박스 이벤트 — 섹션 토글
+    // ── 인쇄 버튼: body.pg-printing 로 레이아웃 전환 후 print() ──
+    document.getElementById("btn-pp-print")?.addEventListener("click", () => {
+      document.body.classList.add("pg-printing");
+      const restoreFn = () => {
+        document.body.classList.remove("pg-printing");
+        window.removeEventListener("afterprint", restoreFn);
+      };
+      window.addEventListener("afterprint", restoreFn);
+      window.print();
+      setTimeout(() => { if (document.body.classList.contains("pg-printing")) restoreFn(); }, 3000);
+    });
+
+    document.getElementById("btn-pp-close")?.addEventListener("click", () => {
+      document.getElementById("pg-print-overlay")?.remove();
+      document.body.classList.remove("pg-printing");
+    });
+
+    // ── 체크박스 섹션 토글 ──
     function updatePrintLayout() {
       const r = document.getElementById("pck-rate")?.checked ?? false;
       const a = document.getElementById("pck-amt")?.checked  ?? false;
       const g = document.getElementById("pck-grp")?.checked  ?? false;
-      const secRate = document.getElementById("pp-sec-rate");
-      const secAmt  = document.getElementById("pp-sec-amt");
-      const secGrp  = document.getElementById("pp-sec-grp");
-      const grid    = document.getElementById("pp-rate-amt-grid");
-      const page1   = document.getElementById("pp-page1");
-      if (secRate) secRate.style.display = r ? "" : "none";
-      if (secAmt)  secAmt.style.display  = a ? "" : "none";
-      if (secGrp)  secGrp.style.display  = g ? "" : "none";
-      if (grid) {
-        grid.style.display = (!r && !a) ? "none" : "grid";
-        grid.style.gridTemplateColumns = (r && a) ? "1fr 1fr" : "1fr";
-      }
-      if (page1) page1.style.display = (r || a || g) ? "" : "none";
+      if (document.getElementById("pp-sec-rate")) document.getElementById("pp-sec-rate").style.display = r ? "" : "none";
+      if (document.getElementById("pp-sec-amt"))  document.getElementById("pp-sec-amt").style.display  = a ? "" : "none";
+      if (document.getElementById("pp-sec-grp"))  document.getElementById("pp-sec-grp").style.display  = g ? "" : "none";
+      const p1 = document.getElementById("pp-page1");
+      if (p1) p1.style.display = (r || a || g) ? "" : "none";
     }
     ["pck-rate", "pck-amt", "pck-grp"].forEach((id) => {
       document.getElementById(id)?.addEventListener("change", updatePrintLayout);
     });
 
-    // 카카오톡 공유 버튼
     if (canShare) {
       document.getElementById("btn-pg-share-print")?.addEventListener("click", () => {
         navigator.share({ title: `${title} 실적진도`, text: `${today} 기준 실적진도`, url: shareUrl }).catch(() => {});
       });
     }
   }
+
 
   function bindProgressHomeEvents(list) {
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
