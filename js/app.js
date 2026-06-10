@@ -95,6 +95,8 @@
       // Firestore가 정본 — 로컬 캐시를 완전히 덮어씀
       localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(fsPlans));
       console.info(`[AwardPlan] Firestore 동기화: ${Object.keys(fsPlans).length}개 시상안`);
+      // 시상안 로드 완료 후 화면 재렌더링 (새 기기에서 로컬 캐시 없이 시작한 경우 반영)
+      renderDebounced();
     } catch (e) {
       console.warn("[AwardPlan] Firestore 동기화 실패 (로컬 데이터 유지):", e);
     }
@@ -178,7 +180,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.92";
+  const APP_VERSION = "1.93";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8982,7 +8984,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9046,7 +9048,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   }
 
   // ========== 시상안 편집 ==========
-  function openAwardPlanModal(opts = {}) {
+  async function openAwardPlanModal(opts = {}) {
     const modal = document.getElementById("modal-award-plan");
     const regionSel = document.getElementById("award-plan-region");
     const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && (r.endsWith("지역단") || r.endsWith("사업부"))))].sort();
@@ -9077,6 +9079,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     if (opts.region && regions.includes(opts.region)) regionSel.value = opts.region;
     if (opts.cohort && cohortSel) cohortSel.value = String(opts.cohort).replace(/기$/, "");
     if (opts.step && stepSel) stepSel.value = opts.step;
+    // 로컬 캐시가 없으면 모달 열기 전에 Firestore에서 먼저 가져옴
+    const cached = JSON.parse(localStorage.getItem(LS_AWARD_PLANS_KEY) || "{}");
+    if (!Object.keys(cached).length && window.DataAPI?.loadAwardPlans) {
+      try {
+        const fsPlans = await window.DataAPI.loadAwardPlans();
+        if (fsPlans && Object.keys(fsPlans).length) {
+          localStorage.setItem(LS_AWARD_PLANS_KEY, JSON.stringify(fsPlans));
+        }
+      } catch (e) {
+        console.warn("[AwardPlan] 모달 열기 전 Firestore 로드 실패:", e);
+      }
+    }
     _apRefreshFromSelectors();
     [yearSel, cohortSel, stepSel, regionSel].forEach((sel) => {
       if (sel) sel.onchange = () => { _apSaveLastSel(); _apMaybeSaveConfirm(_apRefreshFromSelectors); };
