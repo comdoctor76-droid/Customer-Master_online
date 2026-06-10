@@ -224,7 +224,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.94";
+  const APP_VERSION = "1.95";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6918,6 +6918,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           setTimeout(() => { if (m) m.textContent = ""; }, 15000);
           toast(`${committed}명 실적진도현황 저장`, committed > 0 ? "success" : "error");
           if (committed > 0) { const ta = $("#pg-progress-paste"); if (ta) ta.value = ""; }
+          // 저장 완료 즉시 화면 갱신 (onSnapshot 보다 먼저 확정 렌더)
+          if (committed > 0) renderDebounced();
         } catch (e) {
           console.error(e);
           setMsg("❌ 저장 실패: " + e.message, "pg-msg err");
@@ -7131,6 +7133,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         else for (const r of updates) await window.DataAPI.save(r);
         if (msg) { msg.textContent = `✅ ${updates.length}명 팀 배정 저장 완료`; msg.className = "pg-msg ok"; }
         toast(`팀 배정 ${updates.length}건 저장 완료`, "success");
+        renderDebounced();
       } catch (e) {
         console.error(e);
         if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
@@ -7249,11 +7252,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return !!(el && !el.hidden);
   }
 
-  // 렌더 디바운스 (연쇄 쓰기 시 트레일링 실행으로 1회만)
+  // 렌더 디바운스 — trailing edge: 마지막 호출 후 150ms 뒤 1회 실행
+  // (saveMany 청크 커밋마다 onSnapshot이 발동되므로 선착순이 아닌 최후 호출 기준으로 렌더해야 완전한 데이터를 반영)
   let _renderTimer = 0;
   function renderDebounced() {
-    if (_renderTimer) return;
-    _renderTimer = setTimeout(() => { _renderTimer = 0; render(); }, 60);
+    clearTimeout(_renderTimer);
+    _renderTimer = setTimeout(() => { _renderTimer = 0; render(); }, 150);
   }
 
   function render() {
@@ -9028,7 +9032,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -9675,7 +9679,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           _apOriginalJSON = JSON.stringify(_apCollect());
           _apSaveLastSel();
           toast(`시상안 저장 완료: ${plan.title}`, "success");
-          if (state.progressRegion === region) renderProgressPanel();
+          renderDebounced();
         } catch (e) {
           toast("Firestore 저장 실패 — 네트워크를 확인하세요.", "error");
           return;
@@ -10735,6 +10739,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       await window.DataAPI.saveMany(updates);
       if (msg) { msg.textContent = `✅ ${updates.length}명 저장 완료`; msg.className = "pg-msg ok"; }
       setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
+      renderDebounced();
     } catch (e) {
       if (msg) { msg.textContent = "❌ 저장 실패: " + e.message; msg.className = "pg-msg err"; }
     } finally {
@@ -10960,6 +10965,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         await window.DataAPI.saveMany(updates);
         if (msgEl) { msgEl.textContent = `✅ ${updates.length}명 저장 완료`; msgEl.className = "pg-msg ok"; }
         setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 3000);
+        renderDebounced();
       } catch (e) {
         if (msgEl) { msgEl.textContent = "❌ 저장 실패: " + e.message; msgEl.className = "pg-msg err"; }
       } finally {
@@ -11111,6 +11117,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       setMsg(`✅ ${committed}명 저장 완료${warnPart}`, "ok");
       if (committed > 0) document.getElementById("rm-paste-area").value = "";
       setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 4000);
+      if (committed > 0) renderDebounced();
     } catch (e) {
       setMsg("❌ 저장 실패: " + e.message, "err");
     } finally {
