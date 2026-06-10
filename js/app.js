@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.90";
+  const APP_VERSION = "1.91";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8982,7 +8982,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -10952,7 +10952,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       dataLines = lines;
       // 열 수에 따라 기본 매핑 결정 (관리자 붙여넣기와 동일 로직)
       let effectiveCols;
-      if (stepVal === "2" && firstRow.length >= 18) {
+      if (firstRow.length === 2) {
+        // 2열 단순 포맷: 사번 + 현재실적 (스텝에 따라 pgCurrent 또는 pgCurrent2)
+        effectiveCols = ["empNo", `pgCurrent${sfx}`];
+      } else if (stepVal === "2" && firstRow.length >= 18) {
         effectiveCols = PG_STEP2_COMBINED_COLS;
       } else if (firstRow.length === 10) {
         effectiveCols = PG_STEP_UNIFIED_COLS;
@@ -10968,6 +10971,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
     if (!dataLines.length) { setMsg("❌ 데이터가 없습니다.", "err"); return; }
 
+    // 2열 단순 포맷(사번+현재실적) 감지: 열 매핑 팝업 생략하고 바로 저장 확인으로
+    const _isSimple2Col = colDefs.length === 2 &&
+      colDefs.some((c) => c.field === "empNo") &&
+      colDefs.some((c) => c.field === `pgCurrent${sfx}`);
+
     // 랜덤 3개 샘플 행
     const _rmSampleIdxs = (() => {
       const n = dataLines.length;
@@ -10978,9 +10986,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     })();
     const sampleRows = _rmSampleIdxs.map((i) => dataLines[i].trim().split(/\t/).map((c) => c.trim()));
 
-    // 열 매핑 확인 팝업
-    const fieldMapping = await openPgColMapModal(colDefs, sampleRows);
-    if (!fieldMapping) return;
+    // 열 매핑 확인 팝업 — 2열 단순 포맷은 생략 (매핑 자명)
+    let fieldMapping;
+    if (_isSimple2Col) {
+      fieldMapping = colDefs.map((c) => c.field);
+    } else {
+      fieldMapping = await openPgColMapModal(colDefs, sampleRows);
+      if (!fieldMapping) return;
+    }
 
     const parseAmt = (v) => parseInt((v || "").replace(/,/g, "").trim(), 10) || 0;
     const getCol = (p, f) => { const i = fieldMapping.indexOf(f); return i >= 0 ? (p[i] || "") : ""; };
