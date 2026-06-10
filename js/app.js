@@ -7690,30 +7690,43 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
       return;
     }
     container.innerHTML = `
+      <p style="font-size:12px;color:#6b7280;margin:0 0 6px;">
+        ※ <strong>증가액</strong>을 입력하세요. 저장 시 <strong>기준실적 + 증가액 = 마스터목표</strong>로 계산됩니다.
+      </p>
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
           <tr style="background:#f3f4f6;border-bottom:2px solid #d1d5db;">
-            <th style="padding:7px 10px;text-align:left;font-weight:600;">이름</th>
-            <th style="padding:7px 10px;text-align:left;font-weight:600;">지점</th>
-            <th style="padding:7px 10px;text-align:left;font-weight:600;">기수</th>
-            <th style="padding:7px 10px;text-align:right;font-weight:600;">현재 목표</th>
-            <th style="padding:7px 10px;text-align:right;font-weight:600;">새 목표 (원)</th>
+            <th style="padding:7px 8px;text-align:left;font-weight:600;">이름</th>
+            <th style="padding:7px 8px;text-align:left;font-weight:600;">지점</th>
+            <th style="padding:7px 8px;text-align:right;font-weight:600;">기준실적</th>
+            <th style="padding:7px 8px;text-align:right;font-weight:600;">현재 증가액</th>
+            <th style="padding:7px 8px;text-align:right;font-weight:600;">증가액 입력 (원)</th>
+            <th style="padding:7px 8px;text-align:right;font-weight:600;color:#2563eb;">저장될 목표</th>
           </tr>
         </thead>
         <tbody>
-          ${list.map((s) => `
+          ${list.map((s) => {
+            const base    = Number(s.base   || 0);
+            const target  = Number(s.target || 0);
+            const curIncr = target > 0 ? target - base : 0; // 현재 증가액
+            return `
             <tr style="border-bottom:1px solid #e5e7eb;">
-              <td style="padding:6px 10px;">${escapeHtml(s.name || "")}</td>
-              <td style="padding:6px 10px;color:#6b7280;">${escapeHtml(s.branch || "")}</td>
-              <td style="padding:6px 10px;color:#6b7280;">${escapeHtml(s.cohort || "")}</td>
-              <td style="padding:6px 10px;text-align:right;color:#9ca3af;">${Number(s.target || 0).toLocaleString()}</td>
-              <td style="padding:6px 10px;text-align:right;">
-                <input type="number" class="tg-target-input" data-id="${escapeHtml(s.id)}"
-                  value="${Number(s.target || 0)}" min="0" step="10000"
-                  style="width:120px;text-align:right;padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;">
+              <td style="padding:6px 8px;">${escapeHtml(s.name || "")}</td>
+              <td style="padding:6px 8px;color:#6b7280;">${escapeHtml(s.branch || "")}</td>
+              <td style="padding:6px 8px;text-align:right;">${base.toLocaleString()}</td>
+              <td style="padding:6px 8px;text-align:right;color:#9ca3af;">${curIncr > 0 ? "+" + curIncr.toLocaleString() : "-"}</td>
+              <td style="padding:6px 8px;text-align:right;">
+                <input type="number" class="tg-target-input"
+                  data-id="${escapeHtml(s.id)}" data-base="${base}"
+                  value="${Math.max(0, curIncr)}" min="0" step="10000"
+                  style="width:110px;text-align:right;padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:13px;"
+                  oninput="(function(el){const p=el.closest('tr');const lbl=p?.querySelector('.tg-calc-lbl');if(lbl){const b=parseInt(el.dataset.base||0);const v=parseInt(el.value||0);lbl.textContent=(isNaN(v)||v<0)?'-':(b+v).toLocaleString()+'원';}})(this)">
               </td>
-            </tr>
-          `).join("")}
+              <td style="padding:6px 8px;text-align:right;color:#2563eb;font-weight:600;">
+                <span class="tg-calc-lbl">${curIncr > 0 ? (base + curIncr).toLocaleString() + "원" : (base > 0 ? base.toLocaleString() + "원" : "-")}</span>
+              </td>
+            </tr>`;
+          }).join("")}
         </tbody>
       </table>
     `;
@@ -7760,14 +7773,17 @@ body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:11px
       if (saveBtn2) saveBtn2.disabled = true;
       if (saveMsg)  { saveMsg.textContent = "저장 중..."; saveMsg.className = "pg-msg"; }
 
-      // 변경된 학생 수집
+      // 변경된 학생 수집 — 입력값은 증가액, 저장값 = base + 증가액
       const updated = [];
       inputs.forEach((inp) => {
-        const id  = inp.dataset.id;
-        const val = parseInt(inp.value, 10);
-        const s   = state.students.find((x) => x.id === id);
-        if (s && !isNaN(val) && val >= 0 && val !== Number(s.target || 0)) {
-          updated.push({ ...s, target: val });
+        const id    = inp.dataset.id;
+        const incr  = parseInt(inp.value, 10);
+        const s     = state.students.find((x) => x.id === id);
+        if (!s || isNaN(incr) || incr < 0) return;
+        const base      = Number(s.base || 0);
+        const newTarget = base + incr;
+        if (newTarget !== Number(s.target || 0)) {
+          updated.push({ ...s, target: newTarget });
         }
       });
 
