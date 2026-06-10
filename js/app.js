@@ -178,7 +178,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "1.88";
+  const APP_VERSION = "1.89";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8982,7 +8982,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -11021,6 +11021,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       setMsg(`❌ 매칭된 교육생이 없습니다.${unmatched.length ? ` (미매칭 사번: ${unmatched.slice(0,5).join(", ")})` : ""}`, "err");
       return;
     }
+
+    // 기수·스텝 저장 확인 — 관리자 붙여넣기와 동일한 확인 팝업
+    if (!await openPasteSaveConfirmModal(region, cohort, stepVal, updates, [])) return;
 
     const btn = document.getElementById("btn-rm-paste-apply");
     if (btn) { btn.disabled = true; btn.textContent = "저장중..."; }
