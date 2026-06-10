@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.09";
+  const APP_VERSION = "2.10";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5670,15 +5670,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 #pg-print-overlay .pg-b-no     { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
 #pg-print-overlay .pg-rank-notice { font-size:11px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
 #pg-print-overlay .pg-tbl-wrap, #pg-print-overlay .pg-tbl-scroll { overflow:visible!important; }
-body.pg-printing > *:not(#pg-print-overlay) { display:none!important; }
-body.pg-printing #pg-print-overlay {
-  position:static!important; overflow:visible!important;
-  height:auto!important; z-index:auto!important; inset:auto!important;
-}
 @media print {
+  /* html/body 오버플로·높이 제약 제거 — body{overflow:hidden} 충돌 해소 */
+  html, body { overflow:visible!important; height:auto!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  /* 오버레이 외 모든 body 자식 숨김 */
+  body > * { display:none!important; }
+  /* 오버레이만 표시 · static 배치 (position:fixed 는 Chrome 인쇄에서 블랭크 유발) */
+  body > #pg-print-overlay { display:block!important; position:static!important; height:auto!important; overflow:visible!important; width:100%!important; }
+  /* style.css의 "body * { visibility:hidden }" 을 !important 로 완전 무력화 */
+  #pg-print-overlay { visibility:visible!important; }
+  #pg-print-overlay * { visibility:visible!important; }
+  /* 컨트롤바 숨김 */
   #pg-print-ctrl { display:none!important; }
   .pp-page + .pp-page { page-break-before:always; }
-  body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @page { margin:10mm; size:portrait; }
 }`;
     document.head.appendChild(stel);
@@ -5693,6 +5697,7 @@ body.pg-printing #pg-print-overlay {
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <span style="flex:1;font-weight:700;font-size:14px;">🖨️ ${escapeHtml(title)} — ${today}</span>
     <button id="btn-pp-print" style="background:#3b82f6;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
+    <button id="btn-pp-save-img" style="background:#22c55e;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">📷 사진저장</button>
     ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
     <button id="btn-pp-close" style="background:#475569;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">✕ 닫기</button>
   </div>
@@ -5747,43 +5752,42 @@ ${hasRate || hasAmt || hasGrp ? `
 
     document.body.appendChild(overlay);
 
-    // ── 인쇄 버튼: JS 직접 스타일 조작 + rAF 리플로우 보장 ──
+    // ── 인쇄 버튼: @media print CSS 가 오버레이 표시·body 숨김을 전담 ──
     document.getElementById("btn-pp-print")?.addEventListener("click", () => {
+      window.print();
+    });
+
+    // ── 사진저장 버튼: html2canvas 캡처 → PNG 다운로드 ──
+    document.getElementById("btn-pp-save-img")?.addEventListener("click", async () => {
       const ov   = document.getElementById("pg-print-overlay");
       const ctrl = document.getElementById("pg-print-ctrl");
       if (!ov) return;
-
-      // 1) 오버레이 → static 전환 (inline style 직접 덮어쓰기)
+      if (typeof html2canvas !== "function") { toast("html2canvas가 로드되지 않았습니다.", "error"); return; }
       const savedStyle = ov.style.cssText;
-      ov.style.cssText = "position:static;height:auto;overflow:visible;background:#fff;" +
-        "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;color:#111;width:100%;";
-
-      // 2) 컨트롤바 숨김
-      if (ctrl) ctrl.style.display = "none";
-
-      // 3) 나머지 body 자식 모두 숨김
-      const hidden = [];
-      Array.from(document.body.children).forEach((el) => {
-        if (el !== ov) { hidden.push([el, el.style.display]); el.style.display = "none"; }
-      });
-
-      // 4) 복원 함수
-      const restore = () => {
-        ov.style.cssText = savedStyle;
-        if (ctrl) ctrl.style.display = "";
-        hidden.forEach(([el, d]) => { el.style.display = d; });
-        window.removeEventListener("afterprint", restore);
-      };
-      window.addEventListener("afterprint", restore);
-
-      // 5) rAF 2회로 리플로우 완전 보장 후 print()
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.print();
-          // afterprint 미지원 브라우저 fallback
-          setTimeout(restore, 4000);
+      const savedCtrl  = ctrl ? ctrl.style.display : "";
+      const restore = () => { ov.style.cssText = savedStyle; if (ctrl) ctrl.style.display = savedCtrl; };
+      try {
+        ov.style.cssText = "position:static;height:auto;overflow:visible;background:#fff;" +
+          "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;color:#111;width:100%;";
+        if (ctrl) ctrl.style.display = "none";
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const canvas = await html2canvas(ov, {
+          scale: 2, useCORS: true, backgroundColor: "#ffffff",
+          width: ov.scrollWidth, height: ov.scrollHeight,
+          scrollX: 0, scrollY: 0,
+          windowWidth: ov.scrollWidth, windowHeight: ov.scrollHeight,
         });
-      });
+        restore();
+        const link = document.createElement("a");
+        link.download = `${title}_${today}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        toast("이미지가 저장되었습니다.", "success");
+      } catch (e) {
+        restore();
+        toast("이미지 저장에 실패했습니다.", "error");
+        console.error(e);
+      }
     });
 
     document.getElementById("btn-pp-close")?.addEventListener("click", () => {
@@ -9425,7 +9429,7 @@ ${hasRate || hasAmt || hasGrp ? `
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
