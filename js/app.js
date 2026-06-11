@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.10";
+  const APP_VERSION = "2.11";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5618,9 +5618,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const rateHtml = _pa.rateConfig ? renderProgressRankFullBothAware(byRate, byAmt, _pa, "rate") : "";
     const amtHtml  = _pa.amtConfig  ? renderProgressRankFullBothAware(byRate, byAmt, _pa, "amt")  : "";
     const grpHtml  = groupRanking.length >= 2 ? renderGroupTable(groupRanking, plan, hasAnyTeam) : "";
-    const hasRate  = !!(_pa.rateConfig && rateHtml);
-    const hasAmt   = !!(_pa.amtConfig  && amtHtml);
-    const hasGrp   = !!grpHtml;
+    const hasRate   = !!(_pa.rateConfig && rateHtml);
+    const hasAmt    = !!(_pa.amtConfig  && amtHtml);
+    const hasGrp    = !!grpHtml;
+    const sectCount = (hasRate ? 1 : 0) + (hasAmt ? 1 : 0) + (hasGrp ? 1 : 0);
+    const awardGridCols = sectCount >= 3 ? "1fr 1fr 1fr" : sectCount === 2 ? "1fr 1fr" : "1fr";
+    const awardGridStyle = `display:grid;grid-template-columns:${awardGridCols};gap:8px;align-items:start;`;
 
     // ─── 개인실적 행 (폰트 +3px, 마스터목표 컬럼 추가, 달성률 강조) ───
     const MEDAL = ["#f59e0b", "#94a3b8", "#b45309"];
@@ -5639,16 +5642,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const rowBg  = i % 2 === 1 ? "#f8fafc" : "#ffffff";
 
       return `<tr style="border-bottom:1px solid #e2e8f0;background:${rowBg};">
-        <td style="padding:4px 5px;text-align:center;font-weight:700;color:${i < 3 ? MEDAL[i] : "#64748b"};">${i + 1}</td>
-        <td style="padding:4px 5px;font-weight:${i < 3 ? "700" : "400"};">${escapeHtml(st.s.name || "")}</td>
-        <td style="padding:4px 5px;color:#475569;">${escapeHtml(st.s.branch || "")}</td>
-        <td style="padding:4px 5px;text-align:right;">${Nf(st.base)}</td>
-        <td style="padding:4px 5px;text-align:right;background:#eff6ff;color:#1e40af;font-weight:700;">${tgt > 0 ? Nf(tgt) : '<span style="color:#9ca3af">미설정</span>'}</td>
-        <td style="padding:4px 5px;text-align:right;">${Nf(st.current)}</td>
-        <td style="padding:4px 5px;text-align:right;background:${achBg};color:${achClr};font-weight:800;font-size:14px;">${achStr}</td>
-        <td style="padding:4px 5px;text-align:right;color:${remClr};font-weight:700;">${remStr}</td>
-        <td style="padding:4px 5px;text-align:right;color:${netClr};font-weight:600;">${(st.net >= 0 ? "+" : "") + Nf(st.net)}</td>
-        <td style="padding:4px 5px;color:${aw ? "#166534" : "#9ca3af"};font-weight:${aw ? "600" : "400"};">${escapeHtml(aw || "-")}</td>
+        <td style="padding:3px 3px;text-align:center;font-weight:700;white-space:nowrap;color:${i < 3 ? MEDAL[i] : "#64748b"};">${i + 1}</td>
+        <td style="padding:3px 4px;font-weight:${i < 3 ? "700" : "400"};white-space:nowrap;">${escapeHtml(st.s.name || "")}</td>
+        <td style="padding:3px 4px;color:#475569;white-space:nowrap;">${escapeHtml(st.s.branch || "")}</td>
+        <td style="padding:3px 4px;text-align:right;white-space:nowrap;">${Nf(st.base)}</td>
+        <td style="padding:3px 4px;text-align:right;background:#eff6ff;color:#1e40af;font-weight:700;white-space:nowrap;">${tgt > 0 ? Nf(tgt) : '<span style="color:#9ca3af">미설정</span>'}</td>
+        <td style="padding:3px 4px;text-align:right;white-space:nowrap;">${Nf(st.current)}</td>
+        <td style="padding:3px 4px;text-align:right;background:${achBg};color:${achClr};font-weight:800;white-space:nowrap;">${achStr}</td>
+        <td style="padding:3px 4px;text-align:right;color:${remClr};font-weight:700;white-space:nowrap;">${remStr}</td>
+        <td style="padding:3px 4px;text-align:right;color:${netClr};font-weight:600;white-space:nowrap;">${(st.net >= 0 ? "+" : "") + Nf(st.net)}</td>
+        <td style="padding:3px 4px;color:${aw ? "#166534" : "#9ca3af"};font-weight:${aw ? "600" : "400"};white-space:nowrap;">${escapeHtml(aw || "-")}</td>
       </tr>`;
     }).join("");
 
@@ -5670,20 +5673,38 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 #pg-print-overlay .pg-b-no     { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
 #pg-print-overlay .pg-rank-notice { font-size:11px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
 #pg-print-overlay .pg-tbl-wrap, #pg-print-overlay .pg-tbl-scroll { overflow:visible!important; }
+/* ── 사진저장 모드: 폰트 +4px, 너비 고정 ── */
+#pg-print-overlay.pp-img-mode { font-size:18px!important; }
+#pg-print-overlay.pp-img-mode table { font-size:17px!important; }
+#pg-print-overlay.pp-img-mode th,
+#pg-print-overlay.pp-img-mode td { font-size:17px!important; padding:5px 6px!important; }
 @media print {
-  /* html/body 오버플로·높이 제약 제거 — body{overflow:hidden} 충돌 해소 */
+  /* html/body 오버플로·높이 제약 제거 */
   html, body { overflow:visible!important; height:auto!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  /* 오버레이 외 모든 body 자식 숨김 */
   body > * { display:none!important; }
-  /* 오버레이만 표시 · static 배치 (position:fixed 는 Chrome 인쇄에서 블랭크 유발) */
   body > #pg-print-overlay { display:block!important; position:static!important; height:auto!important; overflow:visible!important; width:100%!important; }
-  /* style.css의 "body * { visibility:hidden }" 을 !important 로 완전 무력화 */
   #pg-print-overlay { visibility:visible!important; }
   #pg-print-overlay * { visibility:visible!important; }
-  /* 컨트롤바 숨김 */
   #pg-print-ctrl { display:none!important; }
   .pp-page + .pp-page { page-break-before:always; }
   @page { margin:10mm; size:portrait; }
+  /* ── 시상 페이지 압축: 여백·폰트·간격 최소화로 한 장 수용 ── */
+  #pp-page1 { padding:5mm 10mm 3mm!important; }
+  #pp-page1 h1 { font-size:13px!important; margin:0!important; padding-bottom:4px!important; }
+  #pp-page1 small { font-size:9px!important; }
+  #pp-page1 h3 { font-size:10px!important; padding:2px 6px!important; margin-bottom:3px!important; }
+  #pp-sec-rate, #pp-sec-amt, #pp-sec-grp { margin-bottom:6px!important; }
+  #pp-page1 .pg-tbl { font-size:10px!important; width:100%!important; }
+  #pp-page1 .pg-tbl th, #pp-page1 .pg-tbl td { padding:2px 4px!important; font-size:10px!important; }
+  #pp-page1 .pg-rank-notice { font-size:9px!important; padding:2px 5px!important; margin-bottom:2px!important; }
+  #pp-page1 .award-grid { display:grid!important; gap:8px!important; align-items:start!important; }
+  /* ── 개인실적 페이지 압축: 한 장 수용 ── */
+  #pp-page2 { padding:5mm 10mm 3mm!important; }
+  #pp-page2 h1 { font-size:13px!important; margin:0!important; padding-bottom:4px!important; }
+  #pp-page2 small { font-size:9px!important; }
+  #pp-page2 .pp-legend { font-size:9px!important; margin-bottom:4px!important; }
+  #pp-page2 table { font-size:11px!important; }
+  #pp-page2 th, #pp-page2 td { padding:3px 4px!important; font-size:11px!important; white-space:nowrap!important; overflow:hidden!important; }
 }`;
     document.head.appendChild(stel);
 
@@ -5711,39 +5732,53 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 </div>
 
 ${hasRate || hasAmt || hasGrp ? `
-<div class="pp-page" id="pp-page1" style="padding:72px 12mm 14mm;">
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:7px;margin-bottom:12px;">
-    <h1 style="font-size:17px;font-weight:800;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
-    <small style="font-size:12px;color:#64748b;">기준일: ${today}</small>
+<div class="pp-page" id="pp-page1" style="padding:8mm 10mm 4mm;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:6px;margin-bottom:8px;">
+    <h1 style="font-size:15px;font-weight:800;margin:0;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
+    <small style="font-size:11px;color:#64748b;">기준일: ${today}</small>
   </div>
-  ${hasRate ? `<div id="pp-sec-rate" style="margin-bottom:14px;">
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;padding:5px 10px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:0 5px 5px 0;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
-  ${hasAmt  ? `<div id="pp-sec-amt" style="margin-bottom:14px;">
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;padding:5px 10px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:0 5px 5px 0;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑` : ""}</h3>${amtHtml}</div>` : ""}
-  ${hasGrp  ? `<div id="pp-sec-grp">
-    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;padding:5px 10px;background:#fff7ed;border-left:4px solid #f97316;border-radius:0 5px 5px 0;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
-  ${plan.notes ? `<div style="font-size:11px;color:#64748b;margin-top:6px;">» ${escapeHtml(plan.notes)}</div>` : ""}
+  <div class="award-grid" style="${awardGridStyle}">
+    ${hasRate ? `<div id="pp-sec-rate">
+      <h3 style="font-size:12px;font-weight:700;margin-bottom:5px;padding:4px 8px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:0 5px 5px 0;">📈 신장률 TOP${_pa.rateConfig.n}${_pa.rateConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.rateConfig.minNet)}원↑` : ""}</h3>${rateHtml}</div>` : ""}
+    ${hasAmt  ? `<div id="pp-sec-amt">
+      <h3 style="font-size:12px;font-weight:700;margin-bottom:5px;padding:4px 8px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:0 5px 5px 0;">💰 신장액 TOP${_pa.amtConfig.n}${_pa.amtConfig.minNetEnabled ? ` · 순증 ${Nf(_pa.amtConfig.minNet)}원↑` : ""}</h3>${amtHtml}</div>` : ""}
+    ${hasGrp  ? `<div id="pp-sec-grp">
+      <h3 style="font-size:12px;font-weight:700;margin-bottom:5px;padding:4px 8px;background:#fff7ed;border-left:4px solid #f97316;border-radius:0 5px 5px 0;">🏅 ${hasAnyTeam ? "팀별" : "지점별"} 순증 시상</h3>${grpHtml}</div>` : ""}
+  </div>
+  ${plan.notes ? `<div style="font-size:10px;color:#64748b;margin-top:5px;">» ${escapeHtml(plan.notes)}</div>` : ""}
 </div>` : ""}
 
-<div class="pp-page" id="pp-page2" style="padding:${hasRate || hasAmt || hasGrp ? "14mm" : "72px"} 12mm 14mm;${hasRate || hasAmt || hasGrp ? "border-top:3px dashed #e2e8f0;" : ""}">
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:7px;margin-bottom:10px;">
-    <h1 style="font-size:17px;font-weight:800;">📊 ${escapeHtml(title)} — 개인 실적</h1>
-    <small style="font-size:12px;color:#64748b;">기준일: ${today} · 전 ${stats.length}명</small>
+<div class="pp-page" id="pp-page2" style="padding:8mm 10mm 4mm;${hasRate || hasAmt || hasGrp ? "border-top:3px dashed #e2e8f0;" : ""}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:6px;margin-bottom:7px;">
+    <h1 style="font-size:15px;font-weight:800;margin:0;">📊 ${escapeHtml(title)} — 개인 실적</h1>
+    <small style="font-size:11px;color:#64748b;">기준일: ${today} · 전 ${stats.length}명</small>
   </div>
-  <div style="font-size:11px;color:#64748b;margin-bottom:7px;">» 달성률 = 현재실적 ÷ 마스터목표 &nbsp;|  남은금액 = 목표 − 현재 (✓ = 달성)</div>
-  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+  <div class="pp-legend" style="font-size:10px;color:#64748b;margin-bottom:5px;">» 달성률 = 현재실적 ÷ 마스터목표 &nbsp;|  남은금액 = 목표 − 현재 (✓ = 달성)</div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+    <colgroup>
+      <col style="width:22px">
+      <col style="width:44px">
+      <col style="width:44px">
+      <col style="width:66px">
+      <col style="width:68px">
+      <col style="width:66px">
+      <col style="width:52px">
+      <col style="width:66px">
+      <col style="width:62px">
+      <col>
+    </colgroup>
     <thead>
       <tr style="background:#1e293b;color:#fff;">
-        <th style="padding:5px 5px;text-align:center;font-size:12px;width:26px;">#</th>
-        <th style="padding:5px 6px;font-size:12px;">성명</th>
-        <th style="padding:5px 6px;font-size:12px;">지점</th>
-        <th style="padding:5px 6px;text-align:right;font-size:12px;">기준실적</th>
-        <th style="padding:5px 6px;text-align:right;font-size:12px;background:#1e40af;">🎯마스터목표</th>
-        <th style="padding:5px 6px;text-align:right;font-size:12px;">현재실적</th>
-        <th style="padding:5px 6px;text-align:right;font-size:12px;background:#166534;">✅달성률</th>
-        <th style="padding:5px 6px;text-align:right;font-size:12px;">남은금액</th>
-        <th style="padding:5px 6px;text-align:right;font-size:12px;">순증</th>
-        <th style="padding:5px 6px;font-size:12px;">개인시상</th>
+        <th style="padding:4px 3px;text-align:center;white-space:nowrap;">#</th>
+        <th style="padding:4px 4px;white-space:nowrap;">성명</th>
+        <th style="padding:4px 4px;white-space:nowrap;">지점</th>
+        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">기준실적</th>
+        <th style="padding:4px 4px;text-align:right;background:#1e40af;white-space:nowrap;">🎯마스터목표</th>
+        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">현재실적</th>
+        <th style="padding:4px 4px;text-align:right;background:#166534;white-space:nowrap;">✅달성률</th>
+        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">남은금액</th>
+        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">순증</th>
+        <th style="padding:4px 4px;white-space:nowrap;">개인시상</th>
       </tr>
     </thead>
     <tbody>${piRows}</tbody>
@@ -5765,10 +5800,16 @@ ${hasRate || hasAmt || hasGrp ? `
       if (typeof html2canvas !== "function") { toast("html2canvas가 로드되지 않았습니다.", "error"); return; }
       const savedStyle = ov.style.cssText;
       const savedCtrl  = ctrl ? ctrl.style.display : "";
-      const restore = () => { ov.style.cssText = savedStyle; if (ctrl) ctrl.style.display = savedCtrl; };
+      const restore = () => {
+        ov.style.cssText = savedStyle;
+        ov.classList.remove("pp-img-mode");
+        if (ctrl) ctrl.style.display = savedCtrl;
+      };
       try {
+        // 세로 고정 너비(828px ≈ A4 portrait) + pp-img-mode로 폰트 +4px
         ov.style.cssText = "position:static;height:auto;overflow:visible;background:#fff;" +
-          "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;color:#111;width:100%;";
+          "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111;width:828px;";
+        ov.classList.add("pp-img-mode");
         if (ctrl) ctrl.style.display = "none";
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const canvas = await html2canvas(ov, {
@@ -9429,7 +9470,7 @@ ${hasRate || hasAmt || hasGrp ? `
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
