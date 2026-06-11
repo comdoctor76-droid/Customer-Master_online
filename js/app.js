@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.11";
+  const APP_VERSION = "2.12";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5622,10 +5622,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const hasAmt    = !!(_pa.amtConfig  && amtHtml);
     const hasGrp    = !!grpHtml;
     const sectCount = (hasRate ? 1 : 0) + (hasAmt ? 1 : 0) + (hasGrp ? 1 : 0);
-    const awardGridCols = sectCount >= 3 ? "1fr 1fr 1fr" : sectCount === 2 ? "1fr 1fr" : "1fr";
+    // 3개: 상단 2단(신장률|신장액) + 하단 전체(팀시상) — CSS가 grid-column 제어
+    const awardGridCols = sectCount >= 2 ? "1fr 1fr" : "1fr";
     const awardGridStyle = `display:grid;grid-template-columns:${awardGridCols};gap:8px;align-items:start;`;
 
-    // ─── 개인실적 행 (폰트 +3px, 마스터목표 컬럼 추가, 달성률 강조) ───
+    // ─── 개인실적 행 ───
     const MEDAL = ["#f59e0b", "#94a3b8", "#b45309"];
     const piRows = byAmt.map((st, i) => {
       const tgt    = Number(st.s.target || 0);
@@ -5638,8 +5639,29 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const remClr = remain == null ? "#9ca3af" : remain <= 0 ? "#166534" : "#dc2626";
       const remStr = remain == null ? "-" : remain <= 0 ? "✓" + Nf(Math.abs(remain)) : Nf(remain);
       const netClr = st.net >= 0 ? "#1d4ed8" : "#dc2626";
-      const aw     = tierLabel(st.net, region, _pa);
       const rowBg  = i % 2 === 1 ? "#f8fafc" : "#ffffff";
+
+      // 개인시상: 달성자 → 시상금액 + 상위 단계 부족액 / 미달성자 → 최초 시상까지 부족액
+      const tiers = _pa.tiers || [];
+      const ctIdx = tiers.findIndex(t => st.net >= t.min);
+      let awCol;
+      if (ctIdx >= 0) {
+        const ct      = tiers[ctIdx];
+        const awLabel = tierLabel(st.net, region, _pa);
+        const prize   = ct.type === "pct" ? Math.round(st.net * ct.val) : ct.type === "item" ? 0 : ct.val;
+        const pStr    = ct.type === "item" ? (ct.itemName || "물품") : prize > 0 ? Nf(prize) + "원" : "";
+        const nt      = ctIdx > 0 ? tiers[ctIdx - 1] : null;
+        const nStr    = nt ? "↑" + Nf(nt.min - st.net) + "원" : "🏆최고";
+        awCol = `<span style="color:#166534;font-weight:700;">${escapeHtml(awLabel)}</span>` +
+          (pStr ? `<br><span style="color:#1d4ed8;font-size:0.85em;">(${pStr})</span>` : "") +
+          `<br><span style="color:#b45309;font-size:0.8em;">${nStr}</span>`;
+      } else {
+        const lt   = tiers.length > 0 ? tiers[tiers.length - 1] : null;
+        const need = lt ? Math.max(0, lt.min - st.net) : 0;
+        awCol = need > 0
+          ? `<span style="color:#94a3b8;font-size:0.9em;">↑${Nf(need)}원</span>`
+          : `<span style="color:#9ca3af;">-</span>`;
+      }
 
       return `<tr style="border-bottom:1px solid #e2e8f0;background:${rowBg};">
         <td style="padding:3px 3px;text-align:center;font-weight:700;white-space:nowrap;color:${i < 3 ? MEDAL[i] : "#64748b"};">${i + 1}</td>
@@ -5651,7 +5673,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         <td style="padding:3px 4px;text-align:right;background:${achBg};color:${achClr};font-weight:800;white-space:nowrap;">${achStr}</td>
         <td style="padding:3px 4px;text-align:right;color:${remClr};font-weight:700;white-space:nowrap;">${remStr}</td>
         <td style="padding:3px 4px;text-align:right;color:${netClr};font-weight:600;white-space:nowrap;">${(st.net >= 0 ? "+" : "") + Nf(st.net)}</td>
-        <td style="padding:3px 4px;color:${aw ? "#166534" : "#9ca3af"};font-weight:${aw ? "600" : "400"};white-space:nowrap;">${escapeHtml(aw || "-")}</td>
+        <td style="padding:3px 4px;vertical-align:top;">${awCol}</td>
       </tr>`;
     }).join("");
 
@@ -5673,13 +5695,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 #pg-print-overlay .pg-b-no     { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
 #pg-print-overlay .pg-rank-notice { font-size:11px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
 #pg-print-overlay .pg-tbl-wrap, #pg-print-overlay .pg-tbl-scroll { overflow:visible!important; }
-/* ── 사진저장 모드: 폰트 +4px, 너비 고정 ── */
+/* ── 사진저장 모드: 폰트 +4px, 너비 828px 고정 ── */
 #pg-print-overlay.pp-img-mode { font-size:18px!important; }
 #pg-print-overlay.pp-img-mode table { font-size:17px!important; }
 #pg-print-overlay.pp-img-mode th,
 #pg-print-overlay.pp-img-mode td { font-size:17px!important; padding:5px 6px!important; }
 @media print {
-  /* html/body 오버플로·높이 제약 제거 */
   html, body { overflow:visible!important; height:auto!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body > * { display:none!important; }
   body > #pg-print-overlay { display:block!important; position:static!important; height:auto!important; overflow:visible!important; width:100%!important; }
@@ -5687,24 +5708,38 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   #pg-print-overlay * { visibility:visible!important; }
   #pg-print-ctrl { display:none!important; }
   .pp-page + .pp-page { page-break-before:always; }
-  @page { margin:10mm; size:portrait; }
-  /* ── 시상 페이지 압축: 여백·폰트·간격 최소화로 한 장 수용 ── */
-  #pp-page1 { padding:5mm 10mm 3mm!important; }
+  @page { margin:8mm; size:portrait; }
+
+  /* ── 시상 페이지 공통 ── */
+  #pp-page1 { padding:4mm 8mm 3mm!important; }
   #pp-page1 h1 { font-size:13px!important; margin:0!important; padding-bottom:4px!important; }
   #pp-page1 small { font-size:9px!important; }
-  #pp-page1 h3 { font-size:10px!important; padding:2px 6px!important; margin-bottom:3px!important; }
-  #pp-sec-rate, #pp-sec-amt, #pp-sec-grp { margin-bottom:6px!important; }
-  #pp-page1 .pg-tbl { font-size:10px!important; width:100%!important; }
-  #pp-page1 .pg-tbl th, #pp-page1 .pg-tbl td { padding:2px 4px!important; font-size:10px!important; }
-  #pp-page1 .pg-rank-notice { font-size:9px!important; padding:2px 5px!important; margin-bottom:2px!important; }
-  #pp-page1 .award-grid { display:grid!important; gap:8px!important; align-items:start!important; }
-  /* ── 개인실적 페이지 압축: 한 장 수용 ── */
-  #pp-page2 { padding:5mm 10mm 3mm!important; }
+  #pp-page1 .pg-rank-notice { font-size:9px!important; padding:1px 4px!important; margin-bottom:2px!important; }
+  #pp-page1 .pg-tbl { width:100%!important; table-layout:fixed!important; border-collapse:collapse!important; }
+  #pp-page1 .pg-tbl th, #pp-page1 .pg-tbl td { white-space:nowrap!important; overflow:hidden!important; }
+
+  /* 1개 섹션: 전체 너비, 큰 폰트 */
+  #pp-page1.pp-sect1 h3 { font-size:13px!important; padding:4px 9px!important; margin-bottom:5px!important; }
+  #pp-page1.pp-sect1 .pg-tbl th, #pp-page1.pp-sect1 .pg-tbl td { font-size:14px!important; padding:4px 8px!important; }
+
+  /* 2개 섹션: 2단 나란히, 중간 폰트 */
+  #pp-page1.pp-sect2 .award-grid { grid-template-columns:1fr 1fr!important; }
+  #pp-page1.pp-sect2 h3 { font-size:11px!important; padding:3px 7px!important; margin-bottom:4px!important; }
+  #pp-page1.pp-sect2 .pg-tbl th, #pp-page1.pp-sect2 .pg-tbl td { font-size:11px!important; padding:3px 5px!important; }
+
+  /* 3개 섹션: 상단 2단(신장률|신장액) + 하단 전체너비(팀시상) */
+  #pp-page1.pp-sect3 .award-grid { grid-template-columns:1fr 1fr!important; }
+  #pp-page1.pp-sect3 #pp-sec-grp { grid-column:1 / -1!important; margin-top:6px!important; }
+  #pp-page1.pp-sect3 h3 { font-size:10px!important; padding:2px 6px!important; margin-bottom:3px!important; }
+  #pp-page1.pp-sect3 .pg-tbl th, #pp-page1.pp-sect3 .pg-tbl td { font-size:10px!important; padding:2px 4px!important; }
+
+  /* ── 개인실적 페이지: 폰트 +3px (11→14), 줄바꿈 없이 한 장 ── */
+  #pp-page2 { padding:4mm 8mm 3mm!important; }
   #pp-page2 h1 { font-size:13px!important; margin:0!important; padding-bottom:4px!important; }
   #pp-page2 small { font-size:9px!important; }
   #pp-page2 .pp-legend { font-size:9px!important; margin-bottom:4px!important; }
-  #pp-page2 table { font-size:11px!important; }
-  #pp-page2 th, #pp-page2 td { padding:3px 4px!important; font-size:11px!important; white-space:nowrap!important; overflow:hidden!important; }
+  #pp-page2 table { font-size:14px!important; }
+  #pp-page2 th, #pp-page2 td { padding:3px 5px!important; font-size:14px!important; white-space:nowrap!important; overflow:hidden!important; }
 }`;
     document.head.appendChild(stel);
 
@@ -5732,7 +5767,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 </div>
 
 ${hasRate || hasAmt || hasGrp ? `
-<div class="pp-page" id="pp-page1" style="padding:8mm 10mm 4mm;">
+<div class="pp-page pp-sect${sectCount}" id="pp-page1" style="padding:8mm 10mm 4mm;">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1e293b;padding-bottom:6px;margin-bottom:8px;">
     <h1 style="font-size:15px;font-weight:800;margin:0;">🏆 ${escapeHtml(title)} — 신장 시상 현황</h1>
     <small style="font-size:11px;color:#64748b;">기준일: ${today}</small>
@@ -5754,18 +5789,18 @@ ${hasRate || hasAmt || hasGrp ? `
     <small style="font-size:11px;color:#64748b;">기준일: ${today} · 전 ${stats.length}명</small>
   </div>
   <div class="pp-legend" style="font-size:10px;color:#64748b;margin-bottom:5px;">» 달성률 = 현재실적 ÷ 마스터목표 &nbsp;|  남은금액 = 목표 − 현재 (✓ = 달성)</div>
-  <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+  <table style="width:100%;border-collapse:collapse;font-size:15px;table-layout:fixed;">
     <colgroup>
-      <col style="width:22px">
-      <col style="width:44px">
-      <col style="width:44px">
-      <col style="width:66px">
-      <col style="width:68px">
-      <col style="width:66px">
-      <col style="width:52px">
-      <col style="width:66px">
-      <col style="width:62px">
-      <col>
+      <col style="width:24px">
+      <col style="width:46px">
+      <col style="width:60px">
+      <col style="width:70px">
+      <col style="width:72px">
+      <col style="width:70px">
+      <col style="width:54px">
+      <col style="width:70px">
+      <col style="width:65px">
+      <col style="min-width:90px">
     </colgroup>
     <thead>
       <tr style="background:#1e293b;color:#fff;">
@@ -9470,7 +9505,7 @@ ${hasRate || hasAmt || hasGrp ? `
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260610b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
