@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.13";
+  const APP_VERSION = "2.14";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4480,12 +4480,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const short = g.members.slice(0, 5).join("·") + (g.members.length > 5 ? "…" : "");
       let metGa1Items = []; // ga2 연계 판단을 위해 상위 스코프로 선언
       let ga1Cell = "", ga1AwardCell = "";
+      let allAchieved = false; // 팀시상 첫구간 달성 여부 (이름 녹색 표시용)
       if (ga1En) {
         const primaryIt = ga1ItemList[0] || { threshold: 5, payout: { type: "cash", val: 5 } };
         const thr = Number(primaryIt.threshold || 5) * 10000;
         const total = (g.memberStats || []).length || g.members.length;
         const achieved = (g.memberStats || []).filter(st => st.net >= thr).length;
-        const allAchieved = achieved === total && total > 0;
+        allAchieved = achieved === total && total > 0;
         const icon = allAchieved ? "✅" : (achieved === 0 ? "✕" : "△");
         const bdg = allAchieved ? "pg-grp-ok" : (achieved > 0 ? "pg-grp-half" : "pg-grp-no");
         metGa1Items = ga1ItemList.filter(it => {
@@ -4517,7 +4518,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           }
         }
       }
-      return `<tr><td>${RB(i + 1)}</td><td><strong>${escapeHtml(g.name)}</strong></td><td><small>${escapeHtml(short)}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
+      const nameClr = allAchieved ? ' style="color:#166534;font-weight:700;"' : '';
+      return `<tr${allAchieved ? ' style="background:#f0fdf4;"' : ''}><td>${RB(i + 1)}</td><td><strong${nameClr}>${escapeHtml(g.name)}</strong></td><td><small${nameClr}>${escapeHtml(short)}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
     }).join("");
 
     return `<table class="pg-tbl pg-tbl-wide"><thead><tr>${thCells}</tr></thead><tbody>${rows}</tbody></table>`;
@@ -4998,7 +5000,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:44px">순위</th><th>성명</th><th style="width:76px">사번</th><th>지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byAmt.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
@@ -5015,7 +5017,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const rateDisp     = masterGoal > 0 ? masterRate.toFixed(1) + "%"    : "—";
               const baseRateDisp = st.base > 0    ? baseRate.toFixed(1) + "%"      : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -9493,7 +9495,7 @@ ${hasRate || hasAmt || hasGrp ? `
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
