@@ -3951,6 +3951,52 @@ body {
   font-size: 16px;
   line-height: 1;
 }
+/* ── 공통 붙여넣기 설정 바 ── */
+.pg-paste-global-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pg-paste-global-bar label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #fff;
+}
+.pg-paste-global-sel {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+  min-width: 90px;
+}
+.pg-paste-global-sel:focus { outline: 2px solid #ffd700; }
+/* 타 지역단 경고 모달 */
+.pg-cross-region-list {
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: #fffbea;
+  border: 1px solid #f0b429;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.pg-cross-region-list li { padding: 2px 0; }
 .pg-paste-confirm {
   margin: 10px 0;
   padding: 14px 16px;

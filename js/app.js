@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.17";
+  const APP_VERSION = "2.18";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4219,6 +4219,44 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
   }
 
+  // ── 타 지역단 사번 경고 모달 ───────────────────────────────────────────
+  // items: [{empNo, name, otherRegion}]
+  // resolve: true → 해당 지역단으로 저장, false → 건너뜀
+  function openCrossRegionModal(items) {
+    return new Promise((resolve) => {
+      let modal = document.getElementById("modal-cross-region");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "modal-cross-region";
+        modal.className = "modal";
+        document.body.appendChild(modal);
+      }
+      const listHtml = items.map((it) =>
+        `<li><strong>${escapeHtml(it.empNo)}</strong>${it.name ? ` ${escapeHtml(it.name)}` : ""} — <span style="color:#d97706">${escapeHtml(it.otherRegion)}</span>에 있음</li>`
+      ).join("");
+      modal.innerHTML = `
+        <div class="modal-backdrop"></div>
+        <div class="modal-panel" style="max-width:460px">
+          <div class="modal-body" style="padding:24px 24px 20px">
+            <h3 style="margin:0 0 12px;font-size:15px;text-align:center">⚠️ 다른 지역단 사번 발견</h3>
+            <p style="font-size:13px;margin:0 0 8px">선택한 지역단에 없는 사번이 다른 지역단에서 발견되었습니다:</p>
+            <ul class="pg-cross-region-list">${listHtml}</ul>
+            <p style="font-size:12px;color:#888;margin:8px 0 16px">해당 지역단으로 데이터를 저장하시겠습니까?</p>
+            <div style="display:flex;gap:10px;justify-content:center">
+              <button class="btn-primary small" id="cross-region-yes">✅ 해당 지역단에 저장</button>
+              <button class="btn-outline small" id="cross-region-no">❌ 건너뜀</button>
+            </div>
+          </div>
+        </div>
+      `;
+      const hide = (val) => { modal.hidden = true; resolve(val); };
+      modal.querySelector("#cross-region-yes").addEventListener("click", () => hide(true));
+      modal.querySelector("#cross-region-no").addEventListener("click",  () => hide(false));
+      modal.querySelector(".modal-backdrop").onclick = () => hide(false);
+      modal.hidden = false;
+    });
+  }
+
   function openPgColMapModal(colDefs, sampleRows) {
     return new Promise((resolve) => {
       const modal = document.getElementById("modal-pg-col-map");
@@ -6529,13 +6567,33 @@ ${piPagesHtml}`;
         </div>
 
         <!-- [5] 일괄 붙여넣기 (총괄월별실적 / 실적진도현황) -->
-        <details class="pg-accordion">
+        <details class="pg-accordion" open>
           <summary>
             <span class="pg-ac-title">📋 현재실적 일괄 붙여넣기</span>
             <span class="pg-ac-sub">— 붙여넣기 방식 선택</span>
             <span class="pg-ac-chev">▾</span>
           </summary>
           <div class="pg-ac-body">
+            <!-- 공통 저장 대상 선택 바 -->
+            <div class="pg-paste-global-bar" id="pg-paste-global-bar">
+              <strong>📌 저장 대상:</strong>
+              <select id="pg-global-region-sel" class="pg-paste-global-sel">
+                <option value="">전체 지역단</option>
+                ${_rgnEntries.map(([r]) => `<option value="${escapeHtml(r)}"${r === state.progressRegion ? ' selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+              </select>
+              <select id="pg-global-cohort-sel" class="pg-paste-global-sel">
+                <option value="">기수 선택 ▾</option>
+                <option value="1기">1기</option>
+                <option value="2기">2기</option>
+                <option value="3기">3기</option>
+                <option value="4기">4기</option>
+                <option value="5기">5기</option>
+              </select>
+              <span class="pg-paste-step-sep">│</span>
+              <strong>스텝:</strong>
+              <label><input type="radio" name="pg-global-step" value="1" checked> Step 1</label>
+              <label><input type="radio" name="pg-global-step" value="2"> Step 2</label>
+            </div>
             <div class="pg-paste-mode-btns">
               <button class="btn-outline pg-paste-mode-btn active" data-mode="monthly">📊 총괄월별실적 붙여넣기</button>
               <button class="btn-outline pg-paste-mode-btn" data-mode="progress">📈 실적진도현황 붙여넣기</button>
@@ -6560,25 +6618,7 @@ ${piPagesHtml}`;
 
             <!-- 실적진도현황 -->
             <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
-              <div class="pg-progress-paste-step-row">
-                <span class="pg-paste-save-target">
-                  📌 <strong>저장 대상:</strong>
-                  <span id="pg-paste-region-disp" class="pg-paste-region-badge">─</span>
-                  <select id="pg-paste-cohort-sel" class="pg-paste-cohort-sel">
-                    <option value="">기수 선택 ▾</option>
-                    <option value="1기">1기</option>
-                    <option value="2기">2기</option>
-                    <option value="3기">3기</option>
-                    <option value="4기">4기</option>
-                    <option value="5기">5기</option>
-                  </select>
-                </span>
-                <span class="pg-paste-step-sep">│</span>
-                <strong>저장할 스텝:</strong>
-                <label><input type="radio" name="pg-progress-paste-step" value="1" checked> Step 1</label>
-                <label><input type="radio" name="pg-progress-paste-step" value="2"> Step 2</label>
-              </div>
-              <div class="pg-paste-desc"><strong>[Step 1 / Step 2 공통 형식]</strong> 지역단·비전센터·지점·사원번호·성명·위촉차월·기준실적·현재실적·계약건수·실적 (탭 구분, 금액단위: 원) — 스텝 선택에 따라 해당 스텝 실적에 저장</div>
+              <div class="pg-paste-desc" id="pg-progress-paste-desc"><strong>[Step 1 저장]</strong> 지역단·비전센터·지점·사원번호·성명·위촉차월·기준실적·현재실적·계약건수·실적 (탭 구분, 금액단위: 원) — 헤더 포함 입력 권장</div>
               <textarea id="pg-progress-paste" rows="7" placeholder="지역단	비전센터	지점	사원번호	성명	위촉차월	기준실적	현재실적	계약건수	실적
 강북지역단	성동비전센터	강북수유지점	069563	권명숙	340	274273	199270	0	0
 강북지역단	성동비전센터	강북수유지점	070041	김미영	339	209138	104130	0	0
@@ -6607,9 +6647,9 @@ ${piPagesHtml}`;
                 <span id="pg-honors-paste-msg" class="pg-msg"></span>
               </div>
             </div>
-            <!-- 인품실적 붙여넣기 (전체 사번 기준) -->
+            <!-- 인품실적 붙여넣기 (지역단/스텝 선택 기준) -->
             <div id="pg-paste-mode-ipum" class="pg-admin-paste" style="display:none">
-              <div class="pg-paste-desc">사번·인품건수·인품실적 (탭/공백 구분, 금액단위: 원) — <strong>전체 지역단</strong> 대상, 사번 미매칭 건 자동 제외</div>
+              <div class="pg-paste-desc">사번·인품건수·인품실적 (탭/공백 구분, 금액단위: 원) — 상단 지역단/스텝 선택 기준 저장, 사번 미매칭 건 자동 제외</div>
               <textarea id="pg-ipum-global-paste" rows="6" placeholder="예)
 1001234	3	450000
 1005678	2	300000"></textarea>
@@ -6838,11 +6878,11 @@ ${piPagesHtml}`;
   function bindProgressAdminEvents(list, rootId = "progress-body") {
     const root = document.getElementById(rootId);
     if (!root) return;
-    // 붙여넣기 저장 대상 초기화 (지역단·기수)
-    const _rdDisp = root.querySelector("#pg-paste-region-disp");
-    const _cSel   = root.querySelector("#pg-paste-cohort-sel");
-    if (_rdDisp) _rdDisp.textContent = state.filter.region || "─";
-    if (_cSel && state.filter.cohort) _cSel.value = state.filter.cohort;
+    // 공통 붙여넣기 저장 대상 초기화 (지역단·기수)
+    const _globalRegionSel = root.querySelector("#pg-global-region-sel");
+    const _globalCohortSel = root.querySelector("#pg-global-cohort-sel");
+    if (_globalRegionSel && state.progressRegion) _globalRegionSel.value = state.progressRegion;
+    if (_globalCohortSel && state.filter.cohort) _globalCohortSel.value = state.filter.cohort;
     // 실시간 계산 (현재실적 변경 시 달성률/순증 재계산)
     root.querySelectorAll(".pg-input[data-pg-role='current']").forEach((inp) => {
       inp.addEventListener("input", (e) => {
@@ -6910,15 +6950,15 @@ ${piPagesHtml}`;
       });
     });
 
-    // 스텝 라디오 변경 → 설명 텍스트 업데이트 (Step1/2 공통 포맷이므로 스텝 이름만 바꿔 표시)
-    const _pgDescEl = document.querySelector("#pg-paste-mode-progress .pg-paste-desc");
+    // 공통 스텝 라디오 변경 → 실적진도현황 설명 텍스트 업데이트
+    const _pgDescEl = document.querySelector("#pg-progress-paste-desc");
     const _pgPasteTA = document.querySelector("#pg-progress-paste");
     const _buildPasteDesc = (step) => {
       const sfxLabel = step === "2" ? "Step 2" : "Step 1";
       return `<strong>[${sfxLabel} 저장]</strong> 지역단·비전센터·지점·사원번호·성명·위촉차월·기준실적·현재실적·계약건수·실적 (탭 구분, 금액단위: 원) — 헤더 포함 입력 권장`;
     };
     if (_pgDescEl) {
-      root.querySelectorAll('input[name="pg-progress-paste-step"]').forEach((radio) => {
+      root.querySelectorAll('input[name="pg-global-step"]').forEach((radio) => {
         radio.addEventListener("change", () => {
           _pgDescEl.innerHTML = _buildPasteDesc(radio.value);
         });
@@ -6930,8 +6970,11 @@ ${piPagesHtml}`;
     if (pasteApply) pasteApply.addEventListener("click", async () => {
       const txt = $("#pg-paste").value;
       const m = $("#pg-paste-msg");
+      const _pasteRgn = document.getElementById("pg-global-region-sel")?.value || "";
       const records = [];
       const unmatched = [];
+      const crossRegionItems = []; // 다른 지역단에 있는 사번
+      const crossRegionData = new Map(); // empNo → {hiCapVal, curVal}
       txt.split(/\r?\n/).forEach((line) => {
         const parts = line.trim().split(/[\t]+/).map((p) => p.replace(/,/g, "").trim()).filter(Boolean);
         if (parts.length < 3) return;
@@ -6939,15 +6982,35 @@ ${piPagesHtml}`;
         const hiCapVal = parseInt(parts[1], 10);
         const curVal   = parseInt(parts[2], 10);
         if (isNaN(hiCapVal) || isNaN(curVal)) return;
-        const s = list.find((x) => x.empNo === empNo);
-        if (!s) { unmatched.push(empNo); return; }
-        records.push({ ...s, hiCap: hiCapVal * 1000, current: curVal * 1000 }); // 천원 입력 → 원으로 변환 저장
-        // Admin 테이블 input 즉시 반영
+        const searchPool = _pasteRgn ? state.students.filter((x) => x.region === _pasteRgn) : state.students;
+        const s = searchPool.find((x) => x.empNo === empNo);
+        if (!s) {
+          // 다른 지역단에서 탐색
+          const elsewhere = _pasteRgn ? state.students.find((x) => x.empNo === empNo && x.region !== _pasteRgn) : null;
+          if (elsewhere) {
+            crossRegionItems.push({ empNo, name: elsewhere.name, otherRegion: elsewhere.region, student: elsewhere });
+            crossRegionData.set(empNo, { hiCapVal, curVal });
+          } else {
+            unmatched.push(empNo);
+          }
+          return;
+        }
+        records.push({ ...s, hiCap: hiCapVal * 1000, current: curVal * 1000 });
         const hiCapInp = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="hiCap"]`);
         const curInp   = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="current"]`);
         if (hiCapInp) { hiCapInp.value = hiCapVal * 1000; }
         if (curInp)   { curInp.value   = curVal * 1000;   curInp.dispatchEvent(new Event("input")); }
       });
+      // 타 지역단 경고
+      if (crossRegionItems.length > 0) {
+        const doSave = await openCrossRegionModal(crossRegionItems);
+        if (doSave) {
+          crossRegionItems.forEach(({ empNo, student }) => {
+            const d = crossRegionData.get(empNo);
+            if (d) records.push({ ...student, hiCap: d.hiCapVal * 1000, current: d.curVal * 1000 });
+          });
+        }
+      }
       if (records.length === 0) {
         if (m) { m.textContent = "❌ 매칭된 사번 없음. 탭 구분 및 사번을 확인하세요."; m.className = "pg-msg err"; }
         return;
@@ -6981,18 +7044,40 @@ ${piPagesHtml}`;
       const m = $("#pg-honors-paste-msg");
       if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
 
+      const _pasteRgnH = document.getElementById("pg-global-region-sel")?.value || "";
       const records = [];
       const unmatched = [];
+      const crossRegionItemsH = [];
+      const crossRegionDataH = new Map();
       txt.split(/\r?\n/).forEach((line) => {
         const parts = line.split(/\t/).map((c) => c.replace(/,/g, "").replace(/[ ​﻿]/g, "").trim()).filter(Boolean);
         if (parts.length < 2) return;
         const empNo = parts[0];
         const honorsAmt = parseInt(parts[1], 10);
         if (!empNo || isNaN(honorsAmt)) return;
-        const s = state.students.find((x) => x.empNo === empNo);
-        if (!s) { unmatched.push(empNo); return; }
+        const searchPool = _pasteRgnH ? state.students.filter((x) => x.region === _pasteRgnH) : state.students;
+        const s = searchPool.find((x) => x.empNo === empNo);
+        if (!s) {
+          const elsewhere = _pasteRgnH ? state.students.find((x) => x.empNo === empNo && x.region !== _pasteRgnH) : null;
+          if (elsewhere) {
+            crossRegionItemsH.push({ empNo, name: elsewhere.name, otherRegion: elsewhere.region, student: elsewhere });
+            crossRegionDataH.set(empNo, { honorsAmt });
+          } else {
+            unmatched.push(empNo);
+          }
+          return;
+        }
         records.push({ ...s, honors: honorsAmt });
       });
+      if (crossRegionItemsH.length > 0) {
+        const doSave = await openCrossRegionModal(crossRegionItemsH);
+        if (doSave) {
+          crossRegionItemsH.forEach(({ empNo, student }) => {
+            const d = crossRegionDataH.get(empNo);
+            if (d) records.push({ ...student, honors: d.honorsAmt });
+          });
+        }
+      }
 
       if (records.length === 0) {
         if (m) { m.textContent = "❌ 매칭된 사번 없음. 탭 구분 및 사번을 확인하세요."; m.className = "pg-msg err"; }
@@ -7018,7 +7103,7 @@ ${piPagesHtml}`;
       honorsPasteApply.disabled = false;
     });
 
-    // ── 인품실적 전체 붙여넣기 핸들러 (전체 사번 기준) ────────────
+    // ── 인품실적 붙여넣기 핸들러 (지역단/스텝 선택 기준) ────────────
     const ipumGlobalClear = $("#btn-pg-ipum-global-clear");
     if (ipumGlobalClear) ipumGlobalClear.addEventListener("click", () => { const t = $("#pg-ipum-global-paste"); if (t) t.value = ""; });
 
@@ -7028,11 +7113,20 @@ ${piPagesHtml}`;
       const m = $("#pg-ipum-global-msg");
       if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
 
+      const _pasteRgnI = document.getElementById("pg-global-region-sel")?.value || "";
+      const _pasteStepI = (document.querySelector('input[name="pg-global-step"]:checked') || {}).value || "1";
+      const _sfxI = _pasteStepI === "1" ? "" : _pasteStepI;
+      const _icFI = _sfxI ? `pgIpumCount${_sfxI}` : "pgIpumCount";
+      const _iaFI = _sfxI ? `pgIpumAmt${_sfxI}`   : "pgIpumAmt";
+
+      const searchPool = _pasteRgnI ? state.students.filter((x) => x.region === _pasteRgnI) : state.students;
       const empMap = new Map();
-      state.students.forEach((s) => { if (s.empNo) empMap.set(String(s.empNo).trim(), s); });
+      searchPool.forEach((s) => { if (s.empNo) empMap.set(String(s.empNo).trim(), s); });
 
       const records = [];
       let skipped = 0;
+      const crossRegionItemsI = [];
+      const crossRegionDataI = new Map();
       txt.split(/\r?\n/).forEach((line) => {
         const parts = line.trim().split(/[\t\s]+/).map((p) => p.replace(/,/g, "").trim()).filter(Boolean);
         if (parts.length < 3) return;
@@ -7042,11 +7136,26 @@ ${piPagesHtml}`;
         if (isNaN(count) || isNaN(amt)) return;
         const s = empMap.get(rawEmp);
         if (s) {
-          records.push({ ...s, ipumCount: count, ipumAmt: amt });
+          records.push({ ...s, [_icFI]: count, [_iaFI]: amt });
         } else {
-          skipped++;
+          const elsewhere = _pasteRgnI ? state.students.find((x) => x.empNo === rawEmp && x.region !== _pasteRgnI) : null;
+          if (elsewhere) {
+            crossRegionItemsI.push({ empNo: rawEmp, name: elsewhere.name, otherRegion: elsewhere.region, student: elsewhere });
+            crossRegionDataI.set(rawEmp, { count, amt });
+          } else {
+            skipped++;
+          }
         }
       });
+      if (crossRegionItemsI.length > 0) {
+        const doSave = await openCrossRegionModal(crossRegionItemsI);
+        if (doSave) {
+          crossRegionItemsI.forEach(({ empNo, student }) => {
+            const d = crossRegionDataI.get(empNo);
+            if (d) records.push({ ...student, [_icFI]: d.count, [_iaFI]: d.amt });
+          });
+        }
+      }
 
       if (records.length === 0) {
         if (m) { m.textContent = `❌ 매칭된 사번 없음 (미매칭 ${skipped}건)。 사번을 확인하세요.`; m.className = "pg-msg err"; }
@@ -7079,15 +7188,16 @@ ${piPagesHtml}`;
       const txt = $("#pg-progress-paste").value.trim();
       const m = $("#pg-progress-paste-msg");
       // 기수 선택을 루프 전에 먼저 검증 — 기수 미선택 시 데이터가 엉뚱한 기수에 저장되는 것을 방지
-      const _cohort = $("#pg-paste-cohort-sel")?.value || "";
+      const _cohort = document.getElementById("pg-global-cohort-sel")?.value || "";
       if (!_cohort) {
         if (m) { m.textContent = "❌ 기수를 먼저 선택하세요."; m.className = "pg-msg err"; }
         toast("기수를 선택한 뒤 저장하세요.", "error");
         return;
       }
+      const _pasteRgnP = document.getElementById("pg-global-region-sel")?.value || "";
       if (!txt) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
 
-      const pasteStepVal = (root.querySelector('input[name="pg-progress-paste-step"]:checked') || {}).value || "1";
+      const pasteStepVal = (root.querySelector('input[name="pg-global-step"]:checked') || {}).value || "1";
       const sfxOverride  = pasteStepVal === "1" ? "" : pasteStepVal;
 
       const lines = txt.split(/\r?\n/).filter((l) => l.trim());
@@ -7158,6 +7268,8 @@ ${piPagesHtml}`;
       const updateRecords   = [];
       const newRecords      = [];
       const cohortMismatch  = []; // 다른 기수에 등록된 사번 — 저장 대상에서 제외
+      const crossRegionItemsP = []; // 다른 지역단에 있는 사번
+      const crossRegionDataP = new Map(); // empNo → parsed data
 
       dataLines.forEach((line) => {
         const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
@@ -7178,68 +7290,139 @@ ${piPagesHtml}`;
         const pgIpumCount = getAmt(p, "pgIpumCount");
         const pgIpumAmt   = getAmt(p, "pgIpumAmt");
 
-        // 기수 필터: 선택한 기수와 일치하는 학생만 매칭
-        const existing = state.students.find((x) => x.empNo === empNo && (!_cohort || !x.cohort || x.cohort === _cohort));
-        // 동일 사번이 다른 기수에 등록되어 있으면 건너뜀 (데이터 혼재 방지)
-        if (!existing && state.students.some((x) => x.empNo === empNo)) {
-          cohortMismatch.push(empNo);
+        // 지역단+기수 필터: 선택한 지역단(없으면 전체)과 기수에 일치하는 학생만 매칭
+        const regionFilter = (x) => !_pasteRgnP || x.region === _pasteRgnP;
+        const cohortFilter = (x) => !_cohort || !x.cohort || x.cohort === _cohort;
+        const existing = state.students.find((x) => x.empNo === empNo && regionFilter(x) && cohortFilter(x));
+
+        if (!existing) {
+          // 다른 기수에 있는지 확인 (동일 지역단 내)
+          if (_pasteRgnP && state.students.some((x) => x.empNo === empNo && x.region === _pasteRgnP && !cohortFilter(x))) {
+            cohortMismatch.push(empNo);
+            return;
+          }
+          // 다른 지역단에 있는지 확인
+          const elsewhere = _pasteRgnP ? state.students.find((x) => x.empNo === empNo && x.region !== _pasteRgnP && cohortFilter(x)) : null;
+          if (elsewhere) {
+            crossRegionItemsP.push({ empNo, name: elsewhere.name, otherRegion: elsewhere.region, student: elsewhere });
+            crossRegionDataP.set(empNo, { region, center, branch, name, pgMonth, pgLeader, pgPreIns, pgPreConv, pgPreIncome, pgBase, pgCurrent, pgIpumCount, pgIpumAmt, p });
+            return;
+          }
+          // 전혀 없으면 기수 불일치 처리 (동일 사번이 다른 기수에 있으면 건너뜀)
+          if (state.students.some((x) => x.empNo === empNo)) {
+            cohortMismatch.push(empNo);
+            return;
+          }
+          // 신규 학생 — newRecords에 추가
+          const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
+          const sfxN = sfxOverride;
+          const pgFieldsNew = {};
+          if (fieldMapping.includes("pgCurrent"))   pgFieldsNew[`pgCurrent${sfxN}`]   = pgCurrent;
+          if (fieldMapping.includes("pgIpumCount")) pgFieldsNew[`pgIpumCount${sfxN}`] = pgIpumCount;
+          if (fieldMapping.includes("pgIpumAmt"))   pgFieldsNew[`pgIpumAmt${sfxN}`]   = pgIpumAmt;
+          const baseFieldsNew = isCombinedFormat
+            ? { base: pgBase }
+            : { base: pgBase, current: pgCurrent, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt };
+          newRecords.push({ region, center, branch, cohort: _cohort, empNo, name, ...pgFieldsNew, ...baseFieldsNew, target: newTarget });
           return;
         }
 
-        let pgFields, baseUpdate;
-        if (isCombinedFormat) {
-          // Step2 복합 형식: 원본 열 위치로 step2 필드 추출 (드롭다운에 Step2 항목 없으므로)
-          pgFields = {
-            pgCurrent2:   getOrigAmt(p, "pgCurrent2"),
-            pgIpumCount2: getOrigAmt(p, "pgIpumCount2"),
-            pgIpumAmt2:   getOrigAmt(p, "pgIpumAmt2"),
-          };
-          if (fieldMapping.includes("pgMonth"))  pgFields.pgMonth  = pgMonth;
-          if (fieldMapping.includes("pgLeader")) pgFields.pgLeader = pgLeader;
-          baseUpdate = pgBase > 0 ? { base: pgBase } : {};
-        } else {
-          // 단일 스텝 형식 — 매핑에 있는 열만 저장 (없는 열은 기존 값 유지)
-          const sfx = sfxOverride;
-          pgFields = {};
-          if (fieldMapping.includes("pgBase"))       baseUpdate = pgBase > 0 ? { base: pgBase } : {};
-          if (fieldMapping.includes("pgCurrent"))    pgFields[`pgCurrent${sfx}`]   = pgCurrent;
-          if (fieldMapping.includes("pgIpumCount"))  pgFields[`pgIpumCount${sfx}`] = pgIpumCount;
-          if (fieldMapping.includes("pgIpumAmt"))    pgFields[`pgIpumAmt${sfx}`]   = pgIpumAmt;
-          if (fieldMapping.includes("pgPreIns"))     pgFields.pgPreIns    = pgPreIns;
-          if (fieldMapping.includes("pgPreConv"))    pgFields.pgPreConv   = pgPreConv;
-          if (fieldMapping.includes("pgPreIncome"))  pgFields.pgPreIncome = pgPreIncome;
-          if (fieldMapping.includes("pgMonth"))      pgFields.pgMonth     = pgMonth;
-          if (fieldMapping.includes("pgLeader"))     pgFields.pgLeader    = pgLeader;
-          if (!baseUpdate) baseUpdate = {};
-          if (sfx === "" && pgBase > 0 && fieldMapping.includes("pgCurrent")) {
-            baseUpdate = { ...baseUpdate, current: pgCurrent };
+        const _buildPgFields = (pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgMonth, pgLeader, pgPreIns, pgPreConv, pgPreIncome) => {
+          let pgFields, baseUpdate;
+          if (isCombinedFormat) {
+            pgFields = {
+              pgCurrent2:   getOrigAmt(p, "pgCurrent2"),
+              pgIpumCount2: getOrigAmt(p, "pgIpumCount2"),
+              pgIpumAmt2:   getOrigAmt(p, "pgIpumAmt2"),
+            };
+            if (fieldMapping.includes("pgMonth"))  pgFields.pgMonth  = pgMonth;
+            if (fieldMapping.includes("pgLeader")) pgFields.pgLeader = pgLeader;
+            baseUpdate = pgBase > 0 ? { base: pgBase } : {};
+          } else {
+            const sfx = sfxOverride;
+            pgFields = {};
+            if (fieldMapping.includes("pgBase"))       baseUpdate = pgBase > 0 ? { base: pgBase } : {};
+            if (fieldMapping.includes("pgCurrent"))    pgFields[`pgCurrent${sfx}`]   = pgCurrent;
+            if (fieldMapping.includes("pgIpumCount"))  pgFields[`pgIpumCount${sfx}`] = pgIpumCount;
+            if (fieldMapping.includes("pgIpumAmt"))    pgFields[`pgIpumAmt${sfx}`]   = pgIpumAmt;
+            if (fieldMapping.includes("pgPreIns"))     pgFields.pgPreIns    = pgPreIns;
+            if (fieldMapping.includes("pgPreConv"))    pgFields.pgPreConv   = pgPreConv;
+            if (fieldMapping.includes("pgPreIncome"))  pgFields.pgPreIncome = pgPreIncome;
+            if (fieldMapping.includes("pgMonth"))      pgFields.pgMonth     = pgMonth;
+            if (fieldMapping.includes("pgLeader"))     pgFields.pgLeader    = pgLeader;
+            if (!baseUpdate) baseUpdate = {};
+            if (sfx === "" && pgBase > 0 && fieldMapping.includes("pgCurrent")) {
+              baseUpdate = { ...baseUpdate, current: pgCurrent };
+            }
           }
-        }
+          return { pgFields, baseUpdate };
+        };
 
-        if (existing) {
-          const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
-          const nameUpdate   = name   ? { name }   : {};
-          const regionUpdate = region ? { region } : {};
-          const centerUpdate = center ? { center } : {};
-          const branchUpdate = branch ? { branch } : {};
-          updateRecords.push({ ...existing, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
-        } else {
-          const newTarget = region !== "호남지역단" && pgBase > 0 ? pgBase + 50000 : 0;
-          const baseFields = isCombinedFormat
-            ? { base: pgBase }
-            : { base: pgBase, current: pgCurrent, ipumCount: pgIpumCount, ipumAmt: pgIpumAmt };
-          newRecords.push({ region, center, branch, cohort: _cohort, empNo, name, ...pgFields, ...baseFields, target: newTarget });
-        }
+        const { pgFields, baseUpdate } = _buildPgFields(pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgMonth, pgLeader, pgPreIns, pgPreConv, pgPreIncome);
+
+        const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
+        const nameUpdate   = name   ? { name }   : {};
+        const regionUpdate = region ? { region } : {};
+        const centerUpdate = center ? { center } : {};
+        const branchUpdate = branch ? { branch } : {};
+        updateRecords.push({ ...existing, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
       });
 
+      // 타 지역단 경고
+      if (crossRegionItemsP.length > 0) {
+        const doSave = await openCrossRegionModal(crossRegionItemsP);
+        if (doSave) {
+          crossRegionItemsP.forEach(({ empNo, student }) => {
+            const d = crossRegionDataP.get(empNo);
+            if (!d) return;
+            const { pgFields, baseUpdate } = (() => {
+              let pgFields2, baseUpdate2;
+              if (isCombinedFormat) {
+                pgFields2 = {
+                  pgCurrent2:   getOrigAmt(d.p, "pgCurrent2"),
+                  pgIpumCount2: getOrigAmt(d.p, "pgIpumCount2"),
+                  pgIpumAmt2:   getOrigAmt(d.p, "pgIpumAmt2"),
+                };
+                if (fieldMapping.includes("pgMonth"))  pgFields2.pgMonth  = d.pgMonth;
+                if (fieldMapping.includes("pgLeader")) pgFields2.pgLeader = d.pgLeader;
+                baseUpdate2 = d.pgBase > 0 ? { base: d.pgBase } : {};
+              } else {
+                const sfx = sfxOverride;
+                pgFields2 = {};
+                if (fieldMapping.includes("pgBase"))       baseUpdate2 = d.pgBase > 0 ? { base: d.pgBase } : {};
+                if (fieldMapping.includes("pgCurrent"))    pgFields2[`pgCurrent${sfx}`]   = d.pgCurrent;
+                if (fieldMapping.includes("pgIpumCount"))  pgFields2[`pgIpumCount${sfx}`] = d.pgIpumCount;
+                if (fieldMapping.includes("pgIpumAmt"))    pgFields2[`pgIpumAmt${sfx}`]   = d.pgIpumAmt;
+                if (fieldMapping.includes("pgPreIns"))     pgFields2.pgPreIns    = d.pgPreIns;
+                if (fieldMapping.includes("pgPreConv"))    pgFields2.pgPreConv   = d.pgPreConv;
+                if (fieldMapping.includes("pgPreIncome"))  pgFields2.pgPreIncome = d.pgPreIncome;
+                if (fieldMapping.includes("pgMonth"))      pgFields2.pgMonth     = d.pgMonth;
+                if (fieldMapping.includes("pgLeader"))     pgFields2.pgLeader    = d.pgLeader;
+                if (!baseUpdate2) baseUpdate2 = {};
+                if (sfx === "" && d.pgBase > 0 && fieldMapping.includes("pgCurrent")) {
+                  baseUpdate2 = { ...baseUpdate2, current: d.pgCurrent };
+                }
+              }
+              return { pgFields: pgFields2, baseUpdate: baseUpdate2 };
+            })();
+            const targetUpdate = (d.region !== "호남지역단" && d.pgBase > 0) ? { target: d.pgBase + 50000 } : {};
+            const nameUpdate   = d.name   ? { name: d.name }     : {};
+            const regionUpdate = d.region ? { region: d.region } : {};
+            const centerUpdate = d.center ? { center: d.center } : {};
+            const branchUpdate = d.branch ? { branch: d.branch } : {};
+            updateRecords.push({ ...student, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
+          });
+        }
+      }
+
       if (updateRecords.length === 0 && newRecords.length === 0) {
-        const mismatchHint = cohortMismatch.length ? ` (${cohortMismatch.length}건은 다른 기수 학생으로 건너뜀)` : "";
+        const mismatchHint = cohortMismatch.length ? ` (${cohortMismatch.length}건은 다른 기수/지역단 학생으로 건너뜀)` : "";
         if (m) { m.textContent = `❌ 파싱된 행이 없습니다. 사원번호 열 매핑을 확인하세요.${mismatchHint}`; m.className = "pg-msg err"; }
         return;
       }
 
       // ── 최종 저장 확인 ────────────────────────────────────────────
-      const _region = state.filter.region || "?";
+      const _region = _pasteRgnP || "전체";
       if (!await openPasteSaveConfirmModal(_region, _cohort, pasteStepVal, updateRecords, newRecords)) return;
 
       // 저장 — 진행 상황 실시간 표시
@@ -7278,7 +7461,7 @@ ${piPagesHtml}`;
           let msgTxt = committed > 0 ? `✅ ${committed}명 저장 완료` : `❌ 저장된 건 없음`;
           if (saveErrors.length) msgTxt += ` (오류 ${saveErrors.length}건: ${(saveErrors[0]?.message || "").slice(0, 40)})`;
           if (newRecords.length) msgTxt += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
-          if (cohortMismatch.length) msgTxt += ` · 기수 불일치 ${cohortMismatch.length}건 제외`;
+          if (cohortMismatch.length) msgTxt += ` · 기수/지역단 불일치 ${cohortMismatch.length}건 제외`;
           setMsg(msgTxt, (committed === 0 || saveErrors.length) ? "pg-msg err" : "pg-msg ok");
           setTimeout(() => { if (m) m.textContent = ""; }, 15000);
           toast(`${committed}명 실적진도현황 저장`, committed > 0 ? "success" : "error");
@@ -9585,7 +9768,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
