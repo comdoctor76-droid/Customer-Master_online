@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.14";
+  const APP_VERSION = "2.15";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5696,11 +5696,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 #pg-print-overlay .pg-b-no     { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
 #pg-print-overlay .pg-rank-notice { font-size:11px;color:#d97706;margin-bottom:4px;padding:3px 6px;background:#fffbeb;border-radius:3px; }
 #pg-print-overlay .pg-tbl-wrap, #pg-print-overlay .pg-tbl-scroll { overflow:visible!important; }
-/* ── 사진저장 모드: 폰트 +4px, 너비 828px 고정 ── */
+/* ── 사진저장 모드: 폰트 +4px ── */
 #pg-print-overlay.pp-img-mode { font-size:18px!important; }
 #pg-print-overlay.pp-img-mode table { font-size:17px!important; }
 #pg-print-overlay.pp-img-mode th,
 #pg-print-overlay.pp-img-mode td { font-size:17px!important; padding:5px 6px!important; }
+#pg-print-overlay.pp-img-mode .pg-tbl-wrap { overflow:visible!important; overflow-x:visible!important; }
+#pg-print-overlay.pp-img-mode #pp-page2 table { table-layout:auto!important; }
+#pg-print-overlay.pp-img-mode #pp-page2 th,
+#pg-print-overlay.pp-img-mode #pp-page2 td { white-space:nowrap!important; overflow:visible!important; }
 @media print {
   html, body { overflow:visible!important; height:auto!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body > * { display:none!important; }
@@ -5746,6 +5750,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 }`;
     document.head.appendChild(stel);
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const canShare = !!(navigator.share);
     const ckS = "display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;color:#e2e8f0;user-select:none;";
     const overlay = document.createElement("div");
@@ -5755,7 +5760,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 <div id="pg-print-ctrl" style="position:sticky;top:0;z-index:1000;background:#1e293b;color:#fff;padding:9px 16px;">
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <span style="flex:1;font-weight:700;font-size:14px;">🖨️ ${escapeHtml(title)} — ${today}</span>
-    <button id="btn-pp-print" style="background:#3b82f6;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">🖨️ 인쇄 / PDF 저장</button>
+    <button id="btn-pp-print" style="background:${isMobile ? '#f97316' : '#3b82f6'};color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">${isMobile ? '📤 카카오톡 공유' : '🖨️ 인쇄 / PDF 저장'}</button>
     <button id="btn-pp-save-img" style="background:#22c55e;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">📷 사진저장</button>
     ${canShare ? `<button id="btn-pg-share-print" style="background:#ffd700;color:#381f00;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">💬 카카오톡 공유</button>` : ""}
     <button id="btn-pp-close" style="background:#475569;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">✕ 닫기</button>
@@ -5812,9 +5817,45 @@ ${hasRate || hasAmt || hasGrp ? `
 
     document.body.appendChild(overlay);
 
-    // ── 인쇄 버튼: @media print CSS 가 오버레이 표시·body 숨김을 전담 ──
-    document.getElementById("btn-pp-print")?.addEventListener("click", () => {
-      window.print();
+    // ── 인쇄 / PDF 저장 버튼 (모바일: html2canvas 캡처 → 카카오톡 공유) ──
+    document.getElementById("btn-pp-print")?.addEventListener("click", async () => {
+      if (!isMobile) { window.print(); return; }
+      const ov   = document.getElementById("pg-print-overlay");
+      const ctrl = document.getElementById("pg-print-ctrl");
+      if (!ov) return;
+      if (typeof html2canvas !== "function") { toast("캡처 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도하세요.", "error"); return; }
+      const savedStyle = ov.style.cssText;
+      const savedCtrl  = ctrl ? ctrl.style.display : "";
+      const restore = () => { ov.style.cssText = savedStyle; ov.classList.remove("pp-img-mode"); if (ctrl) ctrl.style.display = savedCtrl; };
+      try {
+        toast("이미지를 준비 중입니다…", "info");
+        ov.style.cssText = "position:static;height:auto;overflow:visible;background:#fff;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111;min-width:828px;";
+        ov.classList.add("pp-img-mode");
+        if (ctrl) ctrl.style.display = "none";
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const captureW = Math.max(828, ov.scrollWidth);
+        ov.style.width = captureW + "px";
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const canvas = await html2canvas(ov, {
+          scale: 2, useCORS: true, backgroundColor: "#ffffff",
+          width: captureW, height: ov.scrollHeight,
+          scrollX: 0, scrollY: 0,
+          windowWidth: captureW, windowHeight: ov.scrollHeight,
+        });
+        restore();
+        canvas.toBlob(async (blob) => {
+          if (!blob) { toast("이미지 변환에 실패했습니다.", "error"); return; }
+          const file = new File([blob], `${title}_${today}.png`, { type: "image/png" });
+          if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title: `${title} 실적진도`, text: `${today} 기준 실적진도` }); }
+            catch(e) { if (e.name !== "AbortError") toast("공유에 실패했습니다.", "error"); }
+          } else if (navigator.share) {
+            navigator.share({ title: `${title} 실적진도`, text: `${today} 기준 실적진도`, url: shareUrl }).catch(() => {});
+          } else {
+            const link = document.createElement("a"); link.download = `${title}_${today}.png`; link.href = canvas.toDataURL("image/png"); link.click();
+          }
+        }, "image/png");
+      } catch(e) { restore(); toast("이미지 준비에 실패했습니다.", "error"); console.error(e); }
     });
 
     // ── 사진저장 버튼: html2canvas 캡처 → PNG 다운로드 ──
@@ -5831,17 +5872,20 @@ ${hasRate || hasAmt || hasGrp ? `
         if (ctrl) ctrl.style.display = savedCtrl;
       };
       try {
-        // 세로 고정 너비(828px ≈ A4 portrait) + pp-img-mode로 폰트 +4px
+        // A4 portrait 기준 + pp-img-mode 폰트 +4px; overflow:visible로 테이블 잘림 방지
         ov.style.cssText = "position:static;height:auto;overflow:visible;background:#fff;" +
-          "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111;width:828px;";
+          "font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#111;min-width:828px;";
         ov.classList.add("pp-img-mode");
         if (ctrl) ctrl.style.display = "none";
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const captureW = Math.max(828, ov.scrollWidth);
+        ov.style.width = captureW + "px";
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const canvas = await html2canvas(ov, {
           scale: 2, useCORS: true, backgroundColor: "#ffffff",
-          width: ov.scrollWidth, height: ov.scrollHeight,
+          width: captureW, height: ov.scrollHeight,
           scrollX: 0, scrollY: 0,
-          windowWidth: ov.scrollWidth, windowHeight: ov.scrollHeight,
+          windowWidth: captureW, windowHeight: ov.scrollHeight,
         });
         restore();
         const link = document.createElement("a");
@@ -9495,7 +9539,7 @@ ${hasRate || hasAmt || hasGrp ? `
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
