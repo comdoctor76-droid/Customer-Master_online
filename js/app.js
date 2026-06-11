@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.16";
+  const APP_VERSION = "2.17";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6691,13 +6691,20 @@ ${piPagesHtml}`;
                 <th>#</th><th>지점</th><th>성명</th>
                 <th>신상품 계약건</th><th>신상품 실적(원)</th>
               </tr></thead>
-              <tbody>${rows.map((s, i) => `<tr>
+              <tbody>${rows.map((s, i) => {
+                const _sfx2   = _pgStepSfx();
+                const _iCnt2  = Number(s[`pgIpumCount${_sfx2}`] || 0);
+                const _iAmt2  = Number(s[`pgIpumAmt${_sfx2}`]   || 0);
+                const _icF    = _sfx2 ? `pgIpumCount${_sfx2}` : 'pgIpumCount';
+                const _iaF    = _sfx2 ? `pgIpumAmt${_sfx2}`   : 'pgIpumAmt';
+                return `<tr>
                 <td>${i + 1}</td>
                 <td>${escapeHtml(s.branch || "")}</td>
                 <td><strong>${escapeHtml(s.name || "")}</strong></td>
-                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumCount" value="${Number(s.ipumCount || 0)}" min="0"></td>
-                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="ipumAmt" value="${Number(s.ipumAmt || 0)}" min="0"></td>
-              </tr>`).join("")}</tbody>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="${_icF}" value="${_iCnt2}" min="0"></td>
+                <td><input type="number" class="pg-input" data-emp="${escapeHtml(s.empNo)}" data-f2="${_iaF}" value="${_iAmt2}" min="0"></td>
+              </tr>`;
+              }).join("")}</tbody>
             </table></div>
             <div class="pg-actions" style="margin-top:12px;">
               <button class="btn-primary" id="btn-pg-ipum-save">💾 인품 저장 (Firestore)</button>
@@ -7292,15 +7299,20 @@ ${piPagesHtml}`;
     });
 
     // 인품 테이블 ↔ 메인 테이블 동기화 (같은 empNo 의 두 입력을 동시 반영)
+    // data-f2 → data-f 방향 (인품 전용 테이블 → 메인 테이블)
     root.querySelectorAll(".pg-input[data-f2]").forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
-        const f = e.target.dataset.f2; // "ipumCount" or "ipumAmt"
+        const f = e.target.dataset.f2; // e.g. "pgIpumCount2"
         const twin = root.querySelector(`.pg-input[data-emp="${emp}"][data-f="${f}"]`);
         if (twin) twin.value = e.target.value;
       });
     });
-    root.querySelectorAll(".pg-input[data-f='ipumCount'], .pg-input[data-f='ipumAmt']").forEach((inp) => {
+    // data-f → data-f2 방향 (메인 테이블 → 인품 전용 테이블) — step-aware 필드명으로 역방향 탐색
+    const _sfxSync = _pgStepSfx();
+    const _icFSync = _sfxSync ? `pgIpumCount${_sfxSync}` : 'pgIpumCount';
+    const _iaFSync = _sfxSync ? `pgIpumAmt${_sfxSync}`   : 'pgIpumAmt';
+    root.querySelectorAll(`.pg-input[data-f="${_icFSync}"], .pg-input[data-f="${_iaFSync}"]`).forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const emp = e.target.dataset.emp;
         const f = e.target.dataset.f;
@@ -7325,9 +7337,12 @@ ${piPagesHtml}`;
         if (isNaN(count) || isNaN(amt)) return;
         const s = empMap.get(rawEmp);
         if (s) {
+          const _sfx3  = _pgStepSfx();
+          const _icF3  = _sfx3 ? `pgIpumCount${_sfx3}` : 'pgIpumCount';
+          const _iaF3  = _sfx3 ? `pgIpumAmt${_sfx3}`   : 'pgIpumAmt';
           ["f2", "f"].forEach((attr) => {
-            const cEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="ipumCount"]`);
-            const aEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="ipumAmt"]`);
+            const cEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="${_icF3}"]`);
+            const aEl = document.querySelector(`.pg-input[data-emp="${s.empNo}"][data-${attr}="${_iaF3}"]`);
             if (cEl) cEl.value = count;
             if (aEl) aEl.value = amt;
           });
@@ -7352,9 +7367,12 @@ ${piPagesHtml}`;
     const ipumPasteClear = $("#btn-pg-ipum-paste-clear");
     if (ipumPasteClear) ipumPasteClear.addEventListener("click", () => { $("#pg-ipum-paste").value = ""; });
 
-    // 인품 전용 저장 (ipumCount/ipumAmt 만 업데이트)
+    // 인품 전용 저장 (pgIpumCount${sfx} / pgIpumAmt${sfx} step-aware 필드 업데이트)
     const ipumSaveBtn = $("#btn-pg-ipum-save");
     if (ipumSaveBtn) ipumSaveBtn.addEventListener("click", async () => {
+      const _sfxSave = _pgStepSfx();
+      const _icFS = _sfxSave ? `pgIpumCount${_sfxSave}` : 'pgIpumCount';
+      const _iaFS = _sfxSave ? `pgIpumAmt${_sfxSave}`   : 'pgIpumAmt';
       const updates = {};
       root.querySelectorAll(".pg-input[data-f2]").forEach((inp) => {
         const emp = inp.dataset.emp;
@@ -7369,12 +7387,12 @@ ${piPagesHtml}`;
       Object.keys(updates).forEach((emp) => {
         const s = state.students.find((x) => x.empNo === emp);
         if (!s) return;
-        const newCount = Number(updates[emp].ipumCount || 0);
-        const newAmt = Number(updates[emp].ipumAmt || 0);
-        const oldCount = Number(s.ipumCount || 0);
-        const oldAmt = Number(s.ipumAmt || 0);
+        const newCount = Number(updates[emp][_icFS] || 0);
+        const newAmt = Number(updates[emp][_iaFS] || 0);
+        const oldCount = Number(s[_icFS] || 0);
+        const oldAmt = Number(s[_iaFS] || 0);
         if (newCount !== oldCount || newAmt !== oldAmt) {
-          changedRecords.push({ ...s, ipumCount: newCount, ipumAmt: newAmt });
+          changedRecords.push({ ...s, [_icFS]: newCount, [_iaFS]: newAmt });
         }
       });
       if (!changedRecords.length) {
@@ -9567,7 +9585,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
