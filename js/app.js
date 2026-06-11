@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.12";
+  const APP_VERSION = "2.13";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5668,11 +5668,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         <td style="padding:3px 4px;font-weight:${i < 3 ? "700" : "400"};white-space:nowrap;">${escapeHtml(st.s.name || "")}</td>
         <td style="padding:3px 4px;color:#475569;white-space:nowrap;">${escapeHtml(st.s.branch || "")}</td>
         <td style="padding:3px 4px;text-align:right;white-space:nowrap;">${Nf(st.base)}</td>
-        <td style="padding:3px 4px;text-align:right;background:#eff6ff;color:#1e40af;font-weight:700;white-space:nowrap;">${tgt > 0 ? Nf(tgt) : '<span style="color:#9ca3af">미설정</span>'}</td>
         <td style="padding:3px 4px;text-align:right;white-space:nowrap;">${Nf(st.current)}</td>
+        <td style="padding:3px 4px;text-align:right;background:#eff6ff;color:#1e40af;font-weight:700;white-space:nowrap;">${tgt > 0 ? Nf(tgt) : '<span style="color:#9ca3af">미설정</span>'}</td>
         <td style="padding:3px 4px;text-align:right;background:${achBg};color:${achClr};font-weight:800;white-space:nowrap;">${achStr}</td>
         <td style="padding:3px 4px;text-align:right;color:${remClr};font-weight:700;white-space:nowrap;">${remStr}</td>
-        <td style="padding:3px 4px;text-align:right;color:${netClr};font-weight:600;white-space:nowrap;">${(st.net >= 0 ? "+" : "") + Nf(st.net)}</td>
         <td style="padding:3px 4px;vertical-align:top;">${awCol}</td>
       </tr>`;
     }).join("");
@@ -5715,12 +5714,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   #pp-page1 h1 { font-size:13px!important; margin:0!important; padding-bottom:4px!important; }
   #pp-page1 small { font-size:9px!important; }
   #pp-page1 .pg-rank-notice { font-size:9px!important; padding:1px 4px!important; margin-bottom:2px!important; }
-  #pp-page1 .pg-tbl { width:100%!important; table-layout:fixed!important; border-collapse:collapse!important; }
-  #pp-page1 .pg-tbl th, #pp-page1 .pg-tbl td { white-space:nowrap!important; overflow:hidden!important; }
+  #pp-page1 .pg-tbl { width:100%!important; table-layout:auto!important; border-collapse:collapse!important; }
+  #pp-page1 .pg-tbl th, #pp-page1 .pg-tbl td { white-space:nowrap!important; overflow:visible!important; }
 
-  /* 1개 섹션: 전체 너비, 큰 폰트 */
-  #pp-page1.pp-sect1 h3 { font-size:13px!important; padding:4px 9px!important; margin-bottom:5px!important; }
-  #pp-page1.pp-sect1 .pg-tbl th, #pp-page1.pp-sect1 .pg-tbl td { font-size:14px!important; padding:4px 8px!important; }
+  /* 1개 섹션: 그리드 해제 → 블록으로 100% 너비 꽉 채움, 자동 폰트 스케일 */
+  #pp-page1.pp-sect1 .award-grid { display:block!important; width:100%!important; }
+  #pp-page1.pp-sect1 .award-grid > div { width:100%!important; }
+  #pp-page1.pp-sect1 h3 { font-size:14px!important; padding:5px 10px!important; margin-bottom:6px!important; }
+  #pp-page1.pp-sect1 .pg-tbl th, #pp-page1.pp-sect1 .pg-tbl td { font-size:14px!important; padding:5px 10px!important; }
 
   /* 2개 섹션: 2단 나란히, 중간 폰트 */
   #pp-page1.pp-sect2 .award-grid { grid-template-columns:1fr 1fr!important; }
@@ -5733,13 +5734,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   #pp-page1.pp-sect3 h3 { font-size:10px!important; padding:2px 6px!important; margin-bottom:3px!important; }
   #pp-page1.pp-sect3 .pg-tbl th, #pp-page1.pp-sect3 .pg-tbl td { font-size:10px!important; padding:2px 4px!important; }
 
-  /* ── 개인실적 페이지: 폰트 +3px (11→14), 줄바꿈 없이 한 장 ── */
+  /* ── 개인실적 페이지: 폰트 14px, 줄바꿈 없이 한 장 ── */
   #pp-page2 { padding:4mm 8mm 3mm!important; }
   #pp-page2 h1 { font-size:13px!important; margin:0!important; padding-bottom:4px!important; }
   #pp-page2 small { font-size:9px!important; }
   #pp-page2 .pp-legend { font-size:9px!important; margin-bottom:4px!important; }
-  #pp-page2 table { font-size:14px!important; }
-  #pp-page2 th, #pp-page2 td { padding:3px 5px!important; font-size:14px!important; white-space:nowrap!important; overflow:hidden!important; }
+  #pp-page2 table { font-size:14px!important; table-layout:auto!important; }
+  #pp-page2 th, #pp-page2 td { padding:3px 5px!important; font-size:14px!important; white-space:nowrap!important; overflow:visible!important; }
 }`;
     document.head.appendChild(stel);
 
@@ -5789,31 +5790,18 @@ ${hasRate || hasAmt || hasGrp ? `
     <small style="font-size:11px;color:#64748b;">기준일: ${today} · 전 ${stats.length}명</small>
   </div>
   <div class="pp-legend" style="font-size:10px;color:#64748b;margin-bottom:5px;">» 달성률 = 현재실적 ÷ 마스터목표 &nbsp;|  남은금액 = 목표 − 현재 (✓ = 달성)</div>
-  <table style="width:100%;border-collapse:collapse;font-size:15px;table-layout:fixed;">
-    <colgroup>
-      <col style="width:24px">
-      <col style="width:46px">
-      <col style="width:60px">
-      <col style="width:70px">
-      <col style="width:72px">
-      <col style="width:70px">
-      <col style="width:54px">
-      <col style="width:70px">
-      <col style="width:65px">
-      <col style="min-width:90px">
-    </colgroup>
+  <table style="width:100%;border-collapse:collapse;font-size:15px;">
     <thead>
       <tr style="background:#1e293b;color:#fff;">
         <th style="padding:4px 3px;text-align:center;white-space:nowrap;">#</th>
-        <th style="padding:4px 4px;white-space:nowrap;">성명</th>
-        <th style="padding:4px 4px;white-space:nowrap;">지점</th>
-        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">기준실적</th>
-        <th style="padding:4px 4px;text-align:right;background:#1e40af;white-space:nowrap;">🎯마스터목표</th>
-        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">현재실적</th>
-        <th style="padding:4px 4px;text-align:right;background:#166534;white-space:nowrap;">✅달성률</th>
-        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">남은금액</th>
-        <th style="padding:4px 4px;text-align:right;white-space:nowrap;">순증</th>
-        <th style="padding:4px 4px;white-space:nowrap;">개인시상</th>
+        <th style="padding:4px 6px;white-space:nowrap;">성명</th>
+        <th style="padding:4px 6px;white-space:nowrap;">지점</th>
+        <th style="padding:4px 6px;text-align:right;white-space:nowrap;">기준실적</th>
+        <th style="padding:4px 6px;text-align:right;white-space:nowrap;">현재실적</th>
+        <th style="padding:4px 6px;text-align:right;background:#1e40af;white-space:nowrap;">🎯마스터목표</th>
+        <th style="padding:4px 6px;text-align:right;background:#166534;white-space:nowrap;">✅달성률</th>
+        <th style="padding:4px 6px;text-align:right;white-space:nowrap;">남은금액</th>
+        <th style="padding:4px 6px;white-space:nowrap;">개인시상</th>
       </tr>
     </thead>
     <tbody>${piRows}</tbody>
@@ -9505,7 +9493,7 @@ ${hasRate || hasAmt || hasGrp ? `
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
