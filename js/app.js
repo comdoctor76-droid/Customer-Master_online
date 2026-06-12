@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.18";
+  const APP_VERSION = "2.19";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6666,11 +6666,11 @@ ${piPagesHtml}`;
         <details class="pg-accordion">
           <summary>
             <span class="pg-ac-title">✏️ 메인 편집 테이블</span>
-            <span class="pg-ac-sub">— 현재실적 / 인품건 / 인품실적 수정 (${rows.length}명)</span>
+            <span class="pg-ac-sub" id="pg-main-tbl-sub">— 현재실적 / 인품건 / 인품실적 수정 (${rows.length}명)</span>
             <span class="pg-ac-chev">▾</span>
           </summary>
           <div class="pg-ac-body">
-            <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl">
+            <div class="pg-tbl-wrap"><table class="pg-tbl pg-admin-tbl" id="pg-main-edit-tbl">
               <thead><tr>
                 <th>#</th><th>지점</th><th>성명</th>
                 <th>기준실적(원)</th><th>장기하이캡(원)</th><th>현재실적(원)</th><th>달성률</th><th>순증</th>
@@ -6686,7 +6686,7 @@ ${piPagesHtml}`;
                 const iAmt  = Number(s[`pgIpumAmt${sfx}`]   || 0);
                 const net   = cur - base;
                 const rate  = base > 0 ? (cur / base) * 100 : 0;
-                return `<tr>
+                return `<tr data-cohort="${escapeHtml(s.cohort || '')}" data-region="${escapeHtml(s.region || '')}">
                   <td>${i + 1}</td>
                   <td>${escapeHtml(s.branch || "")}</td>
                   <td><strong>${escapeHtml(s.name || "")}</strong></td>
@@ -6737,7 +6737,7 @@ ${piPagesHtml}`;
                 const _iAmt2  = Number(s[`pgIpumAmt${_sfx2}`]   || 0);
                 const _icF    = _sfx2 ? `pgIpumCount${_sfx2}` : 'pgIpumCount';
                 const _iaF    = _sfx2 ? `pgIpumAmt${_sfx2}`   : 'pgIpumAmt';
-                return `<tr>
+                return `<tr data-cohort="${escapeHtml(s.cohort || '')}" data-region="${escapeHtml(s.region || '')}">
                 <td>${i + 1}</td>
                 <td>${escapeHtml(s.branch || "")}</td>
                 <td><strong>${escapeHtml(s.name || "")}</strong></td>
@@ -6883,6 +6883,35 @@ ${piPagesHtml}`;
     const _globalCohortSel = root.querySelector("#pg-global-cohort-sel");
     if (_globalRegionSel && state.progressRegion) _globalRegionSel.value = state.progressRegion;
     if (_globalCohortSel && state.filter.cohort) _globalCohortSel.value = state.filter.cohort;
+
+    // ── 공통 필터 → 편집 테이블 행 표시/숨김 ─────────────────────────────
+    const _applyEditFilter = () => {
+      const selRegion = _globalRegionSel?.value || "";
+      const selCohort = _globalCohortSel?.value || "";
+      root.querySelectorAll(".pg-admin-tbl tr[data-cohort]").forEach((tr) => {
+        const rowRegion = tr.dataset.region || "";
+        const rowCohort = tr.dataset.cohort || "";
+        tr.hidden = !((!selRegion || rowRegion === selRegion) && (!selCohort || rowCohort === selCohort));
+      });
+      // 메인 편집 테이블 요약 텍스트 업데이트
+      const subEl = root.querySelector("#pg-main-tbl-sub");
+      const mainTbl = root.querySelector("#pg-main-edit-tbl");
+      if (subEl && mainTbl) {
+        const visRows = mainTbl.querySelectorAll("tr[data-cohort]:not([hidden])").length;
+        subEl.textContent = `— 현재실적 / 인품건 / 인품실적 수정 (${visRows}명)`;
+      }
+      // 팀 배정 cohort filter 동기화
+      const teamCohortSel = root.querySelector("#pg-team-cohort-filter");
+      if (teamCohortSel && selCohort !== teamCohortSel.value) {
+        teamCohortSel.value = selCohort;
+        teamCohortSel.dispatchEvent(new Event("change"));
+      }
+    };
+    if (_globalRegionSel) _globalRegionSel.addEventListener("change", _applyEditFilter);
+    if (_globalCohortSel) _globalCohortSel.addEventListener("change", _applyEditFilter);
+    // 초기 적용 (기수가 미리 선택된 경우 필터 반영)
+    if ((state.filter.cohort || "") !== "") _applyEditFilter();
+
     // 실시간 계산 (현재실적 변경 시 달성률/순증 재계산)
     root.querySelectorAll(".pg-input[data-pg-role='current']").forEach((inp) => {
       inp.addEventListener("input", (e) => {
@@ -6900,11 +6929,12 @@ ${piPagesHtml}`;
       });
     });
 
-    // 저장
+    // 저장 (필터로 숨긴 행 제외)
     const saveBtn = $("#btn-pg-save");
     if (saveBtn) saveBtn.addEventListener("click", async () => {
       const updates = {};
-      root.querySelectorAll(".pg-input").forEach((inp) => {
+      root.querySelectorAll(".pg-input[data-f]").forEach((inp) => {
+        if (inp.closest("tr")?.hidden) return; // 숨겨진 행 제외
         const emp = inp.dataset.emp;
         const f = inp.dataset.f;
         if (!updates[emp]) updates[emp] = {};
@@ -7558,6 +7588,7 @@ ${piPagesHtml}`;
       const _iaFS = _sfxSave ? `pgIpumAmt${_sfxSave}`   : 'pgIpumAmt';
       const updates = {};
       root.querySelectorAll(".pg-input[data-f2]").forEach((inp) => {
+        if (inp.closest("tr")?.hidden) return; // 숨겨진 행 제외
         const emp = inp.dataset.emp;
         const f = inp.dataset.f2;
         if (!emp || !f) return;
@@ -9768,7 +9799,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260611g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260612a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
