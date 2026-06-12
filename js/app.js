@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.19";
+  const APP_VERSION = "2.20";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7390,11 +7390,21 @@ ${piPagesHtml}`;
 
         const { pgFields, baseUpdate } = _buildPgFields(pgBase, pgCurrent, pgIpumCount, pgIpumAmt, pgMonth, pgLeader, pgPreIns, pgPreConv, pgPreIncome);
 
+        // 붙여넣기 값이 기존 DB 값의 단축형이면 기존 값을 유지 (예: "수원" → "수원비전센터", "명동" → "명동지점")
+        const _resolveOrg = (pasted, stored) => {
+          if (!pasted) return undefined;
+          if (!stored) return pasted;
+          if (stored.startsWith(pasted) && stored.length > pasted.length) return stored;
+          return pasted;
+        };
         const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
         const nameUpdate   = name   ? { name }   : {};
-        const regionUpdate = region ? { region } : {};
-        const centerUpdate = center ? { center } : {};
-        const branchUpdate = branch ? { branch } : {};
+        const resolvedRegion = _resolveOrg(region, existing.region);
+        const resolvedCenter = _resolveOrg(center, existing.center);
+        const resolvedBranch = _resolveOrg(branch, existing.branch);
+        const regionUpdate = resolvedRegion ? { region: resolvedRegion } : {};
+        const centerUpdate = resolvedCenter ? { center: resolvedCenter } : {};
+        const branchUpdate = resolvedBranch ? { branch: resolvedBranch } : {};
         updateRecords.push({ ...existing, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
       });
 
@@ -7437,9 +7447,10 @@ ${piPagesHtml}`;
             })();
             const targetUpdate = (d.region !== "호남지역단" && d.pgBase > 0) ? { target: d.pgBase + 50000 } : {};
             const nameUpdate   = d.name   ? { name: d.name }     : {};
-            const regionUpdate = d.region ? { region: d.region } : {};
-            const centerUpdate = d.center ? { center: d.center } : {};
-            const branchUpdate = d.branch ? { branch: d.branch } : {};
+            const _ro = (pasted, stored) => { if (!pasted) return undefined; if (stored && stored.startsWith(pasted) && stored.length > pasted.length) return stored; return pasted; };
+            const regionUpdate = d.region ? { region: _ro(d.region, student.region) || d.region } : {};
+            const centerUpdate = d.center ? { center: _ro(d.center, student.center) || d.center } : {};
+            const branchUpdate = d.branch ? { branch: _ro(d.branch, student.branch) || d.branch } : {};
             updateRecords.push({ ...student, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
           });
         }
@@ -9799,7 +9810,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260612a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260612b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
