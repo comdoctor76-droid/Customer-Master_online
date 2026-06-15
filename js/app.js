@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.25";
+  const APP_VERSION = "2.26";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6480,6 +6480,7 @@ ${piPagesHtml}`;
       modal = document.createElement("div");
       modal.id = "modal-pg-new";
       modal.className = "modal";
+      modal.style.zIndex = "10010"; // 관리자 오버레이(10001) 위로
       modal.hidden = true;
       modal.innerHTML = `
         <div class="modal-backdrop" data-pgn-close></div>
@@ -6512,11 +6513,11 @@ ${piPagesHtml}`;
         </tr></thead>
         <tbody>${newRecords.map((r, i) => `<tr>
           <td>${escapeHtml(r.empNo)}</td>
-          <td><input class="pg-input pgn-name" data-idx="${i}" value="${escapeHtml(r.name)}" placeholder="성명"></td>
-          <td>${escapeHtml(r.branch)}</td>
+          <td><input class="pg-input pgn-name" data-idx="${i}" value="${escapeHtml(r.name || '')}" placeholder="성명"></td>
+          <td>${escapeHtml(r.branch || '')}</td>
           <td class="r">${Nf(r.base)}</td>
           <td class="r">${Nf(r.pgCurrent)}</td>
-          <td><input class="pg-input pgn-cohort" data-idx="${i}" value="" placeholder="기수"></td>
+          <td><input class="pg-input pgn-cohort" data-idx="${i}" value="${escapeHtml(r.cohort || '')}" placeholder="기수"></td>
           <td><input class="pg-input pgn-phone" data-idx="${i}" value="" placeholder="연락처"></td>
         </tr>`).join("")}</tbody>
       </table></div>
@@ -10016,7 +10017,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
