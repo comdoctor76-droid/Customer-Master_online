@@ -4142,6 +4142,114 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     modal.hidden = false;
   }
 
+  // ── 저장 실패 재시도 팝업 ────────────────────────────────────────────────
+  // failed: [{ r: record, err: string }], label: 표시용 문자열
+  function openSaveRetryModal(failed, label) {
+    let modal = document.getElementById("modal-save-retry");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-save-retry";
+      modal.className = "modal";
+      modal.style.zIndex = "11000";
+      document.body.appendChild(modal);
+    }
+    const rows = failed.map((f, i) => `
+      <tr>
+        <td style="text-align:center;padding:5px 8px">${i + 1}</td>
+        <td style="padding:5px 8px;font-weight:700">${escapeHtml(f.r.empNo || "")}</td>
+        <td style="padding:5px 8px">${escapeHtml(f.r.name || "")}</td>
+        <td style="padding:5px 8px;color:#c00;font-size:11px">${escapeHtml(f.err)}</td>
+      </tr>`).join("");
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:580px;width:95%">
+        <div class="modal-head">
+          <span>⚠️ 저장 실패 항목 — ${escapeHtml(label)}</span>
+          <button class="modal-close" id="btn-sret-close">✕</button>
+        </div>
+        <div style="padding:16px">
+          <p style="margin:0 0 10px;font-size:13px;color:#c00;">
+            ${failed.length}건이 저장되지 않았습니다. 아래 목록을 확인 후 재시도하세요.
+          </p>
+          <div style="overflow-x:auto;max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:4px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead style="position:sticky;top:0;background:#f0f4fa">
+                <tr>
+                  <th style="padding:5px 8px;text-align:center">#</th>
+                  <th style="padding:5px 8px;text-align:left">사번</th>
+                  <th style="padding:5px 8px;text-align:left">이름</th>
+                  <th style="padding:5px 8px;text-align:left">오류</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div id="sret-status" style="min-height:20px;font-size:12px;margin:8px 0 0;color:#c00"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button class="btn-outline" id="btn-sret-cancel" style="font-size:13px">닫기</button>
+            <button class="btn-primary" id="btn-sret-retry" style="font-size:13px">🔄 실패 ${failed.length}건 재시도</button>
+          </div>
+        </div>
+      </div>`;
+    modal.hidden = false;
+
+    const close = () => { modal.hidden = true; };
+    document.getElementById("btn-sret-close")?.addEventListener("click", close);
+    document.getElementById("btn-sret-cancel")?.addEventListener("click", close);
+    document.getElementById("btn-sret-retry")?.addEventListener("click", async () => {
+      const retryBtn = document.getElementById("btn-sret-retry");
+      const statusEl = document.getElementById("sret-status");
+      if (retryBtn) { retryBtn.disabled = true; retryBtn.textContent = "재시도 중..."; }
+      if (statusEl) statusEl.textContent = "";
+      const stillFailed = [];
+      let okCnt = 0;
+      for (const f of failed) {
+        try {
+          await window.DataAPI.save(f.r);
+          okCnt++;
+        } catch (e) {
+          stillFailed.push({ r: f.r, err: e.message });
+        }
+      }
+      if (stillFailed.length === 0) {
+        close();
+        toast(`${okCnt}건 재시도 저장 완료`, "success");
+        renderDebounced();
+      } else {
+        if (statusEl) statusEl.textContent = `${stillFailed.length}건 재시도 실패. 네트워크 상태를 확인하세요.`;
+        if (retryBtn) { retryBtn.disabled = false; retryBtn.textContent = `🔄 실패 ${stillFailed.length}건 재시도`; }
+        openSaveRetryModal(stillFailed, label);
+      }
+    });
+  }
+
+  // saveMany 시도 후 실패 시 개별 저장으로 폴백, 실패건은 재시도 팝업 표시
+  // returns { ok: number, failed: number }
+  async function saveWithRetry(records, label) {
+    if (!records.length) return { ok: 0, failed: 0 };
+    // 1) saveMany 시도 (빠른 경로)
+    if (typeof window.DataAPI.saveMany === "function") {
+      try {
+        await window.DataAPI.saveMany(records);
+        return { ok: records.length, failed: 0 };
+      } catch (_) { /* 폴백 */ }
+    }
+    // 2) 개별 저장 — 실패 추적
+    const failedList = [];
+    let okCnt = 0;
+    for (const r of records) {
+      try {
+        await window.DataAPI.save(r);
+        okCnt++;
+      } catch (e) {
+        failedList.push({ r, err: e.message });
+      }
+    }
+    if (failedList.length > 0) {
+      openSaveRetryModal(failedList, label);
+    }
+    return { ok: okCnt, failed: failedList.length };
+  }
+
   // 재사용 가능한 Yes/No 확인 모달 (Promise 반환)
   function openConfirmModal(msg) {
     return new Promise((resolve) => {
@@ -7197,24 +7305,15 @@ ${piPagesHtml}`;
         }
         if (m) m.textContent = "저장중...";
         pasteApply.disabled = true;
-        try {
-          if (updateRecords.length > 0) {
-            if (typeof window.DataAPI.saveMany === "function") {
-              await window.DataAPI.saveMany(updateRecords);
-            } else {
-              for (const r of updateRecords) await window.DataAPI.save(r);
-            }
-          }
-          let msg = updateRecords.length > 0 ? `✅ ${updateRecords.length}명 저장 완료` : "";
+        if (updateRecords.length > 0) {
+          const { ok, failed } = await saveWithRetry(updateRecords, "총괄월별실적 저장");
+          let msg = ok > 0 ? `✅ ${ok}명 저장 완료` : "";
+          if (failed > 0) msg += (msg ? " · " : "") + `❌ ${failed}건 실패(팝업 확인)`;
           if (newRecords.length) msg += (msg ? " · " : "") + `신규 ${newRecords.length}명 확인 필요`;
-          if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 8000); }
-          if (updateRecords.length > 0) { toast(`${updateRecords.length}명 총괄월별실적 저장`, "success"); renderDebounced(); }
-          if (newRecords.length > 0) openPgNewStudentModal(newRecords);
-        } catch (e) {
-          console.error(e);
-          if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
-          toast("저장 실패: " + e.message, "error");
+          if (m) { m.textContent = msg; m.className = failed > 0 ? "pg-msg err" : "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 8000); }
+          if (ok > 0) { toast(`${ok}명 총괄월별실적 저장`, "success"); renderDebounced(); }
         }
+        if (newRecords.length > 0) openPgNewStudentModal(newRecords);
         pasteApply.disabled = false;
         return;
       }
@@ -7299,21 +7398,12 @@ ${piPagesHtml}`;
       }
       if (m) m.textContent = "저장중...";
       pasteApply.disabled = true;
-      try {
-        if (typeof window.DataAPI.saveMany === "function") {
-          await window.DataAPI.saveMany(records);
-        } else {
-          for (const r of records) await window.DataAPI.save(r);
-        }
-        let msg = `✅ ${records.length}명 저장 완료`;
-        if (unmatched.length) msg += ` (미매칭 사번: ${unmatched.join(", ")})`;
-        if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
-        toast(`${records.length}명 총괄월별실적 저장`, "success");
-      } catch (e) {
-        console.error(e);
-        if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
-        toast("저장 실패: " + e.message, "error");
-      }
+      const { ok: ok3, failed: fail3 } = await saveWithRetry(records, "총괄월별실적 저장");
+      let msg3 = ok3 > 0 ? `✅ ${ok3}명 저장 완료` : "";
+      if (fail3 > 0) msg3 += (msg3 ? " · " : "") + `❌ ${fail3}건 실패(팝업 확인)`;
+      if (unmatched.length) msg3 += ` (미매칭 ${unmatched.length}건)`;
+      if (m) { m.textContent = msg3; m.className = fail3 > 0 ? "pg-msg err" : "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
+      if (ok3 > 0) { toast(`${ok3}명 총괄월별실적 저장`, "success"); renderDebounced(); }
       pasteApply.disabled = false;
     });
     const pasteClear = $("#btn-pg-paste-clear");
@@ -7367,21 +7457,12 @@ ${piPagesHtml}`;
       }
       honorsPasteApply.disabled = true;
       if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
-      try {
-        if (typeof window.DataAPI.saveMany === "function") {
-          await window.DataAPI.saveMany(records);
-        } else {
-          for (const r of records) await window.DataAPI.save(r);
-        }
-        let msg = `✅ ${records.length}명 아너스목표 저장 완료`;
-        if (unmatched.length) msg += ` (미매칭 사번 ${unmatched.length}건 제외)`;
-        if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
-        toast(`${records.length}명 아너스목표 저장`, "success");
-      } catch (e) {
-        console.error(e);
-        if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
-        toast("저장 실패: " + e.message, "error");
-      }
+      const { ok: okH, failed: failH } = await saveWithRetry(records, "아너스목표 저장");
+      let msgH = okH > 0 ? `✅ ${okH}명 아너스목표 저장 완료` : "";
+      if (failH > 0) msgH += (msgH ? " · " : "") + `❌ ${failH}건 실패(팝업 확인)`;
+      if (unmatched.length) msgH += ` (미매칭 ${unmatched.length}건 제외)`;
+      if (m) { m.textContent = msgH; m.className = failH > 0 ? "pg-msg err" : "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
+      if (okH > 0) { toast(`${okH}명 아너스목표 저장`, "success"); renderDebounced(); }
       honorsPasteApply.disabled = false;
     });
 
@@ -7447,20 +7528,12 @@ ${piPagesHtml}`;
 
       ipumGlobalApply.disabled = true;
       if (m) { m.textContent = "저장중..."; m.className = "pg-msg"; }
-      try {
-        if (typeof window.DataAPI.saveMany === "function") {
-          await window.DataAPI.saveMany(records);
-        } else {
-          for (const r of records) await window.DataAPI.save(r);
-        }
-        const resultMsg = `✅ ${records.length}명 저장 완료 / ${skipped}건 미매칭(버림)`;
-        if (m) { m.textContent = resultMsg; m.className = "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 10000); }
-        toast(`인품실적 저장 완료: ${records.length}명 성공, ${skipped}건 버림`, "success");
-      } catch (e) {
-        console.error(e);
-        if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
-        toast("저장 실패: " + e.message, "error");
-      }
+      const { ok: okI, failed: failI } = await saveWithRetry(records, "인품실적 저장");
+      let msgI = okI > 0 ? `✅ ${okI}명 저장 완료` : "";
+      if (failI > 0) msgI += (msgI ? " · " : "") + `❌ ${failI}건 실패(팝업 확인)`;
+      if (skipped) msgI += ` / 미매칭 ${skipped}건 버림`;
+      if (m) { m.textContent = msgI; m.className = failI > 0 ? "pg-msg err" : "pg-msg ok"; setTimeout(() => { if (m) m.textContent = ""; }, 10000); }
+      if (okI > 0) { toast(`인품실적 저장 완료: ${okI}명`, "success"); renderDebounced(); }
       ipumGlobalApply.disabled = false;
     });
 
@@ -7762,13 +7835,16 @@ ${piPagesHtml}`;
           const saveErrors = saveResult?.errors   ?? [];
           if (saveErrors.length) {
             console.warn("[saveMany 오류 목록]", saveErrors);
-            // 첫 번째 오류 메시지를 토스트로 표시
-            const firstErr = saveErrors[0]?.message || "알 수 없는 오류";
-            console.error("첫 번째 오류:", firstErr);
+            // 실패 레코드 복원 → 재시도 팝업
+            const failedForRetry = saveErrors.map((e) => ({
+              r: updateRecords.find((r) => r.empNo === e.empNo) || { empNo: e.empNo },
+              err: e.message || "저장 오류",
+            }));
+            openSaveRetryModal(failedForRetry, "실적진도현황 저장");
           }
 
           let msgTxt = committed > 0 ? `✅ ${committed}명 저장 완료` : `❌ 저장된 건 없음`;
-          if (saveErrors.length) msgTxt += ` (오류 ${saveErrors.length}건: ${(saveErrors[0]?.message || "").slice(0, 40)})`;
+          if (saveErrors.length) msgTxt += ` · ❌ ${saveErrors.length}건 실패(팝업 확인)`;
           if (newRecords.length) msgTxt += ` · 신규 ${newRecords.length}명 팝업 확인 필요`;
           if (cohortMismatch.length) msgTxt += ` · 기수/지역단 불일치 ${cohortMismatch.length}건 제외`;
           setMsg(msgTxt, (committed === 0 || saveErrors.length) ? "pg-msg err" : "pg-msg ok");
