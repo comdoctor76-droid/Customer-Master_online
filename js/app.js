@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.24";
+  const APP_VERSION = "2.25";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4273,12 +4273,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       const colStates = colDefs.map((c) => ({ label: c.label, field: c.field, deleted: false }));
 
-      // 단축명 → 정식명 조회: DB 학생 목록에서 field(center/branch)가 pasted로 시작하는 값을 찾아 반환
+      // 단축명 → 정식명 조회: DB prefix 탐색 후, 없으면 명칭 규칙(비전센터/지점) 적용
       const _resolveByPrefix = (pasted, field) => {
         if (!pasted || !field || field === "ignore") return pasted;
         if (state.students.some((x) => x[field] === pasted)) return pasted; // 이미 정확한 값
+        // 명칭 규칙 suffix 생성
+        let withSuffix = null;
+        if (field === "center" && !pasted.endsWith("비전센터")) withSuffix = pasted + "비전센터";
+        else if (field === "branch" && !pasted.endsWith("지점") && !pasted.endsWith("팀") && !pasted.endsWith("단")) withSuffix = pasted + "지점";
+        // DB에서 suffix 버전 정확 일치 확인
+        if (withSuffix && state.students.some((x) => x[field] === withSuffix)) return withSuffix;
+        // DB prefix 탐색
         const hit = state.students.find((x) => x[field] && x[field].startsWith(pasted));
-        return hit ? hit[field] : pasted;
+        if (hit) return hit[field];
+        // DB에 없더라도 명칭 규칙 적용 (표시용)
+        return withSuffix || pasted;
       };
 
       function buildTable() {
@@ -7574,18 +7583,25 @@ ${piPagesHtml}`;
         // 조직명 정규화:
         // - stored가 paste의 확장형(인천TC → 인천TC지점): stored 유지
         // - paste가 stored의 확장형(인천TC지점 → 인천TC): paste 사용
-        // - 관계 없거나 stored 없음: DB 전체 prefix 탐색으로 정식명 추론 (대전→대전비전센터)
+        // - stored가 정식명: stored 유지 / paste가 더 정확: paste 사용
+        // - 무관한 경우: stored 유지 (덮어쓰기 방지)
+        // - stored 없음: DB prefix 탐색 → 없으면 명칭 규칙(비전센터/지점) 적용
         const _resolveOrg = (pasted, stored, dbField) => {
           if (!pasted) return undefined;
           if (stored) {
-            if (stored.startsWith(pasted)) return stored;
-            if (pasted.startsWith(stored)) return pasted;
+            if (stored.startsWith(pasted)) return stored;   // 대전비전센터 ← 대전
+            if (pasted.startsWith(stored)) return pasted;   // 더 정확한 paste 사용
+            return stored;                                   // 무관 → stored 유지
           }
+          // stored 없음: DB에서 prefix 탐색
           if (dbField) {
             const hit = state.students.find((x) => x[dbField] && x[dbField].startsWith(pasted) && x[dbField] !== pasted);
             if (hit) return hit[dbField];
+            // DB에도 없으면 명칭 규칙 적용
+            if (dbField === "center" && !pasted.endsWith("비전센터")) return pasted + "비전센터";
+            if (dbField === "branch" && !pasted.endsWith("지점") && !pasted.endsWith("팀") && !pasted.endsWith("단")) return pasted + "지점";
           }
-          return stored || pasted;
+          return pasted;
         };
         const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
         const nameUpdate   = name   ? { name }   : {};
@@ -7637,7 +7653,7 @@ ${piPagesHtml}`;
             })();
             const targetUpdate = (d.region !== "호남지역단" && d.pgBase > 0) ? { target: d.pgBase + 50000 } : {};
             const nameUpdate   = d.name   ? { name: d.name }     : {};
-            const _ro = (pasted, stored, dbF) => { if (!pasted) return stored || undefined; if (stored) { if (stored.startsWith(pasted)) return stored; if (pasted.startsWith(stored)) return pasted; } if (dbF) { const h = state.students.find((x) => x[dbF] && x[dbF].startsWith(pasted) && x[dbF] !== pasted); if (h) return h[dbF]; } return stored || pasted; };
+            const _ro = (pasted, stored, dbF) => { if (!pasted) return stored || undefined; if (stored) { if (stored.startsWith(pasted)) return stored; if (pasted.startsWith(stored)) return pasted; return stored; } if (dbF) { const h = state.students.find((x) => x[dbF] && x[dbF].startsWith(pasted) && x[dbF] !== pasted); if (h) return h[dbF]; if (dbF === "center" && !pasted.endsWith("비전센터")) return pasted + "비전센터"; if (dbF === "branch" && !pasted.endsWith("지점") && !pasted.endsWith("팀") && !pasted.endsWith("단")) return pasted + "지점"; } return pasted; };
             const regionUpdate = d.region ? { region: _ro(d.region, student.region, "region") } : {};
             const centerUpdate = d.center ? { center: _ro(d.center, student.center, "center") } : {};
             const branchUpdate = d.branch ? { branch: _ro(d.branch, student.branch, "branch") } : {};
@@ -10000,7 +10016,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
