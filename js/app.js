@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.22";
+  const APP_VERSION = "2.23";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6676,6 +6676,10 @@ ${piPagesHtml}`;
             <!-- 총괄월별실적 -->
             <div id="pg-paste-mode-monthly" class="pg-admin-paste">
               <div class="pg-paste-desc">"사번 장기하이캡 실적" 탭/공백으로 구분 (단위: 천원)</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin:4px 0 6px;cursor:pointer">
+                <input type="checkbox" id="pg-monthly-bulk-chk">
+                <span>최초 붙여넣기 — 지역단·비전센터·지점·사번·성명 포함 전체형식 (헤더 자동인식, 미등록 교육생 신규 추가)</span>
+              </label>
               <textarea id="pg-paste" rows="6" placeholder="예)
 1B1312	15,613	710
 986037	61,050	2,782
@@ -7072,6 +7076,86 @@ ${piPagesHtml}`;
     if (pasteApply) pasteApply.addEventListener("click", async () => {
       const txt = $("#pg-paste").value;
       const m = $("#pg-paste-msg");
+
+      // ── 최초 붙여넣기 모드: 전체형식 (지역단·비전센터·지점·사번·성명·기준실적·현재실적 포함) ──
+      if (document.getElementById("pg-monthly-bulk-chk")?.checked) {
+        const _cohort = document.getElementById("pg-global-cohort-sel")?.value || "";
+        const lines = txt.split(/\r?\n/).filter((l) => l.trim());
+        if (!lines.length) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
+
+        const firstRow = lines[0].trim().split(/\t/).map((c) => c.trim());
+        const isHeader = firstRow.some((h) => Object.prototype.hasOwnProperty.call(PG_HEADER_AUTOMAP, h));
+        let dataLines, bulkMap;
+        if (isHeader) {
+          dataLines = lines.slice(1);
+          bulkMap = firstRow.map((h) => PG_HEADER_AUTOMAP[h] ?? "ignore");
+        } else {
+          dataLines = lines;
+          // 기본: 지역단(0)·비전센터(1)·지점(2)·사번(3)·성명(4)·위촉차월(5)·기준실적(6)·현재실적(7)·...
+          bulkMap = ["region", "center", "branch", "empNo", "name", "pgMonth", "pgBase", "pgCurrent", "ignore", "ignore"];
+        }
+        const getBC = (p, f) => { const i = bulkMap.indexOf(f); return i >= 0 ? (p[i] || "").trim() : ""; };
+        const getBA = (p, f) => { const i = bulkMap.indexOf(f); return i >= 0 ? parseInt((p[i] || "").replace(/,/g, ""), 10) || 0 : 0; };
+        const _ro = (pasted, stored) => {
+          if (!pasted) return stored || undefined;
+          if (!stored) return pasted;
+          if (stored.startsWith(pasted)) return stored;
+          if (pasted.startsWith(stored)) return pasted;
+          return stored;
+        };
+
+        const updateRecords = [], newRecords = [];
+        dataLines.forEach((line) => {
+          const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
+          const empNo = getBC(p, "empNo").replace(/[/\\\s]/g, "");
+          if (!empNo) return;
+          const region = getBC(p, "region");
+          const center = getBC(p, "center");
+          const branch = getBC(p, "branch");
+          const name   = getBC(p, "name");
+          const pgBase    = getBA(p, "pgBase");
+          const pgCurrent = getBA(p, "pgCurrent");
+          const student = state.students.find((x) => x.empNo === empNo);
+          if (student) {
+            const centerUpd = center ? { center: _ro(center, student.center) } : {};
+            const branchUpd = branch ? { branch: _ro(branch, student.branch) } : {};
+            const nameUpd   = name   ? { name }   : {};
+            const baseUpd   = pgBase    > 0 ? { hiCap: pgBase, base: pgBase } : {};
+            const curUpd    = pgCurrent > 0 ? { current: pgCurrent } : {};
+            updateRecords.push({ ...student, ...centerUpd, ...branchUpd, ...nameUpd, ...baseUpd, ...curUpd });
+          } else {
+            newRecords.push({ region, center, branch, cohort: _cohort, empNo, name, hiCap: pgBase, base: pgBase, pgCurrent, current: pgCurrent });
+          }
+        });
+
+        if (updateRecords.length === 0 && newRecords.length === 0) {
+          if (m) { m.textContent = "❌ 매칭된 사번 없음. 헤더 포함 전체 형식 여부를 확인하세요."; m.className = "pg-msg err"; }
+          return;
+        }
+        if (m) m.textContent = "저장중...";
+        pasteApply.disabled = true;
+        try {
+          if (updateRecords.length > 0) {
+            if (typeof window.DataAPI.saveMany === "function") {
+              await window.DataAPI.saveMany(updateRecords);
+            } else {
+              for (const r of updateRecords) await window.DataAPI.save(r);
+            }
+          }
+          let msg = updateRecords.length > 0 ? `✅ ${updateRecords.length}명 저장 완료` : "";
+          if (newRecords.length) msg += (msg ? " · " : "") + `신규 ${newRecords.length}명 확인 필요`;
+          if (m) { m.textContent = msg; m.className = "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 8000); }
+          if (updateRecords.length > 0) { toast(`${updateRecords.length}명 총괄월별실적 저장`, "success"); renderDebounced(); }
+          if (newRecords.length > 0) openPgNewStudentModal(newRecords);
+        } catch (e) {
+          console.error(e);
+          if (m) { m.textContent = "❌ 저장 실패: " + e.message; m.className = "pg-msg err"; }
+          toast("저장 실패: " + e.message, "error");
+        }
+        pasteApply.disabled = false;
+        return;
+      }
+
       const _pasteRgn = document.getElementById("pg-global-region-sel")?.value || "";
       const records = [];
       const unmatched = [];
@@ -9886,7 +9970,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
