@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.21";
+  const APP_VERSION = "2.22";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4257,14 +4257,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     });
   }
 
-  function openPgColMapModal(colDefs, sampleRows) {
+  function openPgColMapModal(colDefs, sampleRows, allRows) {
     return new Promise((resolve) => {
-      const modal = document.getElementById("modal-pg-col-map");
+      const modal        = document.getElementById("modal-pg-col-map");
       if (!modal) { resolve(null); return; }
-      const wrap       = document.getElementById("pg-col-map-wrap");
-      const confirmBtn = modal.querySelector("#btn-pg-col-map-confirm");
-      const cancelBtn  = modal.querySelector("#btn-pg-col-map-cancel");
-      const backdrop   = modal.querySelector(".modal-backdrop");
+      const wrap         = document.getElementById("pg-col-map-wrap");
+      const allMatchWrap = document.getElementById("pg-col-map-all-match-wrap");
+      const confirmBtn   = modal.querySelector("#btn-pg-col-map-confirm");
+      const cancelBtn    = modal.querySelector("#btn-pg-col-map-cancel");
+      const allMatchBtn  = modal.querySelector("#btn-pg-col-map-all-match");
+      const backdrop     = modal.querySelector(".modal-backdrop");
+
+      if (allMatchWrap) allMatchWrap.innerHTML = "";
+      if (allMatchBtn) allMatchBtn.style.display = allRows ? "" : "none";
 
       const colStates = colDefs.map((c) => ({ label: c.label, field: c.field, deleted: false }));
 
@@ -4307,7 +4312,74 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       buildTable();
 
-      const done = (result) => { modal.hidden = true; backdrop.onclick = null; resolve(result); };
+      if (allMatchBtn) {
+        allMatchBtn.onclick = () => {
+          if (!allRows || !allMatchWrap) return;
+          const mapping = colStates.map((c) => (c.deleted ? "ignore" : c.field));
+          const getC = (p, f) => { const i = mapping.indexOf(f); return i >= 0 ? (p[i] || "").trim() : ""; };
+          const _ro = (pasted, stored) => {
+            if (!pasted) return stored || "";
+            if (!stored) return pasted;
+            if (stored.startsWith(pasted)) return stored;
+            if (pasted.startsWith(stored)) return pasted;
+            return stored;
+          };
+          let matched = 0, unmatched = 0;
+          let rows = "";
+          allRows.forEach((line, idx) => {
+            const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
+            const empNo = getC(p, "empNo").replace(/[/\\\s]/g, "");
+            if (!empNo) return;
+            const center  = getC(p, "center");
+            const branch  = getC(p, "branch");
+            const name    = getC(p, "name");
+            const student = state.students.find((x) => x.empNo === empNo);
+            let statusHtml, resolvedCenter, resolvedBranch, foundName;
+            if (student) {
+              resolvedCenter = _ro(center, student.center);
+              resolvedBranch = _ro(branch, student.branch);
+              foundName      = student.name || name;
+              statusHtml     = `<span style="color:#16a34a;font-weight:600">✅</span>`;
+              matched++;
+            } else {
+              resolvedCenter = center;
+              resolvedBranch = branch;
+              foundName      = name;
+              statusHtml     = `<span style="color:#dc2626;font-weight:600">❌</span>`;
+              unmatched++;
+            }
+            const cDisp = center && resolvedCenter !== center
+              ? `<span style="color:#aaa;font-size:11px">${escapeHtml(center)}</span>→<strong>${escapeHtml(resolvedCenter)}</strong>`
+              : escapeHtml(resolvedCenter || center);
+            const bDisp = branch && resolvedBranch !== branch
+              ? `<span style="color:#aaa;font-size:11px">${escapeHtml(branch)}</span>→<strong>${escapeHtml(resolvedBranch)}</strong>`
+              : escapeHtml(resolvedBranch || branch);
+            rows += `<tr>
+              <td style="text-align:center;color:#888">${idx + 1}</td>
+              <td>${escapeHtml(empNo)}</td>
+              <td>${escapeHtml(foundName)}</td>
+              <td>${cDisp}</td>
+              <td>${bDisp}</td>
+              <td style="text-align:center">${statusHtml}</td>
+            </tr>`;
+          });
+          allMatchWrap.innerHTML = `
+            <div style="margin-top:16px;border-top:2px solid #e0e0e0;padding-top:12px">
+              <strong>전체 매칭 결과</strong>
+              <span style="margin-left:8px;color:#16a34a">✅ ${matched}명 매칭</span>
+              ${unmatched ? `<span style="margin-left:8px;color:#dc2626">❌ ${unmatched}명 미매칭</span>` : ""}
+              <div style="overflow-x:auto;margin-top:8px;max-height:320px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">
+              <table class="pg-col-map-tbl" style="font-size:12px">
+              <thead style="position:sticky;top:0;background:#f8f9fb"><tr>
+                <th>#</th><th>사번</th><th>이름</th><th>비전센터</th><th>지점</th><th>상태</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+              </table></div>
+            </div>`;
+        };
+      }
+
+      const done = (result) => { modal.hidden = true; backdrop.onclick = null; if (allMatchWrap) allMatchWrap.innerHTML = ""; resolve(result); };
       confirmBtn.onclick = () => {
         const mapping = colStates.map((c) => (c.deleted ? "ignore" : c.field));
         if (!mapping.includes("empNo")) {
@@ -7288,7 +7360,7 @@ ${piPagesHtml}`;
       const getOrigAmt = (p, f) => { const i = origFM.indexOf(f); return i >= 0 ? parseAmt(p[i]) : 0; };
 
       // ── 열 매핑 확인 팝업 ─────────────────────────────────────────
-      const fieldMapping = await openPgColMapModal(colDefs, sampleRows);
+      const fieldMapping = await openPgColMapModal(colDefs, sampleRows, dataLines);
       if (!fieldMapping) return;
 
       // 데이터 파싱 (열 이름 기준)
@@ -9814,7 +9886,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260612c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
