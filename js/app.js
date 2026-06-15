@@ -7132,6 +7132,11 @@ ${piPagesHtml}`;
     if (pasteApply) pasteApply.addEventListener("click", async () => {
       const txt = $("#pg-paste").value;
       const m = $("#pg-paste-msg");
+      // 공통 스텝 (Step 1 / Step 2) — 저장 필드 결정
+      const _pgGlobalStep = document.querySelector('input[name="pg-global-step"]:checked')?.value || "1";
+      const _sfxG = _pgGlobalStep === "2" ? "2" : "";
+      const _curField  = _sfxG ? `pgCurrent${_sfxG}`  : "current";
+      const _hicField  = _sfxG ? `hiCap${_sfxG}`      : "hiCap";
 
       // ── 최초 붙여넣기 모드: 전체형식 (지역단·비전센터·지점·사번·성명·기준실적·현재실적 포함) ──
       if (document.getElementById("pg-monthly-bulk-chk")?.checked) {
@@ -7176,11 +7181,13 @@ ${piPagesHtml}`;
             const centerUpd = center ? { center: _ro(center, student.center) } : {};
             const branchUpd = branch ? { branch: _ro(branch, student.branch) } : {};
             const nameUpd   = name   ? { name }   : {};
-            const baseUpd   = pgBase    > 0 ? { hiCap: pgBase, base: pgBase } : {};
-            const curUpd    = pgCurrent > 0 ? { current: pgCurrent } : {};
+            // Step 인식: Step 2면 hiCap2·pgCurrent2에 저장
+            const baseUpd = pgBase    > 0 ? { [_hicField]: pgBase, base: pgBase } : {};
+            const curUpd  = pgCurrent > 0 ? { [_curField]: pgCurrent } : {};
             updateRecords.push({ ...student, ...centerUpd, ...branchUpd, ...nameUpd, ...baseUpd, ...curUpd });
           } else {
-            newRecords.push({ region, center, branch, cohort: _cohort, empNo, name, hiCap: pgBase, base: pgBase, pgCurrent, current: pgCurrent });
+            newRecords.push({ region, center, branch, cohort: _cohort, empNo, name,
+              [_hicField]: pgBase, base: pgBase, [_curField]: pgCurrent });
           }
         });
 
@@ -7217,31 +7224,64 @@ ${piPagesHtml}`;
       const unmatched = [];
       const crossRegionItems = []; // 다른 지역단에 있는 사번
       const crossRegionData = new Map(); // empNo → {hiCapVal, curVal}
+
+      // 다중열 자동감지: 지역단·지점·사번·성명·... 형식에서 사번과 금액 컬럼 탐지
+      const _detectMultiCol = (parts) => {
+        // 사번 후보: 숫자가 아닌 첫 두 컬럼 이후에서 학생 empNo 매칭
+        for (let i = 1; i < Math.min(parts.length - 2, 5); i++) {
+          const candidateEmp = parts[i];
+          if (!candidateEmp || /^[\d,]+$/.test(parts[i - 1] || "")) continue; // 앞이 숫자면 스킵
+          const hit = state.students.find((x) => x.empNo === candidateEmp);
+          if (hit) {
+            // i가 사번 위치 → 금액은 i+2 이후 숫자 컬럼에서
+            const amtCols = parts.slice(i + 2).map((v) => parseInt(v, 10)).filter((v) => !isNaN(v));
+            const baseAmt = amtCols[0] ?? 0;
+            const curAmt  = amtCols[1] ?? 0;
+            return { empNo: candidateEmp, baseAmt, curAmt, unit: 1 }; // 원 단위 (곱셈 없음)
+          }
+        }
+        return null;
+      };
+
       txt.split(/\r?\n/).forEach((line) => {
         const parts = line.trim().split(/[\t]+/).map((p) => p.replace(/,/g, "").trim()).filter(Boolean);
         if (parts.length < 3) return;
-        const empNo   = parts[0];
-        const hiCapVal = parseInt(parts[1], 10);
-        const curVal   = parseInt(parts[2], 10);
-        if (isNaN(hiCapVal) || isNaN(curVal)) return;
         const searchPool = _pasteRgn ? state.students.filter((x) => x.region === _pasteRgn) : state.students;
-        const s = searchPool.find((x) => x.empNo === empNo);
+
+        let empNo = parts[0];
+        let hiCapVal = parseInt(parts[1], 10);
+        let curVal   = parseInt(parts[2], 10);
+        let unit = 1000; // 3열 형식은 천원 단위
+
+        // 3열 파싱 실패 → 다중열 자동감지
+        if (isNaN(hiCapVal) || isNaN(curVal)) {
+          const mc = _detectMultiCol(parts);
+          if (!mc) return; // 감지 실패
+          empNo    = mc.empNo;
+          hiCapVal = mc.baseAmt;
+          curVal   = mc.curAmt;
+          unit     = mc.unit; // 원 단위
+        }
+
+        const s = searchPool.find((x) => x.empNo === empNo)
+                  || (!_pasteRgn ? null : state.students.find((x) => x.empNo === empNo)); // 전체 재탐색
         if (!s) {
           // 다른 지역단에서 탐색
           const elsewhere = _pasteRgn ? state.students.find((x) => x.empNo === empNo && x.region !== _pasteRgn) : null;
           if (elsewhere) {
             crossRegionItems.push({ empNo, name: elsewhere.name, otherRegion: elsewhere.region, student: elsewhere });
-            crossRegionData.set(empNo, { hiCapVal, curVal });
+            crossRegionData.set(empNo, { hiCapVal, curVal, unit });
           } else {
             unmatched.push(empNo);
           }
           return;
         }
-        records.push({ ...s, hiCap: hiCapVal * 1000, current: curVal * 1000 });
+        // Step 인식: Step 2면 hiCap2·pgCurrent2에 저장
+        records.push({ ...s, [_hicField]: hiCapVal * unit, [_curField]: curVal * unit });
         const hiCapInp = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="hiCap"]`);
         const curInp   = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="current"]`);
-        if (hiCapInp) { hiCapInp.value = hiCapVal * 1000; }
-        if (curInp)   { curInp.value   = curVal * 1000;   curInp.dispatchEvent(new Event("input")); }
+        if (hiCapInp) { hiCapInp.value = hiCapVal * unit; }
+        if (curInp)   { curInp.value   = curVal * unit;   curInp.dispatchEvent(new Event("input")); }
       });
       // 타 지역단 경고
       if (crossRegionItems.length > 0) {
@@ -7249,7 +7289,7 @@ ${piPagesHtml}`;
         if (doSave) {
           crossRegionItems.forEach(({ empNo, student }) => {
             const d = crossRegionData.get(empNo);
-            if (d) records.push({ ...student, hiCap: d.hiCapVal * 1000, current: d.curVal * 1000 });
+            if (d) records.push({ ...student, [_hicField]: d.hiCapVal * d.unit, [_curField]: d.curVal * d.unit });
           });
         }
       }
