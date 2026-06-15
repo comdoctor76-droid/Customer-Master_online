@@ -273,11 +273,26 @@
         </div>
       </section>
 
-      <!-- 통계 (비움) -->
+      <!-- 통계 -->
       <section class="panel view-panel" id="stats-panel" data-view="stats" hidden>
-        <div class="panel-head"><h2>📊 통계</h2></div>
-        <div class="stats-body">
-          <div class="empty-state">이 영역은 별도 통계 지표를 위해 예약되어 있습니다.</div>
+        <div class="panel-head">
+          <h2>📊 통계</h2>
+          <div class="stat-filter-bar">
+            <label class="stat-filter-label">기수
+              <select id="stat-cohort-sel" class="stat-sel">
+                <option value="">전체</option>
+              </select>
+            </label>
+            <label class="stat-filter-label">스텝
+              <select id="stat-step-sel" class="stat-sel">
+                <option value="1">Step 1 (Master I)</option>
+                <option value="2">Step 2 (Master II)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="stats-master-body" class="stats-master-body">
+          <div class="empty-state">기수와 스텝을 선택하면 통계가 표시됩니다.</div>
         </div>
       </section>
 
