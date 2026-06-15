@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.23";
+  const APP_VERSION = "2.24";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4273,6 +4273,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
       const colStates = colDefs.map((c) => ({ label: c.label, field: c.field, deleted: false }));
 
+      // 단축명 → 정식명 조회: DB 학생 목록에서 field(center/branch)가 pasted로 시작하는 값을 찾아 반환
+      const _resolveByPrefix = (pasted, field) => {
+        if (!pasted || !field || field === "ignore") return pasted;
+        if (state.students.some((x) => x[field] === pasted)) return pasted; // 이미 정확한 값
+        const hit = state.students.find((x) => x[field] && x[field].startsWith(pasted));
+        return hit ? hit[field] : pasted;
+      };
+
       function buildTable() {
         const sc = Math.min(sampleRows.length, 3);
         let html = `<table class="pg-col-map-tbl"><thead><tr>
@@ -4291,7 +4299,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           });
           html += `</select></td>`;
           for (let r = 0; r < sc; r++) {
-            html += `<td class="pg-col-sample">${(sampleRows[r] || [])[i] ?? ""}</td>`;
+            const rawVal = (sampleRows[r] || [])[i] ?? "";
+            let cellHtml;
+            if (!del && (col.field === "center" || col.field === "branch")) {
+              const resolved = _resolveByPrefix(rawVal, col.field);
+              cellHtml = resolved && resolved !== rawVal
+                ? `<span style="color:#aaa;font-size:10px">${escapeHtml(rawVal)}</span>→<strong style="color:#1d4ed8">${escapeHtml(resolved)}</strong>`
+                : escapeHtml(rawVal);
+            } else {
+              cellHtml = escapeHtml(rawVal);
+            }
+            html += `<td class="pg-col-sample">${cellHtml}</td>`;
           }
           html += `<td class="pg-col-act"><button class="btn-outline small col-del-btn" data-ci="${i}">${del ? "↩ 복원" : "✕ 삭제"}</button></td>
           </tr>`;
@@ -4300,7 +4318,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         wrap.innerHTML = html;
 
         wrap.querySelectorAll(".col-field-sel").forEach((sel, i) => {
-          sel.addEventListener("change", (e) => { colStates[i].field = e.target.value; });
+          sel.addEventListener("change", (e) => { colStates[i].field = e.target.value; buildTable(); });
         });
         wrap.querySelectorAll(".col-del-btn").forEach((btn) => {
           btn.addEventListener("click", (e) => {
@@ -4330,21 +4348,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
             const empNo = getC(p, "empNo").replace(/[/\\\s]/g, "");
             if (!empNo) return;
-            const center  = getC(p, "center");
-            const branch  = getC(p, "branch");
-            const name    = getC(p, "name");
+            const center = getC(p, "center");
+            const branch = getC(p, "branch");
+            const name   = getC(p, "name");
             const student = state.students.find((x) => x.empNo === empNo);
-            let statusHtml, resolvedCenter, resolvedBranch, foundName;
+            let statusHtml, resolvedCenter, resolvedBranch, foundName, regionStr;
             if (student) {
               resolvedCenter = _ro(center, student.center);
               resolvedBranch = _ro(branch, student.branch);
               foundName      = student.name || name;
+              regionStr      = student.region || "";
               statusHtml     = `<span style="color:#16a34a;font-weight:600">✅</span>`;
               matched++;
             } else {
-              resolvedCenter = center;
-              resolvedBranch = branch;
+              // 미매칭이어도 단축명 → 정식명 추론 (DB 전체에서 prefix 탐색)
+              resolvedCenter = _resolveByPrefix(center, "center");
+              resolvedBranch = _resolveByPrefix(branch, "branch");
               foundName      = name;
+              // 추론된 비전센터/지점으로 지역단 유추
+              const ctrMatch = resolvedCenter ? state.students.find((x) => x.center === resolvedCenter) : null;
+              const brMatch  = resolvedBranch ? state.students.find((x) => x.branch === resolvedBranch) : null;
+              regionStr      = ctrMatch?.region || brMatch?.region || "";
               statusHtml     = `<span style="color:#dc2626;font-weight:600">❌</span>`;
               unmatched++;
             }
@@ -4358,6 +4382,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <td style="text-align:center;color:#888">${idx + 1}</td>
               <td>${escapeHtml(empNo)}</td>
               <td>${escapeHtml(foundName)}</td>
+              <td style="color:#1d4ed8;font-size:11px;font-weight:600">${escapeHtml(regionStr)}</td>
               <td>${cDisp}</td>
               <td>${bDisp}</td>
               <td style="text-align:center">${statusHtml}</td>
@@ -4371,7 +4396,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <div style="overflow-x:auto;margin-top:8px;max-height:320px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">
               <table class="pg-col-map-tbl" style="font-size:12px">
               <thead style="position:sticky;top:0;background:#f8f9fb"><tr>
-                <th>#</th><th>사번</th><th>이름</th><th>비전센터</th><th>지점</th><th>상태</th>
+                <th>#</th><th>사번</th><th>이름</th><th>지역단</th><th>비전센터</th><th>지점</th><th>상태</th>
               </tr></thead>
               <tbody>${rows}</tbody>
               </table></div>
@@ -7549,19 +7574,24 @@ ${piPagesHtml}`;
         // 조직명 정규화:
         // - stored가 paste의 확장형(인천TC → 인천TC지점): stored 유지
         // - paste가 stored의 확장형(인천TC지점 → 인천TC): paste 사용
-        // - 아무 관계 없음(인천TC vs 명동지점): stored 유지 — 덮어쓰기 방지
-        const _resolveOrg = (pasted, stored) => {
+        // - 관계 없거나 stored 없음: DB 전체 prefix 탐색으로 정식명 추론 (대전→대전비전센터)
+        const _resolveOrg = (pasted, stored, dbField) => {
           if (!pasted) return undefined;
-          if (!stored) return pasted;
-          if (stored.startsWith(pasted)) return stored;   // stored가 더 긴 정식명 → 유지
-          if (pasted.startsWith(stored)) return pasted;   // paste가 더 정확 → 업데이트
-          return stored;                                   // 무관한 값 → 기존 유지
+          if (stored) {
+            if (stored.startsWith(pasted)) return stored;
+            if (pasted.startsWith(stored)) return pasted;
+          }
+          if (dbField) {
+            const hit = state.students.find((x) => x[dbField] && x[dbField].startsWith(pasted) && x[dbField] !== pasted);
+            if (hit) return hit[dbField];
+          }
+          return stored || pasted;
         };
         const targetUpdate = (region !== "호남지역단" && pgBase > 0) ? { target: pgBase + 50000 } : {};
         const nameUpdate   = name   ? { name }   : {};
-        const resolvedRegion = _resolveOrg(region, existing.region);
-        const resolvedCenter = _resolveOrg(center, existing.center);
-        const resolvedBranch = _resolveOrg(branch, existing.branch);
+        const resolvedRegion = _resolveOrg(region, existing.region, "region");
+        const resolvedCenter = _resolveOrg(center, existing.center, "center");
+        const resolvedBranch = _resolveOrg(branch, existing.branch, "branch");
         const regionUpdate = resolvedRegion ? { region: resolvedRegion } : {};
         const centerUpdate = resolvedCenter ? { center: resolvedCenter } : {};
         const branchUpdate = resolvedBranch ? { branch: resolvedBranch } : {};
@@ -7607,10 +7637,10 @@ ${piPagesHtml}`;
             })();
             const targetUpdate = (d.region !== "호남지역단" && d.pgBase > 0) ? { target: d.pgBase + 50000 } : {};
             const nameUpdate   = d.name   ? { name: d.name }     : {};
-            const _ro = (pasted, stored) => { if (!pasted) return stored || undefined; if (!stored) return pasted; if (stored.startsWith(pasted)) return stored; if (pasted.startsWith(stored)) return pasted; return stored; };
-            const regionUpdate = d.region ? { region: _ro(d.region, student.region) } : {};
-            const centerUpdate = d.center ? { center: _ro(d.center, student.center) } : {};
-            const branchUpdate = d.branch ? { branch: _ro(d.branch, student.branch) } : {};
+            const _ro = (pasted, stored, dbF) => { if (!pasted) return stored || undefined; if (stored) { if (stored.startsWith(pasted)) return stored; if (pasted.startsWith(stored)) return pasted; } if (dbF) { const h = state.students.find((x) => x[dbF] && x[dbF].startsWith(pasted) && x[dbF] !== pasted); if (h) return h[dbF]; } return stored || pasted; };
+            const regionUpdate = d.region ? { region: _ro(d.region, student.region, "region") } : {};
+            const centerUpdate = d.center ? { center: _ro(d.center, student.center, "center") } : {};
+            const branchUpdate = d.branch ? { branch: _ro(d.branch, student.branch, "branch") } : {};
             updateRecords.push({ ...student, ...regionUpdate, ...centerUpdate, ...branchUpdate, ...nameUpdate, ...pgFields, ...baseUpdate, ...targetUpdate });
           });
         }
@@ -9970,7 +10000,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
