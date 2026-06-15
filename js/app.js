@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.26";
+  const APP_VERSION = "2.27";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4351,6 +4351,30 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             if (pasted.startsWith(stored)) return pasted;
             return stored;
           };
+          // ORG_DATA 기반 지역단 추론 (가장 정확) → DB 학생 폴백
+          const _orgFindRegion = (resolvedCtr, resolvedBr) => {
+            if (window.ORG_DATA?.regions) {
+              // 비전센터로 먼저 탐색 (더 정확)
+              if (resolvedCtr) {
+                for (const r of window.ORG_DATA.regions) {
+                  if ((r.centers || []).some((c) => c.name === resolvedCtr)) return r.name;
+                }
+              }
+              // 지점으로 탐색 (폴백)
+              if (resolvedBr) {
+                for (const r of window.ORG_DATA.regions) {
+                  for (const c of (r.centers || [])) {
+                    if ((c.branches || []).includes(resolvedBr)) return r.name;
+                  }
+                }
+              }
+            }
+            // DB 학생 폴백 (center 우선)
+            const ctrSt = resolvedCtr ? state.students.find((x) => x.center === resolvedCtr) : null;
+            if (ctrSt?.region) return ctrSt.region;
+            const brSt = resolvedBr ? state.students.find((x) => x.branch === resolvedBr) : null;
+            return brSt?.region || "";
+          };
           let matched = 0, unmatched = 0;
           let rows = "";
           allRows.forEach((line, idx) => {
@@ -4370,14 +4394,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               statusHtml     = `<span style="color:#16a34a;font-weight:600">✅</span>`;
               matched++;
             } else {
-              // 미매칭이어도 단축명 → 정식명 추론 (DB 전체에서 prefix 탐색)
+              // 미매칭: 단축명 → 정식명 추론, 지역단은 ORG_DATA 기반으로 정확하게 탐색
               resolvedCenter = _resolveByPrefix(center, "center");
               resolvedBranch = _resolveByPrefix(branch, "branch");
               foundName      = name;
-              // 추론된 비전센터/지점으로 지역단 유추
-              const ctrMatch = resolvedCenter ? state.students.find((x) => x.center === resolvedCenter) : null;
-              const brMatch  = resolvedBranch ? state.students.find((x) => x.branch === resolvedBranch) : null;
-              regionStr      = ctrMatch?.region || brMatch?.region || "";
+              regionStr      = _orgFindRegion(resolvedCenter, resolvedBranch);
               statusHtml     = `<span style="color:#dc2626;font-weight:600">❌</span>`;
               unmatched++;
             }
@@ -10017,7 +10038,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
