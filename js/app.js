@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.31";
+  const APP_VERSION = "2.32";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8692,26 +8692,49 @@ ${piPagesHtml}`;
       </div>`;
     }).join("");
 
-    // 파이 차트 (인품실적 / 현재실적 비율)
+    // 파이 차트 (인품실적 / 현재실적 비율) — 전체실적=녹색, 인품=주황 파이
     const makePie = (r) => {
       const d = (step === "2" && r.d2) ? r.d2 : r.d1;
       const ratio = d.cur > 0 ? Math.min(d.ipumAmt / d.cur, 1) : 0;
-      const R = 36, cx = 50, cy = 50, sw = 15;
-      const circumf = 2 * Math.PI * R;
-      const dash = (ratio * circumf).toFixed(2);
-      const pct = (ratio * 100).toFixed(1);
+      const cx = 50, cy = 50, R = 46;
+      const ipumPct = (ratio * 100).toFixed(1);
+      const restPct = ((1 - ratio) * 100).toFixed(1);
       const ipumK = fK(d.ipumAmt);
       const shortName = r.name.replace(/지역단$/, "");
-      const color = ratio >= 0.4 ? "#1a7a3a" : ratio >= 0.2 ? "#e67e22" : "#aab";
+
+      // SVG 파이 슬라이스 생성 (0도=12시 방향, 시계방향)
+      const toXY = (deg) => {
+        const rad = (deg - 90) * Math.PI / 180;
+        return [(cx + R * Math.cos(rad)).toFixed(2), (cy + R * Math.sin(rad)).toFixed(2)];
+      };
+      const arcPath = (a1, a2, fill) => {
+        if (a2 - a1 >= 359.99) return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${fill}"/>`;
+        if (a2 <= a1) return "";
+        const [x1, y1] = toXY(a1), [x2, y2] = toXY(a2);
+        return `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${a2-a1>180?1:0},1 ${x2},${y2} Z" fill="${fill}"/>`;
+      };
+
+      const ipumDeg = ratio * 360;
+      let slices;
+      if (ratio <= 0) {
+        slices = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#27ae60"/>`;
+      } else if (ratio >= 1) {
+        slices = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#e67e22"/>`;
+      } else {
+        // 녹색(나머지 실적) → 주황(인품) 순 (인품이 12시부터 시작)
+        slices = arcPath(ipumDeg, 360, "#27ae60") + arcPath(0, ipumDeg, "#e67e22");
+      }
+
       return `<div class="stat-pie-item">
         <svg viewBox="0 0 100 100" class="stat-pie-svg">
-          <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#e8e8e8" stroke-width="${sw}"/>
-          <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${color}" stroke-width="${sw}"
-            stroke-dasharray="${dash} ${circumf.toFixed(2)}"
-            transform="rotate(-90 ${cx} ${cy})"/>
-          <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="800" fill="#333">${pct}%</text>
+          ${slices}
+          <circle cx="${cx}" cy="${cy}" r="2" fill="white" opacity="0.6"/>
         </svg>
         <div class="stat-pie-name">${escapeHtml(shortName)}</div>
+        <div class="stat-pie-vals">
+          <span class="pv-ipum">인품 ${ipumPct}%</span>
+          <span class="pv-rest">나머지 ${restPct}%</span>
+        </div>
         <div class="stat-pie-sub">${ipumK}천원</div>
       </div>`;
     };
@@ -10558,7 +10581,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260615j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);

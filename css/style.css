@@ -3604,10 +3604,13 @@ body {
 .stat-chart-rank { font-size: 11px; color: var(--ink-3); text-align: center; }
 
 /* 파이 차트 그리드 */
-.stat-pie-grid { display: flex; flex-wrap: wrap; gap: 12px; }
-.stat-pie-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
-.stat-pie-svg { width: 76px; height: 76px; }
-.stat-pie-name { font-size: 11px; font-weight: 700; color: var(--ink-2); text-align: center; }
+.stat-pie-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px 4px; }
+.stat-pie-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.stat-pie-svg { width: 100%; max-width: 110px; height: auto; aspect-ratio: 1; }
+.stat-pie-name { font-size: 12px; font-weight: 700; color: var(--ink-2); text-align: center; }
+.stat-pie-vals { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.pv-ipum { font-size: 10px; font-weight: 700; color: #c0632a; }
+.pv-rest { font-size: 10px; color: #1a7a3a; font-weight: 600; }
 .stat-pie-sub { font-size: 10px; color: var(--ink-3); text-align: center; }
 
 /* ============ 실적진도 패널 ============ */
