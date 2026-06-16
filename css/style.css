@@ -3616,6 +3616,8 @@ body {
 .stat-pie-svg { width: 100%; max-width: 110px; height: auto; aspect-ratio: 1; }
 .stat-pie-name { font-size: 12px; font-weight: 700; color: var(--ink-2); text-align: center; }
 .stat-pie-vals { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.stat-rgn-link { cursor: pointer; }
+.stat-rgn-link:hover { color: #1a6bbd; text-decoration: underline; }
 .pv-ipum { font-size: 10px; font-weight: 700; color: #c0632a; }
 .pv-rest { font-size: 10px; color: #1a7a3a; font-weight: 600; }
 .stat-pie-sub { font-size: 10px; color: var(--ink-3); text-align: center; }
