@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.34";
+  const APP_VERSION = "2.35";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8408,7 +8408,7 @@ ${piPagesHtml}`;
       "경남지역단": "손제노", "중부지역단": "박정재", "충청지역단": "배홍렬",
       "강원지역단": "이경석", "강북지역단": "김재욱", "대경지역단": "김우진",
       "부산지역단": "신현희", "전북지역단": "이호재", "강서지역단": "김진선",
-      "성남지역단": "김병민", "호남지역단": "이승환", "강남지역단": "김정연",
+      "성남지역단": "김병민", "호남지역단": "이승학", "강남지역단": "김정연",
       "제주사업부": "주활", "북부지역단": "박용제",
     };
 
@@ -8416,9 +8416,17 @@ ${piPagesHtml}`;
     const computeRegion = (rs, rObj, sfx) => {
       const count = rs.length;
       if (!count) return null;
-      // 비전센터명: 해당 기수 교육생 기준 가나다순 첫 번째
-      const centerNames = [...new Set(rs.map((s) => s.center).filter(Boolean))].sort();
-      const centerName = centerNames[0] || "-";
+      // 비전센터명: s.center → ORG_DATA 정식명으로 보정 (수원→수원비전센터 등)
+      const orgCenters = rObj?.centers || [];
+      const resolveCenter = (name) => {
+        if (!name) return null;
+        if (orgCenters.find(c => c.name === name)) return name;
+        const base = name.replace(/비전센터$/, "");
+        const hit = orgCenters.find(c => c.name.replace(/비전센터$/, "") === base);
+        return hit ? hit.name : name;
+      };
+      const studentCenters = [...new Set(rs.map((s) => s.center).filter(Boolean))].sort();
+      const centerName = resolveCenter(studentCenters[0]) || "-";
       // 전임강사: 고정 목록에서 조회
       const instructor = REGION_INSTRUCTOR[rObj?.name] || "-";
       const base = rs.reduce((a, s) => a + Number(s.base || 0), 0);
@@ -10574,7 +10582,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
