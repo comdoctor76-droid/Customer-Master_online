@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.39";
+  const APP_VERSION = "2.40";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8375,7 +8375,18 @@ ${piPagesHtml}`;
       )].sort((a, b) => Number(a) - Number(b));
       cohortSel.innerHTML = `<option value="">전체</option>` +
         cohorts.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}기</option>`).join("");
-      if (prevCohort && cohorts.includes(prevCohort)) cohortSel.value = prevCohort;
+      if (prevCohort && cohorts.includes(prevCohort)) {
+        cohortSel.value = prevCohort;
+      } else if (!prevCohort) {
+        // 첫 오픈 시 좌측 메뉴 기수/스텝 기본값으로 동기화
+        const sidebarCohort = (document.getElementById("filter-cohort")?.value || "").replace(/기$/, "");
+        if (sidebarCohort && cohorts.includes(sidebarCohort)) cohortSel.value = sidebarCohort;
+        if (stepSel) {
+          const sidebarStep = document.getElementById("filter-step")?.value;
+          if (sidebarStep) stepSel.value = sidebarStep;
+        }
+      }
+      cohortSel.dataset.lastCohort = cohortSel.value;
     }
 
     const cohort = cohortSel?.value || "";
@@ -8659,7 +8670,7 @@ ${piPagesHtml}`;
       const rc1 = rateClass(d1.rate);
       if (step === "1") {
         return `<tr>
-          <td class="tc" style="font-weight:700">${escapeHtml(r.name)}</td>
+          <td class="tc stat-rgn-link" style="font-weight:700" data-region="${escapeHtml(r.name)}">${escapeHtml(r.name)}</td>
           <td class="tc">${escapeHtml(d1.instructor)}</td>
           ${showCenter ? `<td class="tc">${escapeHtml(d1.centerName)}</td>` : ""}
           <td class="tc"${hiSty(d1.count,"count")}>${fN(d1.count)}</td>
@@ -8684,7 +8695,7 @@ ${piPagesHtml}`;
       } else {
         const rc2 = d2 ? rateClass(d2.rate) : "";
         return `<tr>
-          <td class="tc" style="font-weight:700">${escapeHtml(r.name)}</td>
+          <td class="tc stat-rgn-link" style="font-weight:700" data-region="${escapeHtml(r.name)}">${escapeHtml(r.name)}</td>
           <td class="tc">${escapeHtml(d1.instructor)}</td>
           ${showCenter ? `<td class="tc">${escapeHtml(d1.centerName)}</td>` : ""}
           <td class="tc"${hiSty(d1.count,"count")}>${fN(d1.count)}</td>
@@ -8877,6 +8888,27 @@ ${piPagesHtml}`;
         body.dataset.sortKey = key;
         body.dataset.sortDir = (prev === key && body.dataset.sortDir === "desc") ? "asc" : "desc";
         renderMasterStats();
+      });
+    });
+
+    // 지역단 행 클릭 → 실적진도 탭으로 이동 (기수·스텝 연동)
+    body.querySelectorAll("td.stat-rgn-link[data-region]").forEach(td => {
+      td.addEventListener("click", () => {
+        const region = td.dataset.region;
+        const currCohort = document.getElementById("stat-cohort-sel")?.value || "";
+        const currStep   = document.getElementById("stat-step-sel")?.value || "1";
+        const pgRegionSel = document.getElementById("pg-region-sel");
+        const pgCohortSel = document.getElementById("pg-cohort-sel");
+        const pgStepSel   = document.getElementById("pg-step-sel");
+        if (pgRegionSel) pgRegionSel.value = region;
+        if (pgCohortSel) pgCohortSel.value = currCohort;
+        if (pgStepSel)   pgStepSel.value   = currStep;
+        state.progressRegion = region;
+        state.progressCohort = currCohort;
+        state.progressStep   = currStep;
+        state.filter.cohort  = currCohort ? `${currCohort}기` : "";
+        state.filter.step    = currStep;
+        switchView("#progress");
       });
     });
 
@@ -10691,8 +10723,16 @@ ${piPagesHtml}`;
     if (awardBtn) awardBtn.addEventListener("click", printAwardSheets);
 
     // 통계 탭 — 기수·스텝 변경 시 재렌더
-    document.getElementById("stat-cohort-sel")?.addEventListener("change", () => {
-      if (isPanelVisible("stats-panel")) renderMasterStats();
+    document.getElementById("stat-cohort-sel")?.addEventListener("change", function() {
+      if (!isPanelVisible("stats-panel")) return;
+      const stepSel = document.getElementById("stat-step-sel");
+      const prevNum = parseInt(this.dataset.lastCohort || "0", 10);
+      const newNum  = parseInt(this.value || "0", 10);
+      // 상위기수(낮은 번호)로 이동 → Step 2, 하위기수(높은 번호)로 이동 → Step 1
+      if (stepSel && prevNum > 0 && newNum > 0) {
+        stepSel.value = newNum < prevNum ? "2" : "1";
+      }
+      renderMasterStats();
     });
     document.getElementById("stat-step-sel")?.addEventListener("change", () => {
       if (isPanelVisible("stats-panel")) renderMasterStats();
@@ -10707,7 +10747,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
