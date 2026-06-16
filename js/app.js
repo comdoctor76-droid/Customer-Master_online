@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.38";
+  const APP_VERSION = "2.39";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8557,6 +8557,19 @@ ${piPagesHtml}`;
     tot.ipumRatio = tot.cur > 0 ? (tot.ipumAmt / tot.cur) * 100 : 0;
     tot.achieverRate = tot.count > 0 ? (tot.achieverTotal / tot.count) * 100 : 0;
 
+    // Step 2 합계 (d2가 있는 행만)
+    const sumD2 = (key) => regionRows.filter(r => r.d2).reduce((a, r) => a + (r.d2[key] || 0), 0);
+    const tot2 = {
+      cur: sumD2("cur"), net: sumD2("net"),
+      ipumCount: sumD2("ipumCount"), ipumAmt: sumD2("ipumAmt"),
+      achiever5k: sumD2("achiever5k"), achiever10k: sumD2("achiever10k"),
+      achiever20k: sumD2("achiever20k"), achiever30k: sumD2("achiever30k"),
+      achieverTotal: sumD2("achieverTotal"), awardPrize: sumD2("awardPrize"),
+    };
+    tot2.rate = tot.base > 0 ? (tot2.cur / tot.base) * 100 : 0;
+    tot2.curAvg = tot.count > 0 ? Math.round(tot2.cur / tot.count) : 0;
+    tot2.ipumRatio = tot2.cur > 0 ? (tot2.ipumAmt / tot2.cur) * 100 : 0;
+
     const fK = (v) => Math.round(Number(v || 0) / 1000).toLocaleString();
     const fR = (v) => (Number(v) || 0).toFixed(1) + "%";
     const fN = (v) => (Number(v) || 0).toLocaleString();
@@ -8721,14 +8734,27 @@ ${piPagesHtml}`;
       <td class="tr"><strong>${fK(tot.awardPrize)}</strong></td>
     </tr>`;
 
+    const rc2tot = rateClass(tot2.rate);
     const totHtml2 = `<tr class="stat-total-row">
       <td colspan="${totCs}" class="tc"><strong>합 계</strong></td>
       <td class="tr"><strong>${fK(tot.base)}</strong></td>
       <td class="tr"><strong>${fK(tot.baseAvg)}</strong></td>
       <td class="tc ${rc}"><strong>${fR(tot.rate)}</strong></td>
       <td class="tc">-</td>
-      <td colspan="13" class="tc" style="color:#999;font-size:11px;">Step 2 합계는 우측 지역단별 합산 참조</td>
+      <td class="tr"><strong>${fK(tot2.cur)}</strong></td>
+      <td class="tr"><strong>${fK(tot2.net)}</strong></td>
+      <td class="tc ${rc2tot}"><strong>${fR(tot2.rate)}</strong></td>
       <td class="tc">-</td>
+      <td class="tr"><strong>${fK(tot2.curAvg)}</strong></td>
+      <td class="tc"><strong>${fN(tot2.ipumCount)}</strong></td>
+      <td class="tr"><strong>${fK(tot2.ipumAmt)}</strong></td>
+      <td class="tr"><strong>${tot2.ipumRatio.toFixed(1)}%</strong></td>
+      <td class="tc"><strong>${fN(tot2.achiever5k)}</strong></td>
+      <td class="tc"><strong>${fN(tot2.achiever10k)}</strong></td>
+      <td class="tc"><strong>${fN(tot2.achiever20k)}</strong></td>
+      <td class="tc"><strong>${fN(tot2.achiever30k)}</strong></td>
+      <td class="tc"><strong>${fN(tot2.achieverTotal)}</strong></td>
+      <td class="tr"><strong>${fK(tot2.awardPrize)}</strong></td>
     </tr>`;
 
     const totHtml = step === "1" ? totHtml1 : totHtml2;
@@ -10681,7 +10707,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
