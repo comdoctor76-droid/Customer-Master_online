@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.33";
+  const APP_VERSION = "2.34";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8409,6 +8409,7 @@ ${piPagesHtml}`;
       "강원지역단": "이경석", "강북지역단": "김재욱", "대경지역단": "김우진",
       "부산지역단": "신현희", "전북지역단": "이호재", "강서지역단": "김진선",
       "성남지역단": "김병민", "호남지역단": "이승환", "강남지역단": "김정연",
+      "제주사업부": "주활", "북부지역단": "박용제",
     };
 
     // 지역별 집계
@@ -10573,7 +10574,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
