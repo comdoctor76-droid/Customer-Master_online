@@ -3603,6 +3603,13 @@ body {
 .stat-chart-val { font-size: 12px; font-weight: 800; color: var(--ink); text-align: right; }
 .stat-chart-rank { font-size: 11px; color: var(--ink-3); text-align: center; }
 
+/* 정렬 가능 헤더 */
+.sth { cursor: pointer; user-select: none; }
+.sth:hover { filter: brightness(1.15); }
+.srt-i { font-size: 8px; margin-left: 2px; vertical-align: middle; }
+.srt-o { opacity: 0.2; }
+.srt-d, .srt-a { color: #ffd700; }
+
 /* 파이 차트 그리드 */
 .stat-pie-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px 4px; }
 .stat-pie-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }

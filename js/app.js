@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.35";
+  const APP_VERSION = "2.36";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8383,6 +8383,11 @@ ${piPagesHtml}`;
     const sfx1 = "";
     const sfx2 = "2";
 
+    // 정렬 상태 (body dataset에 유지, 재렌더링 후에도 유지됨)
+    const sortKey = body.dataset.sortKey || "rate";
+    const sortDir = body.dataset.sortDir || "desc";
+    const showCenter = !!cohort; // 기수 전체 보기에선 비전센터 열 숨김
+
     // 필터링
     const filtered = state.students.filter((s) => {
       if (cohort && String(s.cohort || "").replace(/기$/, "") !== cohort) return false;
@@ -8494,8 +8499,41 @@ ${piPagesHtml}`;
       byRate2.forEach((r, i) => { if (r.d2) r.d2.rank = i + 1; });
     }
 
-    // 순위(달성률) 기준으로 행 정렬
-    regionRows.sort((a, b) => b.d1.rate - a.d1.rate);
+    // 정렬
+    const getSortVal = (r, key) => {
+      const d = (step === "2" && r.d2) ? r.d2 : r.d1;
+      switch (key) {
+        case "name":          return r.name;
+        case "instructor":    return r.d1.instructor;
+        case "centerName":    return r.d1.centerName;
+        case "count":         return r.d1.count;
+        case "base":          return r.d1.base;
+        case "baseAvg":       return r.d1.baseAvg;
+        case "d1rate":        return r.d1.rate;
+        case "d1rank":        return r.d1.rank;
+        case "cur":           return d.cur;
+        case "net":           return d.net;
+        case "rate":          return d.rate;
+        case "rank":          return d.rank;
+        case "curAvg":        return d.curAvg;
+        case "ipumCount":     return d.ipumCount;
+        case "ipumAmt":       return d.ipumAmt;
+        case "ipumRatio":     return d.ipumRatio;
+        case "achiever5k":    return d.achiever5k;
+        case "achiever10k":   return d.achiever10k;
+        case "achiever20k":   return d.achiever20k;
+        case "achiever30k":   return d.achiever30k;
+        case "achieverTotal": return d.achieverTotal;
+        case "achieverRate":  return d.achieverRate;
+        case "awardPrize":    return d.awardPrize;
+        default:              return d.rate;
+      }
+    };
+    regionRows.sort((a, b) => {
+      const va = getSortVal(a, sortKey), vb = getSortVal(b, sortKey);
+      if (typeof va === "string") return sortDir === "desc" ? vb.localeCompare(va) : va.localeCompare(vb);
+      return sortDir === "desc" ? vb - va : va - vb;
+    });
 
     // 합계행
     const sumD = (key) => regionRows.reduce((a, r) => a + (r.d1[key] || 0), 0);
@@ -8526,37 +8564,40 @@ ${piPagesHtml}`;
 
     const cohortLabel = cohort ? `${cohort}기 ` : "";
     const monthLabel = new Date().getMonth() + 1;
+    const curLabel = cohort ? `${monthLabel}월 현재실적` : "전체 합산실적";
+    // 정렬 표시 아이콘
+    const si = (k) => `<span class="srt-i${sortKey===k?(sortDir==="desc"?" srt-d":" srt-a"):" srt-o"}">${sortKey===k?(sortDir==="desc"?"▼":"▲"):"⇅"}</span>`;
 
     // 헤더
     const thead1 = `
       <tr>
-        <th rowspan="2" class="tc">지역단</th>
-        <th rowspan="2" class="tc">전임<br>강사</th>
-        <th rowspan="2" class="tc">비전<br>센터</th>
-        <th rowspan="2" class="tc">입교<br>인원</th>
+        <th rowspan="2" class="tc sth" data-sort="name">지역단${si("name")}</th>
+        <th rowspan="2" class="tc sth" data-sort="instructor">전임<br>강사${si("instructor")}</th>
+        ${showCenter ? `<th rowspan="2" class="tc sth" data-sort="centerName">비전<br>센터${si("centerName")}</th>` : ""}
+        <th rowspan="2" class="tc sth" data-sort="count">입교<br>인원${si("count")}</th>
         <th colspan="2" class="tc">기준실적 (천원)</th>
-        <th colspan="5" class="tc">${monthLabel}월 현재실적 (천원)</th>
+        <th colspan="5" class="tc">${curLabel} (천원)</th>
         <th colspan="3" class="tc">인생의품격</th>
         <th colspan="6" class="tc">순증달성인원</th>
-        <th rowspan="2" class="tr">본사시상금<br>(천원)</th>
+        <th rowspan="2" class="tr sth" data-sort="awardPrize">본사시상금<br>(천원)${si("awardPrize")}</th>
       </tr>
       <tr>
-        <th class="tr">합계(A)</th><th class="tr">인당</th>
-        <th class="tr">합계(A)</th><th class="tr">순증</th><th class="tc">달성률</th><th class="tc">순위</th><th class="tr">인당</th>
-        <th class="tc">건수</th><th class="tr">실적(천원)</th><th class="tr">비중</th>
-        <th class="tc">5만↑</th><th class="tc">10만↑</th><th class="tc">20만↑</th><th class="tc">30만↑</th>
-        <th class="tc">계</th><th class="tr">달성률</th>
+        <th class="tr sth" data-sort="base">합계(A)${si("base")}</th><th class="tr sth" data-sort="baseAvg">인당${si("baseAvg")}</th>
+        <th class="tr sth" data-sort="cur">합계(A)${si("cur")}</th><th class="tr sth" data-sort="net">순증${si("net")}</th><th class="tc sth" data-sort="rate">달성률${si("rate")}</th><th class="tc sth" data-sort="rank">순위${si("rank")}</th><th class="tr sth" data-sort="curAvg">인당${si("curAvg")}</th>
+        <th class="tc sth" data-sort="ipumCount">건수${si("ipumCount")}</th><th class="tr sth" data-sort="ipumAmt">실적(천원)${si("ipumAmt")}</th><th class="tr sth" data-sort="ipumRatio">비중${si("ipumRatio")}</th>
+        <th class="tc sth" data-sort="achiever5k">5만↑${si("achiever5k")}</th><th class="tc sth" data-sort="achiever10k">10만↑${si("achiever10k")}</th><th class="tc sth" data-sort="achiever20k">20만↑${si("achiever20k")}</th><th class="tc sth" data-sort="achiever30k">30만↑${si("achiever30k")}</th>
+        <th class="tc sth" data-sort="achieverTotal">계${si("achieverTotal")}</th><th class="tr sth" data-sort="achieverRate">달성률${si("achieverRate")}</th>
       </tr>`;
 
     const thead2 = `
       <tr>
-        <th rowspan="3" class="tc">지역단</th>
-        <th rowspan="3" class="tc">전임<br>강사</th>
-        <th rowspan="3" class="tc">비전<br>센터</th>
-        <th rowspan="3" class="tc">입교<br>인원</th>
+        <th rowspan="3" class="tc sth" data-sort="name">지역단${si("name")}</th>
+        <th rowspan="3" class="tc sth" data-sort="instructor">전임<br>강사${si("instructor")}</th>
+        ${showCenter ? `<th rowspan="3" class="tc sth" data-sort="centerName">비전<br>센터${si("centerName")}</th>` : ""}
+        <th rowspan="3" class="tc sth" data-sort="count">입교<br>인원${si("count")}</th>
         <th colspan="4" class="tc" style="background:#2a3d7a;">직전월 Step 1 현황 (천원)</th>
         <th colspan="13" class="tc" style="background:#1a5a3a;">Step 2 현황 (천원)</th>
-        <th rowspan="3" class="tr">본사시상금<br>(천원)</th>
+        <th rowspan="3" class="tr sth" data-sort="awardPrize">본사시상금<br>(천원)${si("awardPrize")}</th>
       </tr>
       <tr>
         <th colspan="2" class="tc" style="background:#2a3d7a;">기준실적</th>
@@ -8570,13 +8611,13 @@ ${piPagesHtml}`;
         <th colspan="5" class="tc" style="background:#1a5a3a;">순증달성인원</th>
       </tr>
       <tr>
-        <th class="tr" style="background:#2a3d7a;">합계(A)</th><th class="tr" style="background:#2a3d7a;">인당</th>
-        <th class="tc" style="background:#2a3d7a;">달성률</th><th class="tc" style="background:#2a3d7a;">순위</th>
-        <th class="tr" style="background:#1a5a3a;">합계(A)</th><th class="tr" style="background:#1a5a3a;">순증</th>
-        <th class="tc" style="background:#1a5a3a;">달성률</th><th class="tc" style="background:#1a5a3a;">순위</th><th class="tr" style="background:#1a5a3a;">인당</th>
-        <th class="tc" style="background:#1a5a3a;">건수</th><th class="tr" style="background:#1a5a3a;">실적(천원)</th><th class="tr" style="background:#1a5a3a;">비중</th>
-        <th class="tc" style="background:#1a5a3a;">5만↑</th><th class="tc" style="background:#1a5a3a;">10만↑</th>
-        <th class="tc" style="background:#1a5a3a;">20만↑</th><th class="tc" style="background:#1a5a3a;">30만↑</th><th class="tc" style="background:#1a5a3a;">계</th>
+        <th class="tr sth" data-sort="base" style="background:#2a3d7a;">합계(A)${si("base")}</th><th class="tr sth" data-sort="baseAvg" style="background:#2a3d7a;">인당${si("baseAvg")}</th>
+        <th class="tc sth" data-sort="d1rate" style="background:#2a3d7a;">달성률${si("d1rate")}</th><th class="tc sth" data-sort="d1rank" style="background:#2a3d7a;">순위${si("d1rank")}</th>
+        <th class="tr sth" data-sort="cur" style="background:#1a5a3a;">합계(A)${si("cur")}</th><th class="tr sth" data-sort="net" style="background:#1a5a3a;">순증${si("net")}</th>
+        <th class="tc sth" data-sort="rate" style="background:#1a5a3a;">달성률${si("rate")}</th><th class="tc sth" data-sort="rank" style="background:#1a5a3a;">순위${si("rank")}</th><th class="tr sth" data-sort="curAvg" style="background:#1a5a3a;">인당${si("curAvg")}</th>
+        <th class="tc sth" data-sort="ipumCount" style="background:#1a5a3a;">건수${si("ipumCount")}</th><th class="tr sth" data-sort="ipumAmt" style="background:#1a5a3a;">실적(천원)${si("ipumAmt")}</th><th class="tr sth" data-sort="ipumRatio" style="background:#1a5a3a;">비중${si("ipumRatio")}</th>
+        <th class="tc sth" data-sort="achiever5k" style="background:#1a5a3a;">5만↑${si("achiever5k")}</th><th class="tc sth" data-sort="achiever10k" style="background:#1a5a3a;">10만↑${si("achiever10k")}</th>
+        <th class="tc sth" data-sort="achiever20k" style="background:#1a5a3a;">20만↑${si("achiever20k")}</th><th class="tc sth" data-sort="achiever30k" style="background:#1a5a3a;">30만↑${si("achiever30k")}</th><th class="tc sth" data-sort="achieverTotal" style="background:#1a5a3a;">계${si("achieverTotal")}</th>
       </tr>`;
 
     const thead = step === "1" ? thead1 : thead2;
@@ -8590,7 +8631,7 @@ ${piPagesHtml}`;
         return `<tr>
           <td class="tc" style="font-weight:700">${escapeHtml(r.name)}</td>
           <td class="tc">${escapeHtml(d1.instructor)}</td>
-          <td class="tc">${escapeHtml(d1.centerName)}</td>
+          ${showCenter ? `<td class="tc">${escapeHtml(d1.centerName)}</td>` : ""}
           <td class="tc">${fN(d1.count)}</td>
           <td class="tr">${fK(d1.base)}</td>
           <td class="tr">${fK(d1.baseAvg)}</td>
@@ -8615,7 +8656,7 @@ ${piPagesHtml}`;
         return `<tr>
           <td class="tc" style="font-weight:700">${escapeHtml(r.name)}</td>
           <td class="tc">${escapeHtml(d1.instructor)}</td>
-          <td class="tc">${escapeHtml(d1.centerName)}</td>
+          ${showCenter ? `<td class="tc">${escapeHtml(d1.centerName)}</td>` : ""}
           <td class="tc">${fN(d1.count)}</td>
           <td class="tr">${fK(d1.base)}</td>
           <td class="tr">${fK(d1.baseAvg)}</td>
@@ -8639,10 +8680,11 @@ ${piPagesHtml}`;
       }
     }).join("");
 
-    // 합계 행
+    // 합계 행 (showCenter 여부에 따라 colspan 조정)
     const rc = rateClass(tot.rate);
+    const totCs = showCenter ? 4 : 3; // 지역단+전임강사+(비전센터)+입교인원
     const totHtml1 = `<tr class="stat-total-row">
-      <td colspan="4" class="tc"><strong>합 계</strong></td>
+      <td colspan="${totCs}" class="tc"><strong>합 계</strong></td>
       <td class="tr"><strong>${fK(tot.base)}</strong></td>
       <td class="tr"><strong>${fK(tot.baseAvg)}</strong></td>
       <td class="tr"><strong>${fK(tot.cur)}</strong></td>
@@ -8663,7 +8705,7 @@ ${piPagesHtml}`;
     </tr>`;
 
     const totHtml2 = `<tr class="stat-total-row">
-      <td colspan="4" class="tc"><strong>합 계</strong></td>
+      <td colspan="${totCs}" class="tc"><strong>합 계</strong></td>
       <td class="tr"><strong>${fK(tot.base)}</strong></td>
       <td class="tr"><strong>${fK(tot.baseAvg)}</strong></td>
       <td class="tc ${rc}"><strong>${fR(tot.rate)}</strong></td>
@@ -8778,6 +8820,17 @@ ${piPagesHtml}`;
         <div class="stat-chart-wrap">${chartBars}</div>
       </div>
     `;
+
+    // 정렬 클릭 이벤트 (body.dataset에 상태 저장 후 재렌더)
+    body.querySelectorAll("th.sth[data-sort]").forEach((th) => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        const prev = body.dataset.sortKey || "rate";
+        body.dataset.sortKey = key;
+        body.dataset.sortDir = (prev === key && body.dataset.sortDir === "desc") ? "asc" : "desc";
+        renderMasterStats();
+      });
+    });
   }
 
   function getMasterTargetDefault(region) {
@@ -10582,7 +10635,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
