@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.36";
+  const APP_VERSION = "2.37";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8564,7 +8564,7 @@ ${piPagesHtml}`;
 
     const cohortLabel = cohort ? `${cohort}기 ` : "";
     const monthLabel = new Date().getMonth() + 1;
-    const curLabel = cohort ? `${monthLabel}월 현재실적` : "전체 합산실적";
+    const curLabel = step === "1" ? "Step1 실적" : (cohort ? `${monthLabel}월 현재실적` : "전체 합산실적");
     // 정렬 표시 아이콘
     const si = (k) => `<span class="srt-i${sortKey===k?(sortDir==="desc"?" srt-d":" srt-a"):" srt-o"}">${sortKey===k?(sortDir==="desc"?"▼":"▲"):"⇅"}</span>`;
 
@@ -8622,6 +8622,23 @@ ${piPagesHtml}`;
 
     const thead = step === "1" ? thead1 : thead2;
 
+    // 컬럼별 Top 3 강조 (지역단/전임강사/비전센터/달성률/순위 제외)
+    const TOP_KEYS = ["count","base","baseAvg","cur","net","curAvg","ipumCount","ipumAmt","ipumRatio","achiever5k","achiever10k","achiever20k","achiever30k","achieverTotal","achieverRate","awardPrize"];
+    const _topN = (arr) => [...new Set(arr)].sort((a,b)=>b-a).slice(0,3);
+    const colTop = {};
+    TOP_KEYS.forEach(k => {
+      colTop[`d1_${k}`] = _topN(regionRows.map(r => r.d1[k]||0));
+      colTop[`d2_${k}`] = _topN(regionRows.filter(r=>r.d2).map(r => r.d2[k]||0));
+    });
+    const hiSty = (val, key, d2=false) => {
+      const tops = colTop[`${d2?"d2":"d1"}_${key}`]||[];
+      const i = tops.indexOf(Number(val));
+      if (i===0) return ' style="font-size:calc(1em + 3px);color:#e74c3c;font-weight:900"';
+      if (i===1) return ' style="font-size:calc(1em + 2px);color:#27ae60;font-weight:800"';
+      if (i===2) return ' style="font-size:calc(1em + 1px);color:#e6b800;font-weight:700"';
+      return '';
+    };
+
     // 데이터 행
     const rowsHtml = regionRows.map((r) => {
       const d1 = r.d1;
@@ -8632,24 +8649,24 @@ ${piPagesHtml}`;
           <td class="tc" style="font-weight:700">${escapeHtml(r.name)}</td>
           <td class="tc">${escapeHtml(d1.instructor)}</td>
           ${showCenter ? `<td class="tc">${escapeHtml(d1.centerName)}</td>` : ""}
-          <td class="tc">${fN(d1.count)}</td>
-          <td class="tr">${fK(d1.base)}</td>
-          <td class="tr">${fK(d1.baseAvg)}</td>
-          <td class="tr">${fK(d1.cur)}</td>
-          <td class="tr">${fK(d1.net)}</td>
+          <td class="tc"${hiSty(d1.count,"count")}>${fN(d1.count)}</td>
+          <td class="tr"${hiSty(d1.base,"base")}>${fK(d1.base)}</td>
+          <td class="tr"${hiSty(d1.baseAvg,"baseAvg")}>${fK(d1.baseAvg)}</td>
+          <td class="tr"${hiSty(d1.cur,"cur")}>${fK(d1.cur)}</td>
+          <td class="tr"${hiSty(d1.net,"net")}>${fK(d1.net)}</td>
           <td class="tc ${rc1}">${fR(d1.rate)}</td>
           <td class="tc${d1.rank === 1 ? " stat-rank-1" : ""}">${d1.rank}</td>
-          <td class="tr">${fK(d1.curAvg)}</td>
-          <td class="tc">${fN(d1.ipumCount)}</td>
-          <td class="tr">${fK(d1.ipumAmt)}</td>
-          <td class="tr">${d1.ipumRatio.toFixed(1)}%</td>
-          <td class="tc">${fN(d1.achiever5k)}</td>
-          <td class="tc">${fN(d1.achiever10k)}</td>
-          <td class="tc">${fN(d1.achiever20k)}</td>
-          <td class="tc">${fN(d1.achiever30k)}</td>
-          <td class="tc">${fN(d1.achieverTotal)}</td>
-          <td class="tr">${fR(d1.achieverRate)}</td>
-          <td class="tr">${fK(d1.awardPrize)}</td>
+          <td class="tr"${hiSty(d1.curAvg,"curAvg")}>${fK(d1.curAvg)}</td>
+          <td class="tc"${hiSty(d1.ipumCount,"ipumCount")}>${fN(d1.ipumCount)}</td>
+          <td class="tr"${hiSty(d1.ipumAmt,"ipumAmt")}>${fK(d1.ipumAmt)}</td>
+          <td class="tr"${hiSty(d1.ipumRatio,"ipumRatio")}>${d1.ipumRatio.toFixed(1)}%</td>
+          <td class="tc"${hiSty(d1.achiever5k,"achiever5k")}>${fN(d1.achiever5k)}</td>
+          <td class="tc"${hiSty(d1.achiever10k,"achiever10k")}>${fN(d1.achiever10k)}</td>
+          <td class="tc"${hiSty(d1.achiever20k,"achiever20k")}>${fN(d1.achiever20k)}</td>
+          <td class="tc"${hiSty(d1.achiever30k,"achiever30k")}>${fN(d1.achiever30k)}</td>
+          <td class="tc"${hiSty(d1.achieverTotal,"achieverTotal")}>${fN(d1.achieverTotal)}</td>
+          <td class="tr"${hiSty(d1.achieverRate,"achieverRate")}>${fR(d1.achieverRate)}</td>
+          <td class="tr"${hiSty(d1.awardPrize,"awardPrize")}>${fK(d1.awardPrize)}</td>
         </tr>`;
       } else {
         const rc2 = d2 ? rateClass(d2.rate) : "";
@@ -8657,25 +8674,25 @@ ${piPagesHtml}`;
           <td class="tc" style="font-weight:700">${escapeHtml(r.name)}</td>
           <td class="tc">${escapeHtml(d1.instructor)}</td>
           ${showCenter ? `<td class="tc">${escapeHtml(d1.centerName)}</td>` : ""}
-          <td class="tc">${fN(d1.count)}</td>
-          <td class="tr">${fK(d1.base)}</td>
-          <td class="tr">${fK(d1.baseAvg)}</td>
+          <td class="tc"${hiSty(d1.count,"count")}>${fN(d1.count)}</td>
+          <td class="tr"${hiSty(d1.base,"base")}>${fK(d1.base)}</td>
+          <td class="tr"${hiSty(d1.baseAvg,"baseAvg")}>${fK(d1.baseAvg)}</td>
           <td class="tc ${rc1}">${fR(d1.rate)}</td>
           <td class="tc${d1.rank === 1 ? " stat-rank-1" : ""}">${d1.rank}</td>
-          <td class="tr">${d2 ? fK(d2.cur) : "-"}</td>
-          <td class="tr">${d2 ? fK(d2.net) : "-"}</td>
+          <td class="tr"${d2 ? hiSty(d2.cur,"cur",true) : ""}>${d2 ? fK(d2.cur) : "-"}</td>
+          <td class="tr"${d2 ? hiSty(d2.net,"net",true) : ""}>${d2 ? fK(d2.net) : "-"}</td>
           <td class="tc ${rc2}">${d2 ? fR(d2.rate) : "-"}</td>
           <td class="tc${d2 && d2.rank === 1 ? " stat-rank-1" : ""}">${d2 ? d2.rank : "-"}</td>
-          <td class="tr">${d2 ? fK(d2.curAvg) : "-"}</td>
-          <td class="tc">${d2 ? fN(d2.ipumCount) : "-"}</td>
-          <td class="tr">${d2 ? fK(d2.ipumAmt) : "-"}</td>
-          <td class="tr">${d2 ? d2.ipumRatio.toFixed(1) + "%" : "-"}</td>
-          <td class="tc">${d2 ? fN(d2.achiever5k) : "-"}</td>
-          <td class="tc">${d2 ? fN(d2.achiever10k) : "-"}</td>
-          <td class="tc">${d2 ? fN(d2.achiever20k) : "-"}</td>
-          <td class="tc">${d2 ? fN(d2.achiever30k) : "-"}</td>
-          <td class="tc">${d2 ? fN(d2.achieverTotal) : "-"}</td>
-          <td class="tr">${d2 ? fK(d2.awardPrize) : "-"}</td>
+          <td class="tr"${d2 ? hiSty(d2.curAvg,"curAvg",true) : ""}>${d2 ? fK(d2.curAvg) : "-"}</td>
+          <td class="tc"${d2 ? hiSty(d2.ipumCount,"ipumCount",true) : ""}>${d2 ? fN(d2.ipumCount) : "-"}</td>
+          <td class="tr"${d2 ? hiSty(d2.ipumAmt,"ipumAmt",true) : ""}>${d2 ? fK(d2.ipumAmt) : "-"}</td>
+          <td class="tr"${d2 ? hiSty(d2.ipumRatio,"ipumRatio",true) : ""}>${d2 ? d2.ipumRatio.toFixed(1) + "%" : "-"}</td>
+          <td class="tc"${d2 ? hiSty(d2.achiever5k,"achiever5k",true) : ""}>${d2 ? fN(d2.achiever5k) : "-"}</td>
+          <td class="tc"${d2 ? hiSty(d2.achiever10k,"achiever10k",true) : ""}>${d2 ? fN(d2.achiever10k) : "-"}</td>
+          <td class="tc"${d2 ? hiSty(d2.achiever20k,"achiever20k",true) : ""}>${d2 ? fN(d2.achiever20k) : "-"}</td>
+          <td class="tc"${d2 ? hiSty(d2.achiever30k,"achiever30k",true) : ""}>${d2 ? fN(d2.achiever30k) : "-"}</td>
+          <td class="tc"${d2 ? hiSty(d2.achieverTotal,"achieverTotal",true) : ""}>${d2 ? fN(d2.achieverTotal) : "-"}</td>
+          <td class="tr"${d2 ? hiSty(d2.awardPrize,"awardPrize",true) : ""}>${d2 ? fK(d2.awardPrize) : "-"}</td>
         </tr>`;
       }
     }).join("");
@@ -10635,7 +10652,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
