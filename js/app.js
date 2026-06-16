@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.32";
+  const APP_VERSION = "2.33";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8402,6 +8402,15 @@ ${piPagesHtml}`;
       return cur - Number(s.base || 0);
     };
 
+    // 지역단별 전임강사 (고정 목록)
+    const REGION_INSTRUCTOR = {
+      "경인지역단": "정경진", "경기지역단": "정영미", "영남지역단": "윤태의",
+      "경남지역단": "손제노", "중부지역단": "박정재", "충청지역단": "배홍렬",
+      "강원지역단": "이경석", "강북지역단": "김재욱", "대경지역단": "김우진",
+      "부산지역단": "신현희", "전북지역단": "이호재", "강서지역단": "김진선",
+      "성남지역단": "김병민", "호남지역단": "이승환", "강남지역단": "김정연",
+    };
+
     // 지역별 집계
     const computeRegion = (rs, rObj, sfx) => {
       const count = rs.length;
@@ -8409,10 +8418,8 @@ ${piPagesHtml}`;
       // 비전센터명: 해당 기수 교육생 기준 가나다순 첫 번째
       const centerNames = [...new Set(rs.map((s) => s.center).filter(Boolean))].sort();
       const centerName = centerNames[0] || "-";
-      // 전임강사: pgLeader 최빈값
-      const leaderMap = {};
-      rs.forEach((s) => { if (s.pgLeader) leaderMap[s.pgLeader] = (leaderMap[s.pgLeader] || 0) + 1; });
-      const instructor = Object.entries(leaderMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+      // 전임강사: 고정 목록에서 조회
+      const instructor = REGION_INSTRUCTOR[rObj?.name] || "-";
       const base = rs.reduce((a, s) => a + Number(s.base || 0), 0);
       const baseAvg = count > 0 ? Math.round(base / count) : 0;
       const cur = rs.reduce((a, s) => {
@@ -8463,21 +8470,6 @@ ${piPagesHtml}`;
       const d1 = computeRegion(rs, r, sfx1);
       const d2 = step === "2" ? computeRegion(rs, r, sfx2) : null;
       if (d1) regionRows.push({ name: r.name, d1, d2 });
-    });
-    // 미분류 지역단
-    const knownRegions = new Set(orgRegions.map((r) => r.name));
-    const unknowns = {};
-    filtered.forEach((s) => {
-      if (!knownRegions.has(s.region)) {
-        const k = s.region || "(미지정)";
-        if (!unknowns[k]) unknowns[k] = [];
-        unknowns[k].push(s);
-      }
-    });
-    Object.entries(unknowns).forEach(([rname, rs]) => {
-      const d1 = computeRegion(rs, { name: rname, centers: [] }, sfx1);
-      const d2 = step === "2" ? computeRegion(rs, { name: rname, centers: [] }, sfx2) : null;
-      if (d1) regionRows.push({ name: rname, d1, d2 });
     });
 
     if (!regionRows.length) {
@@ -10581,7 +10573,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
