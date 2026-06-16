@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.37";
+  const APP_VERSION = "2.38";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8762,27 +8762,32 @@ ${piPagesHtml}`;
       const ipumK = fK(d.ipumAmt);
       const shortName = r.name.replace(/지역단$/, "");
 
+      const restAmt = Math.max(0, d.cur - d.ipumAmt);
+      const restK = fK(restAmt);
+      const tipIpum = `data-tip="인품 실적: ${ipumK}천원 (${ipumPct}%)"`;
+      const tipRest = `data-tip="인품외 실적: ${restK}천원 (${restPct}%)"`;
+
       // SVG 파이 슬라이스 생성 (0도=12시 방향, 시계방향)
       const toXY = (deg) => {
         const rad = (deg - 90) * Math.PI / 180;
         return [(cx + R * Math.cos(rad)).toFixed(2), (cy + R * Math.sin(rad)).toFixed(2)];
       };
-      const arcPath = (a1, a2, fill) => {
-        if (a2 - a1 >= 359.99) return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${fill}"/>`;
+      const arcPath = (a1, a2, fill, extra = "") => {
+        if (a2 - a1 >= 359.99) return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${fill}" ${extra}/>`;
         if (a2 <= a1) return "";
         const [x1, y1] = toXY(a1), [x2, y2] = toXY(a2);
-        return `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${a2-a1>180?1:0},1 ${x2},${y2} Z" fill="${fill}"/>`;
+        return `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${a2-a1>180?1:0},1 ${x2},${y2} Z" fill="${fill}" ${extra}/>`;
       };
 
       const ipumDeg = ratio * 360;
       let slices;
       if (ratio <= 0) {
-        slices = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#27ae60"/>`;
+        slices = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#27ae60" ${tipRest}/>`;
       } else if (ratio >= 1) {
-        slices = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#e67e22"/>`;
+        slices = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#e67e22" ${tipIpum}/>`;
       } else {
         // 녹색(나머지 실적) → 주황(인품) 순 (인품이 12시부터 시작)
-        slices = arcPath(ipumDeg, 360, "#27ae60") + arcPath(0, ipumDeg, "#e67e22");
+        slices = arcPath(ipumDeg, 360, "#27ae60", tipRest) + arcPath(0, ipumDeg, "#e67e22", tipIpum);
       }
 
       return `<div class="stat-pie-item">
@@ -8848,6 +8853,30 @@ ${piPagesHtml}`;
         renderMasterStats();
       });
     });
+
+    // 파이차트 툴팁
+    let pieTip = document.getElementById("pie-tip");
+    if (!pieTip) {
+      pieTip = document.createElement("div");
+      pieTip.id = "pie-tip";
+      pieTip.className = "pie-tooltip";
+      document.body.appendChild(pieTip);
+    }
+    const pieGrid = body.querySelector(".stat-pie-grid");
+    if (pieGrid) {
+      pieGrid.addEventListener("mousemove", (e) => {
+        const slice = e.target.closest("[data-tip]");
+        if (slice) {
+          pieTip.textContent = slice.dataset.tip;
+          pieTip.style.display = "block";
+          pieTip.style.left = (e.clientX + 14) + "px";
+          pieTip.style.top = (e.clientY - 36) + "px";
+        } else {
+          pieTip.style.display = "none";
+        }
+      });
+      pieGrid.addEventListener("mouseleave", () => { pieTip.style.display = "none"; });
+    }
   }
 
   function getMasterTargetDefault(region) {
@@ -10652,7 +10681,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
