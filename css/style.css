@@ -3619,6 +3619,13 @@ body {
 .pv-ipum { font-size: 10px; font-weight: 700; color: #c0632a; }
 .pv-rest { font-size: 10px; color: #1a7a3a; font-weight: 600; }
 .stat-pie-sub { font-size: 10px; color: var(--ink-3); text-align: center; }
+.pie-tooltip {
+  position: fixed; display: none; pointer-events: none; z-index: 9999;
+  background: rgba(20,20,20,0.9); color: #fff;
+  padding: 5px 11px; border-radius: 7px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
 
 /* ============ 실적진도 패널 ============ */
 .progress-body { padding: 16px 20px; }
