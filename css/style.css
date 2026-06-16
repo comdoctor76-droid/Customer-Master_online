@@ -3603,6 +3603,13 @@ body {
 .stat-chart-val { font-size: 12px; font-weight: 800; color: var(--ink); text-align: right; }
 .stat-chart-rank { font-size: 11px; color: var(--ink-3); text-align: center; }
 
+/* 파이 차트 그리드 */
+.stat-pie-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.stat-pie-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
+.stat-pie-svg { width: 76px; height: 76px; }
+.stat-pie-name { font-size: 11px; font-weight: 700; color: var(--ink-2); text-align: center; }
+.stat-pie-sub { font-size: 10px; color: var(--ink-3); text-align: center; }
+
 /* ============ 실적진도 패널 ============ */
 .progress-body { padding: 16px 20px; }
 .pg-wrap { display: flex; flex-direction: column; gap: 14px; }
