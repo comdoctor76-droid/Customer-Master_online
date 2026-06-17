@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.43";
+  const APP_VERSION = "2.44";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10752,7 +10752,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -11898,11 +11898,16 @@ ${piPagesHtml}`;
       "#settings":  "settings"
     };
     const target = map[href];
-    // 관리자(설정) 진입 시 암호 체크 — 매번 묻도록
+    // 관리자(설정) 진입 시 메인관리자 여부 확인
     if (target === "settings") {
-      const pwd = prompt("관리자 암호를 입력하세요:");
-      if (pwd !== "2051") {
-        toast("암호가 일치하지 않습니다.", "error");
+      if (!isSuperAdmin()) {
+        const pu = state.currentUser;
+        const mainAdm = state.admins.find(a => a.empNo === SUPER_ADMIN_EMPNO);
+        const adminName = mainAdm?.name || "메인관리자";
+        const adminPhone = mainAdm?.phone || "";
+        const msg = `관리자 메뉴는 메인관리자(${adminName})만 접근할 수 있습니다.` +
+          (adminPhone ? `\n문의: ${adminPhone}` : "");
+        alert(msg);
         return;
       }
     }
@@ -11969,6 +11974,11 @@ ${piPagesHtml}`;
 
   // ── 로그인 시스템 ────────────────────────────────────────────
   const ADMIN_ROLES = ["전임강사", "비전센터장", "지점장", "파트장", "기타"];
+  const SUPER_ADMIN_EMPNO = "313766"; // 메인관리자 사번
+
+  function isSuperAdmin() {
+    return state.currentUser?.empNo === SUPER_ADMIN_EMPNO;
+  }
 
   function _checkLogin() {
     if (state.pgShareMode) return;
@@ -12278,6 +12288,17 @@ ${piPagesHtml}`;
       state.admins = list;
       if (isPanelVisible("settings-panel")) renderAdminTree();
     });
+    // 메인관리자 계정 자동 생성 (최초 1회)
+    window.DataAPI.getAdminByEmpNo(SUPER_ADMIN_EMPNO).then(existing => {
+      if (!existing) {
+        window.DataAPI.saveAdmin({
+          empNo: SUPER_ADMIN_EMPNO, name: "이승학",
+          phone: "010-5338-0654", region: "호남지역단",
+          center: "", branch: "", role: "전임강사",
+          password: "!!이예빈1",
+        });
+      }
+    }).catch(() => {});
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
     const fsEl = document.getElementById("filter-step"); if (fsEl) fsEl.value = state.filter.step || "1";
