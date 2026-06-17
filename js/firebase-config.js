@@ -563,16 +563,21 @@ window.DataAPI = {
     return {};
   },
 
-  // ── 관리자 계정 관리 (cm_admins 컬렉션) ──────────────────────
+  // ── 관리자 계정 관리 (students 컬렉션, _adm_ 접두사 문서) ──────
+  // students 구독은 _ 시작 문서를 자동 제외하므로 교육생 목록과 충돌 없음
   subscribeAdmins(callback) {
-    return onSnapshot(collection(db, "cm_admins"), (snap) => {
-      callback(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
+    return onSnapshot(collection(db, "students"), (snap) => {
+      const admins = snap.docs
+        .filter(d => d.id.startsWith("_adm_"))
+        .map(d => ({ docId: d.id, ...d.data() }));
+      callback(admins);
     });
   },
   async saveAdmin(admin) {
-    const ref = doc(db, "cm_admins", String(admin.empNo).trim());
+    const empNo = String(admin.empNo).trim();
+    const ref = doc(db, "students", "_adm_" + empNo);
     await setDoc(ref, {
-      empNo:    String(admin.empNo).trim(),
+      empNo,
       name:     admin.name     || "",
       phone:    admin.phone    || "",
       region:   admin.region   || "",
@@ -584,10 +589,10 @@ window.DataAPI = {
     }, { merge: true });
   },
   async removeAdmin(empNo) {
-    await deleteDoc(doc(db, "cm_admins", String(empNo).trim()));
+    await deleteDoc(doc(db, "students", "_adm_" + String(empNo).trim()));
   },
   async getAdminByEmpNo(empNo) {
-    const snap = await getDoc(doc(db, "cm_admins", String(empNo).trim()));
+    const snap = await getDoc(doc(db, "students", "_adm_" + String(empNo).trim()));
     return snap.exists() ? { docId: snap.id, ...snap.data() } : null;
   },
 };
