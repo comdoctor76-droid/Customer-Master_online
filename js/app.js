@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.50";
+  const APP_VERSION = "2.51";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10912,7 +10912,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617j)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617k)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12160,7 +12160,13 @@ ${piPagesHtml}`;
     const ov = document.createElement("div");
     ov.id = "login-overlay";
     ov.innerHTML = `<div class="login-box">
-      <div class="login-logo">H</div>
+      <div class="login-brand-row">
+        <div class="login-logo">H</div>
+        <div class="login-brand-info">
+          <div class="login-brand-name">Hyundai Marine &amp; Fire</div>
+          <span class="login-brand-ver">v${APP_VERSION}</span>
+        </div>
+      </div>
       <div class="login-title">고객컨설팅 마스터과정<br>운영관리 시스템</div>
       <div class="login-sub">사번과 비밀번호를 입력하세요</div>
       <input type="text"     id="li-empno" class="login-input" placeholder="사번" inputmode="numeric" autocomplete="username" value="${escapeHtml(savedEmpNo)}">
@@ -12171,6 +12177,7 @@ ${piPagesHtml}`;
       </label>
       <button id="li-btn" class="login-btn">로 그 인</button>
       <div id="li-msg" class="login-msg"></div>
+      <div class="login-credit">문의 : 호남지역단 이승학 전임강사</div>
     </div>`;
     document.body.appendChild(ov);
     const empEl      = ov.querySelector("#li-empno");
