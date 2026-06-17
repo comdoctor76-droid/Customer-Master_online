@@ -601,6 +601,30 @@ window.DataAPI = {
     const snap = await getDoc(doc(db, "students", id));
     return snap.exists() ? { docId: snap.id, ...snap.data() } : null;
   },
+
+  // ── 교육생 접속 로그 (students/_slog_* 문서) ─────────────────
+  async logStudentAccess(empNo, name, region, cohort, action) {
+    const date = new Date().toISOString().slice(0, 10);
+    const docId = "_slog_" + String(empNo).trim() + "_" + date.replace(/-/g, "");
+    const ref = doc(db, "students", docId);
+    const patch = {
+      _type: "student_log",
+      empNo: String(empNo).trim(), name: name || "",
+      region: region || "", cohort: cohort || "",
+      date, actions: arrayUnion(action),
+      updatedAt: serverTimestamp(),
+    };
+    if (action === "로그인") patch.loginCount = increment(1);
+    await setDoc(ref, patch, { merge: true });
+  },
+  async fetchStudentLogs() {
+    const snap = await getDocs(collection(db, "students"));
+    const logs = [];
+    snap.forEach(d => {
+      if (d.id.startsWith("_slog_")) logs.push({ docId: d.id, ...d.data() });
+    });
+    return logs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  },
 };
 
 // 온라인/오프라인 상태 배지 제어

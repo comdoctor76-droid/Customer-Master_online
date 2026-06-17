@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.49";
+  const APP_VERSION = "2.50";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -396,6 +396,10 @@
     currentUser: null,         // { empNo, name, role, region }
     admins: [],                // cm_admins Firestore 목록
     adminUnsub: null,          // Firestore 구독 해제 함수
+    // 교육생 접속 로그 (통계용 캐시)
+    studentLogs: null,         // null = 미로드, [] = 로드완료
+    studentLogsLoading: false,
+    _studentLoggedActions: new Set(), // 세션 내 중복 로그 방지
   };
 
   // ========== 유틸 ==========
@@ -4638,6 +4642,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       body.innerHTML = renderProgressHome(list);
       bindProgressHomeEvents(list);
     }
+    // 교육생 모드: 실적진도 조회 로그 (세션당 1회)
+    if (isStudentMode() && !state._studentLoggedActions.has("실적진도")) {
+      state._studentLoggedActions.add("실적진도");
+      const u = state.currentUser;
+      window.DataAPI.logStudentAccess(u.empNo, u.name, u.region, u.cohort, "실적진도").catch(() => {});
+    }
   }
 
   function _pgStepSfx() {
@@ -5600,6 +5610,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           if (data) {
             openPgFullModal(data);
             if (card.dataset.hrpcard === "group") bindTacCardClicks();
+          }
+          // 교육생 모드: 카드 클릭 로그
+          if (isStudentMode()) {
+            const action = card.dataset.hrpcard === "group" ? "팀 시상" : "개인 시상";
+            if (!state._studentLoggedActions.has(action)) {
+              state._studentLoggedActions.add(action);
+              const u = state.currentUser;
+              window.DataAPI.logStudentAccess(u.empNo, u.name, u.region, u.cohort, action).catch(() => {});
+            }
           }
         });
       });
@@ -8961,6 +8980,125 @@ ${piPagesHtml}`;
       });
       pieGrid.addEventListener("mouseleave", () => { pieTip.style.display = "none"; });
     }
+
+    // 교육생 접속 현황 섹션 추가
+    const accessWrap = document.createElement("div");
+    accessWrap.id = "student-access-stats";
+    accessWrap.className = "student-access-stats";
+    body.appendChild(accessWrap);
+    renderStudentAccessStats(accessWrap);
+  }
+
+  function renderStudentAccessStats(container) {
+    container.innerHTML = `<div class="sas-header">
+      <span class="sas-title">📱 교육생 접속 현황</span>
+      <button class="sas-refresh-btn" id="sas-refresh">새로고침</button>
+    </div>
+    <div class="sas-body" id="sas-body"><div class="sas-loading">불러오는 중...</div></div>`;
+
+    const sasBody = container.querySelector("#sas-body");
+    container.querySelector("#sas-refresh").addEventListener("click", () => {
+      state.studentLogs = null;
+      loadAndRenderLogs();
+    });
+
+    function loadAndRenderLogs() {
+      if (state.studentLogsLoading) return;
+      if (state.studentLogs !== null) { fillLogs(state.studentLogs); return; }
+      state.studentLogsLoading = true;
+      sasBody.innerHTML = `<div class="sas-loading">불러오는 중...</div>`;
+      window.DataAPI.fetchStudentLogs().then(logs => {
+        state.studentLogs = logs;
+        state.studentLogsLoading = false;
+        fillLogs(logs);
+      }).catch(err => {
+        state.studentLogsLoading = false;
+        sasBody.innerHTML = `<div class="sas-loading" style="color:#e74c3c">불러오기 실패: ${escapeHtml(err.message)}</div>`;
+      });
+    }
+
+    function fillLogs(logs) {
+      if (!logs.length) {
+        sasBody.innerHTML = `<div class="sas-loading">아직 접속 기록이 없습니다.</div>`;
+        return;
+      }
+
+      // 교육생별 집계
+      const byEmp = {};
+      logs.forEach(log => {
+        const key = log.empNo;
+        if (!byEmp[key]) byEmp[key] = { empNo: log.empNo, name: log.name, region: log.region, cohort: log.cohort, totalLogin: 0, days: 0, actions: new Set() };
+        byEmp[key].totalLogin += Number(log.loginCount || 0);
+        byEmp[key].days += 1;
+        (log.actions || []).forEach(a => byEmp[key].actions.add(a));
+      });
+      const empList = Object.values(byEmp).sort((a, b) => b.totalLogin - a.totalLogin);
+
+      // 지역단별 집계
+      const byRegion = {};
+      empList.forEach(e => {
+        const r = e.region || "미지정";
+        if (!byRegion[r]) byRegion[r] = { region: r, students: 0, totalLogin: 0, topName: "", topLogin: 0 };
+        byRegion[r].students++;
+        byRegion[r].totalLogin += e.totalLogin;
+        if (e.totalLogin > byRegion[r].topLogin) { byRegion[r].topLogin = e.totalLogin; byRegion[r].topName = e.name; }
+      });
+      const regionList = Object.values(byRegion).sort((a, b) => b.totalLogin - a.totalLogin);
+
+      // 요약 카드
+      const totalLogin = empList.reduce((s, e) => s + e.totalLogin, 0);
+      const topEmp = empList[0];
+      const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const monthLogin = logs.filter(l => (l.date || "").startsWith(today)).reduce((s, l) => s + Number(l.loginCount || 0), 0);
+
+      // 지역단 테이블
+      const regionRows = regionList.map(r => `
+        <tr>
+          <td>${escapeHtml(r.region)}</td>
+          <td class="sas-num">${r.students}명</td>
+          <td class="sas-num">${r.totalLogin}회</td>
+          <td>${escapeHtml(r.topName)} (${r.topLogin}회)</td>
+        </tr>`).join("");
+
+      // 교육생별 최근 30일 로그 상세 (날짜 내림차순)
+      const recentLogs = logs.slice(0, 200);
+      const logRows = recentLogs.map(log => `
+        <tr>
+          <td>${escapeHtml(log.date || "")}</td>
+          <td>${escapeHtml(log.name || "")}</td>
+          <td>${escapeHtml(log.cohort || "")}</td>
+          <td>${escapeHtml(log.region || "")}</td>
+          <td class="sas-actions">${(log.actions || []).map(a => `<span class="sas-badge">${escapeHtml(a)}</span>`).join("")}</td>
+          <td class="sas-num">${Number(log.loginCount || 0)}회</td>
+        </tr>`).join("");
+
+      sasBody.innerHTML = `
+        <div class="sas-summary-row">
+          <div class="sas-sum-card"><div class="sas-sum-label">전체 접속 횟수</div><strong>${totalLogin}회</strong></div>
+          <div class="sas-sum-card"><div class="sas-sum-label">이번 달 접속</div><strong>${monthLogin}회</strong></div>
+          <div class="sas-sum-card"><div class="sas-sum-label">최다 접속 교육생</div><strong>${topEmp ? escapeHtml(topEmp.name) + " " + topEmp.totalLogin + "회" : "-"}</strong></div>
+          <div class="sas-sum-card"><div class="sas-sum-label">접속 교육생 수</div><strong>${empList.length}명</strong></div>
+        </div>
+
+        <div class="sas-section-title">지역단별 접속 현황</div>
+        <div class="sas-table-wrap">
+          <table class="sas-table">
+            <thead><tr><th>지역단</th><th>접속 학생</th><th>총 접속</th><th>최다 접속자</th></tr></thead>
+            <tbody>${regionRows}</tbody>
+          </table>
+        </div>
+
+        <div class="sas-section-title">일별 접속 상세 (최근 ${recentLogs.length}건)</div>
+        <div class="sas-table-wrap">
+          <table class="sas-table">
+            <thead><tr><th>날짜</th><th>이름</th><th>기수</th><th>지역단</th><th>조회 화면</th><th>접속</th></tr></thead>
+            <tbody>${logRows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    loadAndRenderLogs();
   }
 
   function getMasterTargetDefault(region) {
@@ -10774,7 +10912,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12104,6 +12242,9 @@ ${piPagesHtml}`;
         state.progressCohort = String(u.cohort).replace(/기$/, "");
         state.filter.cohort  = u.cohort;
       }
+      // 접속 로그 기록
+      state._studentLoggedActions = new Set();
+      window.DataAPI.logStudentAccess(u.empNo, u.name, u.region, u.cohort, "로그인").catch(() => {});
       switchView("#progress");
     } else {
       if (ui) { ui.textContent = `${u.name} (${u.role})`; ui.hidden = false; }
