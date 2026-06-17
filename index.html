@@ -29,6 +29,8 @@
         <a href="#settings">관리자</a>
       </nav>
       <div class="header-actions">
+        <span id="hdr-user-info" class="hdr-user-info" hidden></span>
+        <button id="btn-logout" class="btn-logout" hidden title="로그아웃">로그아웃</button>
         <button id="btn-error-report" class="btn-error-report" title="오류신고">🚨 오류신고</button>
         <button id="btn-hard-refresh" class="btn-hard-refresh" title="캐시 초기화 후 새로고침" aria-label="새로고침">🔄</button>
         <span id="connection-status" class="conn-badge">연결중...</span>
@@ -155,6 +157,16 @@
           <h2>🔐 관리자</h2>
         </div>
         <div class="settings-body">
+            <!-- 관리자 계정 관리 -->
+          <div class="settings-section" id="admin-users-section">
+            <h3>👤 관리자 계정 관리</h3>
+            <p class="settings-desc">로그인 계정을 등록·수정·삭제합니다. 초기 비밀번호는 0000입니다.</p>
+            <div class="settings-actions">
+              <button class="btn-outline" id="btn-add-admin">+ 관리자 추가</button>
+            </div>
+            <div id="admin-user-tree" class="admin-tree"></div>
+          </div>
+
           <div class="settings-section" id="error-reports-section">
             <div class="er-section-head">
               <h3>📋 오류신고모음</h3>

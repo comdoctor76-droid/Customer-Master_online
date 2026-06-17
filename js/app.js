@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.42";
+  const APP_VERSION = "2.43";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -391,7 +391,11 @@
     progressStep: "",
     // 출력 서브뷰
     printMode: "personal",     // 'personal' | 'branch' | 'vc'
-    printConsultCache: {}      // { empNo: consultations[] } — 다건 출력시 캐시
+    printConsultCache: {},     // { empNo: consultations[] } — 다건 출력시 캐시
+    // 로그인 세션
+    currentUser: null,         // { empNo, name, role, region }
+    admins: [],                // cm_admins Firestore 목록
+    adminUnsub: null,          // Firestore 구독 해제 함수
   };
 
   // ========== 유틸 ==========
@@ -8945,6 +8949,7 @@ ${piPagesHtml}`;
   }
 
   function renderMasterTargetSettings() {
+    renderAdminTree();
     const container = document.getElementById("settings-default-targets");
     if (!container) return;
     const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
@@ -10747,9 +10752,16 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
+    // 로그아웃
+    document.getElementById("btn-logout")?.addEventListener("click", () => {
+      if (confirm("로그아웃 하시겠습니까?")) _doLogout();
+    });
+    // 관리자 추가 버튼
+    document.getElementById("btn-add-admin")?.addEventListener("click", () => openAdminModal(null));
+
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
     $("#btn-open-award-plan")?.addEventListener("click", () =>
       openAwardPlanModal({ region: state.filter.region, cohort: state.filter.cohort, step: state.filter.step || "1" })
@@ -11955,6 +11967,284 @@ ${piPagesHtml}`;
     }
   }
 
+  // ── 로그인 시스템 ────────────────────────────────────────────
+  const ADMIN_ROLES = ["전임강사", "비전센터장", "지점장", "파트장", "기타"];
+
+  function _checkLogin() {
+    if (state.pgShareMode) return;
+    try {
+      const saved = sessionStorage.getItem("cmUser");
+      if (saved) { state.currentUser = JSON.parse(saved); _onLoginSuccess(); return; }
+    } catch(e) {}
+    _showLoginScreen();
+  }
+
+  function _showLoginScreen() {
+    const ov = document.createElement("div");
+    ov.id = "login-overlay";
+    ov.innerHTML = `<div class="login-box">
+      <div class="login-logo">H</div>
+      <div class="login-title">고객컨설팅 마스터과정<br>운영관리 시스템</div>
+      <div class="login-sub">사번과 비밀번호를 입력하세요</div>
+      <input type="text"     id="li-empno" class="login-input" placeholder="사번" inputmode="numeric" autocomplete="username">
+      <input type="password" id="li-pw"    class="login-input" placeholder="비밀번호" autocomplete="current-password">
+      <button id="li-btn" class="login-btn">로 그 인</button>
+      <div id="li-msg" class="login-msg"></div>
+    </div>`;
+    document.body.appendChild(ov);
+    const empEl = ov.querySelector("#li-empno");
+    const pwEl  = ov.querySelector("#li-pw");
+    const btn   = ov.querySelector("#li-btn");
+    const msg   = ov.querySelector("#li-msg");
+    const doLogin = async () => {
+      const empNo = empEl.value.trim();
+      const pw    = pwEl.value;
+      if (!empNo || !pw) { msg.textContent = "사번과 비밀번호를 입력하세요."; return; }
+      btn.disabled = true; btn.textContent = "확인 중...";
+      try {
+        const user = await window.DataAPI.getAdminByEmpNo(empNo);
+        if (!user)              msg.textContent = "등록되지 않은 사번입니다.";
+        else if (user.password !== pw) msg.textContent = "비밀번호가 올바르지 않습니다.";
+        else {
+          state.currentUser = { empNo: user.empNo, name: user.name, role: user.role, region: user.region };
+          sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
+          ov.style.cssText += "opacity:0;transition:opacity .3s";
+          setTimeout(() => { ov.remove(); _onLoginSuccess(); }, 300);
+          return;
+        }
+      } catch(e) { msg.textContent = "오류: " + e.message; }
+      btn.disabled = false; btn.textContent = "로 그 인";
+      pwEl.value = ""; pwEl.focus();
+    };
+    btn.addEventListener("click", doLogin);
+    empEl.addEventListener("keydown", e => { if (e.key === "Enter") pwEl.focus(); });
+    pwEl.addEventListener("keydown",  e => { if (e.key === "Enter") doLogin(); });
+    setTimeout(() => empEl.focus(), 120);
+  }
+
+  function _onLoginSuccess() {
+    const u = state.currentUser;
+    if (!u) return;
+    const ui = document.getElementById("hdr-user-info");
+    const lb = document.getElementById("btn-logout");
+    if (ui) { ui.textContent = `${u.name} (${u.role})`; ui.hidden = false; }
+    if (lb) lb.hidden = false;
+  }
+
+  function _doLogout() {
+    sessionStorage.removeItem("cmUser");
+    state.currentUser = null;
+    const ui = document.getElementById("hdr-user-info");
+    const lb = document.getElementById("btn-logout");
+    if (ui) { ui.textContent = ""; ui.hidden = true; }
+    if (lb) lb.hidden = true;
+    _showLoginScreen();
+  }
+
+  // ── 관리자 계정 관리 UI ──────────────────────────────────────
+  function renderAdminTree() {
+    const tree = document.getElementById("admin-user-tree");
+    if (!tree) return;
+    const admins = state.admins;
+    if (!admins.length) { tree.innerHTML = `<p class="settings-desc" style="color:#aaa;margin-top:8px;">등록된 관리자가 없습니다.</p>`; return; }
+
+    // 지역단별 그룹화
+    const byRegion = {};
+    admins.forEach(a => {
+      const rg = a.region || "미지정";
+      if (!byRegion[rg]) byRegion[rg] = [];
+      byRegion[rg].push(a);
+    });
+
+    const roleTag = (role) => {
+      const c = role === "전임강사" ? "#1a5a3a" : role === "비전센터장" ? "#2a3d7a" :
+                role === "지점장"   ? "#7a3a1a" : role === "파트장"     ? "#5a1a7a" : "#555";
+      return `<span class="adm-role-tag" style="background:${c}">${escapeHtml(role)}</span>`;
+    };
+    const userRow = (a) => `<div class="adm-user-row" data-empno="${escapeHtml(a.empNo)}">
+      <span class="adm-user-name">${escapeHtml(a.name)}</span>
+      <span class="adm-user-empno">${escapeHtml(a.empNo)}</span>
+      ${roleTag(a.role)}
+      <span class="adm-user-actions">
+        <button class="adm-btn-edit" data-empno="${escapeHtml(a.empNo)}">수정</button>
+        <button class="adm-btn-pw"   data-empno="${escapeHtml(a.empNo)}">비번초기화</button>
+        <button class="adm-btn-del"  data-empno="${escapeHtml(a.empNo)}">삭제</button>
+      </span>
+    </div>`;
+
+    let html = "";
+    Object.keys(byRegion).sort().forEach(rg => {
+      const members = byRegion[rg];
+      // 지역단 직속 (전임강사, 파트장)
+      const direct = members.filter(a => ["전임강사","파트장"].includes(a.role) || (!a.center && !a.branch));
+      // 비전센터별
+      const byCent = {};
+      members.filter(a => a.center).forEach(a => {
+        if (!byCent[a.center]) byCent[a.center] = [];
+        byCent[a.center].push(a);
+      });
+
+      html += `<div class="adm-region-block">
+        <div class="adm-region-head">${escapeHtml(rg)}</div>`;
+      direct.forEach(a => { html += `<div class="adm-indent-1">${userRow(a)}</div>`; });
+      Object.keys(byCent).sort().forEach(ct => {
+        const ctMembers = byCent[ct];
+        const ctDirect = ctMembers.filter(a => ["비전센터장"].includes(a.role) || !a.branch);
+        const byBranch = {};
+        ctMembers.filter(a => a.branch).forEach(a => {
+          if (!byBranch[a.branch]) byBranch[a.branch] = [];
+          byBranch[a.branch].push(a);
+        });
+        html += `<div class="adm-indent-1 adm-center-head">${escapeHtml(ct)}</div>`;
+        ctDirect.forEach(a => { html += `<div class="adm-indent-2">${userRow(a)}</div>`; });
+        Object.keys(byBranch).sort().forEach(br => {
+          html += `<div class="adm-indent-2 adm-branch-head">${escapeHtml(br)}</div>`;
+          byBranch[br].forEach(a => { html += `<div class="adm-indent-3">${userRow(a)}</div>`; });
+        });
+      });
+      html += `</div>`;
+    });
+
+    tree.innerHTML = html;
+
+    // 이벤트 바인딩
+    tree.querySelectorAll(".adm-btn-edit").forEach(btn => {
+      btn.addEventListener("click", () => openAdminModal(btn.dataset.empno));
+    });
+    tree.querySelectorAll(".adm-btn-pw").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`${btn.dataset.empno} 비밀번호를 0000으로 초기화하시겠습니까?`)) return;
+        await window.DataAPI.saveAdmin({ empNo: btn.dataset.empno, password: "0000" });
+        toast("비밀번호가 0000으로 초기화되었습니다.", "");
+      });
+    });
+    tree.querySelectorAll(".adm-btn-del").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const a = state.admins.find(x => x.empNo === btn.dataset.empno);
+        if (!confirm(`${a?.name || btn.dataset.empno} 관리자를 삭제하시겠습니까?`)) return;
+        await window.DataAPI.removeAdmin(btn.dataset.empno);
+        toast("관리자가 삭제되었습니다.", "");
+      });
+    });
+  }
+
+  function openAdminModal(editEmpNo) {
+    const existing = editEmpNo ? state.admins.find(a => a.empNo === editEmpNo) : null;
+    const orgRegions = (window.ORG_DATA?.regions || []);
+
+    const modal = document.createElement("div");
+    modal.className = "modal-backdrop";
+    modal.innerHTML = `<div class="modal-box admin-modal">
+      <h3 class="modal-title">${existing ? "관리자 수정" : "관리자 추가"}</h3>
+      <div class="adm-form-grid">
+        <label class="adm-field">사번<input id="af-empno" class="adm-input" value="${escapeHtml(existing?.empNo||"")}" ${existing?"readonly":""}></label>
+        <label class="adm-field">이름<input id="af-name"  class="adm-input" value="${escapeHtml(existing?.name||"")}"></label>
+        <label class="adm-field">전화번호<input id="af-phone" class="adm-input" value="${escapeHtml(existing?.phone||"")}" placeholder="010-0000-0000"></label>
+        <label class="adm-field">직책
+          <div class="adm-role-wrap">
+            <input id="af-role" class="adm-input" value="${escapeHtml(existing?.role||"기타")}" readonly style="cursor:pointer">
+            <button id="af-role-pick" class="adm-role-pick-btn" type="button">선택</button>
+          </div>
+        </label>
+        <label class="adm-field">소속 지역단
+          <select id="af-region" class="adm-input">
+            <option value="">선택</option>
+            ${orgRegions.map(r=>`<option value="${escapeHtml(r.name)}" ${existing?.region===r.name?"selected":""}>${escapeHtml(r.name)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="adm-field" id="af-wrap-center">소속 비전센터
+          <select id="af-center" class="adm-input"><option value="">선택</option></select>
+        </label>
+        <label class="adm-field" id="af-wrap-branch">소속 지점
+          <select id="af-branch" class="adm-input"><option value="">선택</option></select>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="af-save" class="btn-primary">저장</button>
+        <button id="af-cancel" class="btn-outline">취소</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+
+    const $ = id => modal.querySelector("#" + id);
+    const roleEl    = $("af-role");
+    const regionSel = $("af-region");
+    const centerSel = $("af-center");
+    const branchSel = $("af-branch");
+    const wrapCt    = $("af-wrap-center");
+    const wrapBr    = $("af-wrap-branch");
+
+    const updateSubSels = () => {
+      const rg = regionSel.value;
+      const role = roleEl.value;
+      const rObj = orgRegions.find(r => r.name === rg);
+      const centers = rObj?.centers || [];
+      centerSel.innerHTML = `<option value="">선택</option>` +
+        centers.map(c=>`<option value="${escapeHtml(c.name)}" ${existing?.center===c.name?"selected":""}>${escapeHtml(c.name)}</option>`).join("");
+      if (existing?.center && !existing.center) centerSel.value = "";
+      updateBranchSel();
+      const needCt = ["비전센터장","지점장","기타"].includes(role);
+      const needBr = ["지점장","기타"].includes(role);
+      wrapCt.style.display = needCt ? "" : "none";
+      wrapBr.style.display = needBr ? "" : "none";
+    };
+
+    const updateBranchSel = () => {
+      const rg = regionSel.value;
+      const ct = centerSel.value;
+      const rObj = orgRegions.find(r => r.name === rg);
+      const cObj = (rObj?.centers||[]).find(c => c.name === ct);
+      const branches = cObj?.branches || [];
+      branchSel.innerHTML = `<option value="">선택</option>` +
+        branches.map(b=>`<option value="${escapeHtml(b)}" ${existing?.branch===b?"selected":""}>${escapeHtml(b)}</option>`).join("");
+    };
+
+    regionSel.addEventListener("change", updateSubSels);
+    centerSel.addEventListener("change", updateBranchSel);
+    updateSubSels();
+
+    // 직책 팝업
+    $("af-role-pick").addEventListener("click", () => {
+      const rp = document.createElement("div");
+      rp.className = "role-popup-backdrop";
+      rp.innerHTML = `<div class="role-popup">
+        <div class="role-popup-title">직책 선택</div>
+        ${ADMIN_ROLES.map(r=>`<button class="role-popup-btn${roleEl.value===r?" selected":""}" data-role="${escapeHtml(r)}">${escapeHtml(r)}</button>`).join("")}
+        <button class="role-popup-cancel">취소</button>
+      </div>`;
+      document.body.appendChild(rp);
+      rp.querySelectorAll(".role-popup-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          roleEl.value = b.dataset.role;
+          rp.remove();
+          updateSubSels();
+        });
+      });
+      rp.querySelector(".role-popup-cancel").addEventListener("click", () => rp.remove());
+      rp.addEventListener("click", e => { if (e.target === rp) rp.remove(); });
+    });
+
+    $("af-save").addEventListener("click", async () => {
+      const empNo = $("af-empno").value.trim();
+      const name  = $("af-name").value.trim();
+      if (!empNo || !name) { alert("사번과 이름은 필수입니다."); return; }
+      const adminData = {
+        empNo, name,
+        phone:  $("af-phone").value.trim(),
+        role:   roleEl.value || "기타",
+        region: regionSel.value,
+        center: centerSel.style.display !== "none" ? centerSel.value : "",
+        branch: branchSel.style.display !== "none" ? branchSel.value : "",
+      };
+      if (!existing) adminData.password = "0000";
+      await window.DataAPI.saveAdmin(adminData);
+      toast(existing ? "관리자 정보가 수정되었습니다." : "관리자가 추가되었습니다. 초기 비밀번호: 0000", "");
+      modal.remove();
+    });
+    $("af-cancel").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+  }
+
   // 공유 링크 파라미터 감지 — #share?r=지역단&c=기수&s=스텝
   function _checkShareMode() {
     const hash = location.hash;
@@ -11982,6 +12272,12 @@ ${piPagesHtml}`;
     // 기본 view = 교육생 관리 (공유 링크인 경우 _checkShareMode가 오버라이드)
     switchView("#students");
     _checkShareMode();
+    _checkLogin();
+    // 관리자 계정 실시간 구독
+    state.adminUnsub = window.DataAPI.subscribeAdmins((list) => {
+      state.admins = list;
+      if (isPanelVisible("settings-panel")) renderAdminTree();
+    });
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
     const fsEl = document.getElementById("filter-step"); if (fsEl) fsEl.value = state.filter.step || "1";
