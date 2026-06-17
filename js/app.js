@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.52";
+  const APP_VERSION = "2.53";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10912,15 +10912,16 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
     document.getElementById("btn-logout")?.addEventListener("click", () => {
       if (confirm("로그아웃 하시겠습니까?")) _doLogout();
     });
-    // 관리자 추가 버튼
+    // 관리자 추가 / 일괄 추가 버튼
     document.getElementById("btn-add-admin")?.addEventListener("click", () => openAdminModal(null));
+    document.getElementById("btn-bulk-add-admin")?.addEventListener("click", () => openAdminBulkModal());
 
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
     $("#btn-open-award-plan")?.addEventListener("click", () =>
@@ -12365,6 +12366,175 @@ ${piPagesHtml}`;
         toast("관리자가 삭제되었습니다.", "");
       });
     });
+  }
+
+  function openAdminBulkModal() {
+    const VALID_ROLES = ["전임강사", "비전센터장", "지점장", "파트장", "기타"];
+    // 직책 별칭 정규화
+    const ROLE_ALIAS = {
+      "조직파트장": "파트장", "팀장": "파트장", "부팀장": "파트장",
+      "비전센터": "비전센터장", "센터장": "비전센터장",
+      "점장": "지점장", "지점": "지점장",
+    };
+    const normRole = (r) => VALID_ROLES.includes(r) ? r : (ROLE_ALIAS[r] || r || "기타");
+
+    let modal = document.getElementById("modal-admin-bulk");
+    if (modal) modal.remove();
+    modal = document.createElement("div");
+    modal.id = "modal-admin-bulk";
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel abm-panel">
+        <div class="modal-head">
+          <h3 style="font-size:15px;margin:0">📋 관리자 일괄 추가</h3>
+          <button class="modal-close" id="abm-close">&times;</button>
+        </div>
+        <div class="abm-body">
+
+          <!-- STEP 1: 붙여넣기 -->
+          <div id="abm-step1">
+            <div class="abm-hint">
+              <strong>붙여넣기 형식 (헤더 포함 또는 제외, 탭 구분)</strong><br>
+              사번 &nbsp;│&nbsp; 이름 &nbsp;│&nbsp; 직책 &nbsp;│&nbsp; 지역단 &nbsp;│&nbsp; 비전센터 &nbsp;│&nbsp; 지점 &nbsp;│&nbsp; 연락처<br>
+              <small style="color:#888">※ 비전센터·지점은 해당 없으면 비워두세요 &nbsp;│&nbsp; 초기 비밀번호: 0000</small>
+            </div>
+            <div class="abm-example">
+              <span class="abm-ex-row">313766&nbsp;&nbsp;이승학&nbsp;&nbsp;전임강사&nbsp;&nbsp;호남지역단</span>
+              <span class="abm-ex-row">301999&nbsp;&nbsp;홍길동&nbsp;&nbsp;비전센터장&nbsp;&nbsp;호남지역단&nbsp;&nbsp;순천비전센터</span>
+              <span class="abm-ex-row">301998&nbsp;&nbsp;김영희&nbsp;&nbsp;지점장&nbsp;&nbsp;호남지역단&nbsp;&nbsp;순천비전센터&nbsp;&nbsp;순천지점</span>
+            </div>
+            <textarea id="abm-paste" class="abm-textarea" placeholder="여기에 붙여넣기 하세요..."></textarea>
+            <div class="abm-foot">
+              <button class="btn-outline" id="abm-cancel">취소</button>
+              <button class="btn-primary" id="abm-preview-btn">미리보기 →</button>
+            </div>
+          </div>
+
+          <!-- STEP 2: 미리보기 -->
+          <div id="abm-step2" hidden>
+            <div id="abm-preview-content"></div>
+            <div class="abm-foot">
+              <button class="btn-outline" id="abm-back">← 다시 입력</button>
+              <button class="btn-primary" id="abm-save-btn">✅ 저장하기</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.hidden = false;
+
+    const step1 = modal.querySelector("#abm-step1");
+    const step2 = modal.querySelector("#abm-step2");
+    const pasteEl = modal.querySelector("#abm-paste");
+    let parsedAdmins = [];
+
+    const hide = () => { modal.hidden = true; modal.remove(); };
+    modal.querySelector(".modal-backdrop").onclick = hide;
+    modal.querySelector("#abm-close").onclick = hide;
+    modal.querySelector("#abm-cancel").onclick = hide;
+
+    // ── 미리보기 ──────────────────────────────────
+    modal.querySelector("#abm-preview-btn").addEventListener("click", () => {
+      const raw = pasteEl.value.trim();
+      if (!raw) { toast("붙여넣기 내용이 없습니다.", "error"); return; }
+
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      // 첫 행이 헤더인지 판별 (첫 셀이 숫자가 아니면 헤더로 간주)
+      const firstCell = lines[0].split(/\t/)[0].trim();
+      const startIdx = /^\d/.test(firstCell) ? 0 : 1;
+
+      parsedAdmins = [];
+      for (let i = startIdx; i < lines.length; i++) {
+        const cols = lines[i].split(/\t/).map(c => c.trim());
+        const [empNo, name, rawRole, region, center, branch, phone] = [
+          cols[0]||"", cols[1]||"", cols[2]||"", cols[3]||"", cols[4]||"", cols[5]||"", cols[6]||""
+        ];
+        if (!empNo) continue;
+        const role = normRole(rawRole);
+        const errs = [];
+        if (!name)   errs.push("이름 누락");
+        if (!region) errs.push("지역단 누락");
+        if (!VALID_ROLES.includes(role)) errs.push(`직책 오류: "${rawRole}"`);
+        if (["비전센터장","지점장","기타"].includes(role) && !center) errs.push("비전센터 누락");
+        if (["지점장"].includes(role) && center && !branch) errs.push("지점 누락");
+        parsedAdmins.push({ empNo, name, role, region, center, branch, phone, errs });
+      }
+
+      if (!parsedAdmins.length) { toast("유효한 행이 없습니다.", "error"); return; }
+
+      const existingSet = new Set(state.admins.map(a => a.empNo));
+      const okList  = parsedAdmins.filter(a => !a.errs.length);
+      const errList = parsedAdmins.filter(a =>  a.errs.length);
+
+      const tableRows = parsedAdmins.map(a => {
+        const isUpdate = existingSet.has(a.empNo);
+        const hasErr   = a.errs.length > 0;
+        const statusTxt = hasErr ? `❌ ${a.errs.join(" / ")}` : isUpdate ? "🔄 업데이트" : "✅ 신규";
+        const statusCls = hasErr ? "abm-st-err" : isUpdate ? "abm-st-upd" : "abm-st-new";
+        return `<tr class="${hasErr ? "abm-row-err" : ""}">
+          <td>${escapeHtml(a.empNo)}</td>
+          <td><strong>${escapeHtml(a.name)}</strong></td>
+          <td>${escapeHtml(a.role)}</td>
+          <td>${escapeHtml(a.region)}</td>
+          <td>${escapeHtml(a.center)}</td>
+          <td>${escapeHtml(a.branch)}</td>
+          <td>${escapeHtml(a.phone)}</td>
+          <td class="${statusCls}">${statusTxt}</td>
+        </tr>`;
+      }).join("");
+
+      modal.querySelector("#abm-preview-content").innerHTML = `
+        <div class="abm-summary">
+          전체 <strong>${parsedAdmins.length}명</strong> &nbsp;—&nbsp;
+          저장 가능 <strong class="c-ok">${okList.length}명</strong>
+          ${errList.length ? `&nbsp;/ 오류 <strong class="c-err">${errList.length}명</strong>` : ""}
+          <span class="abm-sum-note">(오류 행은 저장 제외)</span>
+        </div>
+        <div class="abm-table-wrap">
+          <table class="abm-table">
+            <thead><tr>
+              <th>사번</th><th>이름</th><th>직책</th><th>지역단</th>
+              <th>비전센터</th><th>지점</th><th>연락처</th><th>상태</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      `;
+
+      step1.hidden = true;
+      step2.hidden = false;
+    });
+
+    modal.querySelector("#abm-back").addEventListener("click", () => {
+      step1.hidden = false;
+      step2.hidden = true;
+    });
+
+    // ── 저장 ──────────────────────────────────────
+    modal.querySelector("#abm-save-btn").addEventListener("click", async () => {
+      const toSave = parsedAdmins.filter(a => !a.errs.length);
+      if (!toSave.length) { toast("저장 가능한 항목이 없습니다.", "error"); return; }
+      const saveBtn = modal.querySelector("#abm-save-btn");
+      saveBtn.disabled = true; saveBtn.textContent = "저장 중...";
+      let saved = 0, failed = 0;
+      for (const a of toSave) {
+        try {
+          await window.DataAPI.saveAdmin({
+            empNo: a.empNo, name: a.name, role: a.role,
+            region: a.region, center: a.center, branch: a.branch,
+            phone: a.phone, password: "0000",
+          });
+          saved++;
+        } catch(e) { console.error(e); failed++; }
+      }
+      hide();
+      toast(`${saved}명 저장 완료${failed ? ` (실패 ${failed}명)` : ""}`, saved > 0 ? "success" : "error");
+    });
+
+    setTimeout(() => pasteEl.focus(), 120);
   }
 
   function openAdminModal(editEmpNo) {

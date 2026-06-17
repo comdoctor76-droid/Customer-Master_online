@@ -5778,6 +5778,43 @@ body {
 .adm-btn-pw:hover   { background: #fffbe6; }
 .adm-btn-del:hover  { background: #fff0f0; color: #c0392b; border-color: #e74c3c; }
 
+/* 관리자 일괄 추가 모달 */
+.abm-panel { max-width: 760px; width: 96vw; display: flex; flex-direction: column; max-height: 90vh; }
+.abm-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+.abm-hint {
+  background: #f0f4ff; border: 1px solid #c7d5f5; border-radius: 8px;
+  padding: 10px 14px; font-size: 12px; line-height: 1.7; color: #334;
+}
+.abm-example {
+  background: #fafafa; border: 1px solid #e5e7eb; border-radius: 7px;
+  padding: 8px 12px; font-size: 11px; font-family: "Menlo","Consolas",monospace;
+  color: #555; display: flex; flex-direction: column; gap: 2px;
+}
+.abm-textarea {
+  width: 100%; box-sizing: border-box; min-height: 160px; font-size: 13px;
+  font-family: "Menlo","Consolas",monospace; border: 2px solid #e0e0e0;
+  border-radius: 9px; padding: 10px 12px; resize: vertical; outline: none;
+  transition: border-color .2s;
+}
+.abm-textarea:focus { border-color: var(--orange); }
+.abm-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+.abm-summary {
+  font-size: 13px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.abm-summary .c-ok  { color: #1a7a3a; }
+.abm-summary .c-err { color: #e74c3c; }
+.abm-sum-note { font-size: 11px; color: #aaa; }
+.abm-table-wrap { overflow-x: auto; border-radius: 7px; border: 1px solid var(--line-soft); max-height: 320px; overflow-y: auto; }
+.abm-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.abm-table thead th { background: #1a2744; color: #fff; padding: 6px 10px; text-align: left; font-size: 11px; font-weight: 700; position: sticky; top: 0; z-index: 1; }
+.abm-table td { padding: 5px 10px; border-top: 1px solid var(--line-soft); }
+.abm-table tbody tr:nth-child(even) { background: #fafafa; }
+.abm-table .abm-row-err { background: #fff5f5 !important; }
+.abm-st-new  { color: #1a7a3a; font-size: 11px; font-weight: 700; }
+.abm-st-upd  { color: #b45309; font-size: 11px; font-weight: 700; }
+.abm-st-err  { color: #e74c3c; font-size: 11px; font-weight: 700; }
+
 /* 관리자 폼 모달 */
 .admin-modal { max-width: 500px; width: 94vw; }
 .adm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
