@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.53";
+  const APP_VERSION = "2.54";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10912,7 +10912,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617m)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617n)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12541,38 +12541,50 @@ ${piPagesHtml}`;
     const existing = editEmpNo ? state.admins.find(a => a.empNo === editEmpNo) : null;
     const orgRegions = (window.ORG_DATA?.regions || []);
 
+    // 기존 모달 제거 (중복 방지)
+    document.getElementById("modal-admin-form")?.remove();
+
     const modal = document.createElement("div");
-    modal.className = "modal-backdrop";
-    modal.innerHTML = `<div class="modal-box admin-modal">
-      <h3 class="modal-title">${existing ? "관리자 수정" : "관리자 추가"}</h3>
-      <div class="adm-form-grid">
-        <label class="adm-field">사번<input id="af-empno" class="adm-input" value="${escapeHtml(existing?.empNo||"")}" ${existing?"readonly":""}></label>
-        <label class="adm-field">이름<input id="af-name"  class="adm-input" value="${escapeHtml(existing?.name||"")}"></label>
-        <label class="adm-field">전화번호<input id="af-phone" class="adm-input" value="${escapeHtml(existing?.phone||"")}" placeholder="010-0000-0000"></label>
-        <label class="adm-field">직책
-          <div class="adm-role-wrap">
-            <input id="af-role" class="adm-input" value="${escapeHtml(existing?.role||"기타")}" readonly style="cursor:pointer">
-            <button id="af-role-pick" class="adm-role-pick-btn" type="button">선택</button>
+    modal.id = "modal-admin-form";
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel admin-modal">
+        <div class="modal-head">
+          <h3 style="font-size:15px;margin:0">${existing ? "관리자 수정" : "관리자 추가"}</h3>
+          <button class="modal-close" id="af-close">&times;</button>
+        </div>
+        <div class="modal-body" style="padding:16px 20px 20px">
+          <div class="adm-form-grid">
+            <label class="adm-field">사번<input id="af-empno" class="adm-input" value="${escapeHtml(existing?.empNo||"")}" ${existing?"readonly":""}></label>
+            <label class="adm-field">이름<input id="af-name"  class="adm-input" value="${escapeHtml(existing?.name||"")}"></label>
+            <label class="adm-field">전화번호<input id="af-phone" class="adm-input" value="${escapeHtml(existing?.phone||"")}" placeholder="010-0000-0000"></label>
+            <label class="adm-field">직책
+              <div class="adm-role-wrap">
+                <input id="af-role" class="adm-input" value="${escapeHtml(existing?.role||"기타")}" readonly style="cursor:pointer">
+                <button id="af-role-pick" class="adm-role-pick-btn" type="button">선택</button>
+              </div>
+            </label>
+            <label class="adm-field">소속 지역단
+              <select id="af-region" class="adm-input">
+                <option value="">선택</option>
+                ${orgRegions.map(r=>`<option value="${escapeHtml(r.name)}" ${existing?.region===r.name?"selected":""}>${escapeHtml(r.name)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="adm-field" id="af-wrap-center">소속 비전센터
+              <select id="af-center" class="adm-input"><option value="">선택</option></select>
+            </label>
+            <label class="adm-field" id="af-wrap-branch">소속 지점
+              <select id="af-branch" class="adm-input"><option value="">선택</option></select>
+            </label>
           </div>
-        </label>
-        <label class="adm-field">소속 지역단
-          <select id="af-region" class="adm-input">
-            <option value="">선택</option>
-            ${orgRegions.map(r=>`<option value="${escapeHtml(r.name)}" ${existing?.region===r.name?"selected":""}>${escapeHtml(r.name)}</option>`).join("")}
-          </select>
-        </label>
-        <label class="adm-field" id="af-wrap-center">소속 비전센터
-          <select id="af-center" class="adm-input"><option value="">선택</option></select>
-        </label>
-        <label class="adm-field" id="af-wrap-branch">소속 지점
-          <select id="af-branch" class="adm-input"><option value="">선택</option></select>
-        </label>
+          <div class="modal-actions">
+            <button id="af-save"   class="btn-primary">저장</button>
+            <button id="af-cancel" class="btn-outline">취소</button>
+          </div>
+        </div>
       </div>
-      <div class="modal-actions">
-        <button id="af-save" class="btn-primary">저장</button>
-        <button id="af-cancel" class="btn-outline">취소</button>
-      </div>
-    </div>`;
+    `;
     document.body.appendChild(modal);
 
     const $ = id => modal.querySelector("#" + id);
@@ -12650,8 +12662,9 @@ ${piPagesHtml}`;
       toast(existing ? "관리자 정보가 수정되었습니다." : "관리자가 추가되었습니다. 초기 비밀번호: 0000", "");
       modal.remove();
     });
+    $("af-close").addEventListener("click", () => modal.remove());
     $("af-cancel").addEventListener("click", () => modal.remove());
-    modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+    modal.querySelector(".modal-backdrop").addEventListener("click", () => modal.remove());
   }
 
   // 공유 링크 파라미터 감지 — #share?r=지역단&c=기수&s=스텝
