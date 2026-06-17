@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.54";
+  const APP_VERSION = "2.55";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -2228,9 +2228,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const ok = await confirmSaveWithoutClients();
       if (!ok) return;
     }
-    // 담당자 선택 팝업
-    const managerName = await openManagerPickerModal();
-    if (managerName === null) return; // 취소
+    // 담당자: 로그인 사용자 이름 자동 사용, 없으면 팝업
+    let managerName;
+    if (state.currentUser?.name) {
+      managerName = state.currentUser.name;
+    } else {
+      managerName = await openManagerPickerModal();
+      if (managerName === null) return;
+    }
     rec.manager = managerName;
     await doSaveInterview(rec);
   }
@@ -2504,8 +2509,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               <div class="cm-role-chips">
                 ${COMMENT_ROLES.map((r) => `<button type="button" class="cm-role-chip" data-role="${escapeHtml(r)}">${escapeHtml(r)}</button>`).join("")}
               </div>
-              <label class="cm-label" style="margin-top:14px;">작성자 이름 <span class="cm-hint">(선택)</span></label>
-              <input type="text" id="cm-author" class="side-input" placeholder="예) 박부장">
+              <div id="cm-author-row">
+                <label class="cm-label" style="margin-top:14px;">작성자 이름 <span class="cm-hint">(선택)</span></label>
+                <input type="text" id="cm-author" class="side-input" placeholder="예) 박부장">
+              </div>
               <label class="cm-label" style="margin-top:14px;">댓글 내용 <em class="req">*</em></label>
               <textarea id="cm-text" rows="5" class="cm-textarea" placeholder="의견을 남겨주세요"></textarea>
               <p class="cm-note">※ 결제 창 연동 시 역할·이름·작성일시가 승인 이력으로 기록됩니다.</p>
@@ -2558,7 +2565,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     modal.dataset.selectedRole = "";
     modal.querySelectorAll(".cm-role-chip").forEach((c) => c.classList.remove("on"));
     modal.querySelector("#cm-text").value = "";
-    modal.querySelector("#cm-author").value = "";
+    const cu = state.currentUser;
+    modal.querySelector("#cm-author").value = cu?.name || "";
+    const authorRow = modal.querySelector("#cm-author-row");
+    if (authorRow) authorRow.hidden = !!cu?.name;
+    if (cu?.role) {
+      const matchChip = [...modal.querySelectorAll(".cm-role-chip")].find(c => c.dataset.role === cu.role);
+      if (matchChip) { matchChip.classList.add("on"); modal.dataset.selectedRole = cu.role; }
+    }
     modal.hidden = false;
   }
 
@@ -10912,7 +10926,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
