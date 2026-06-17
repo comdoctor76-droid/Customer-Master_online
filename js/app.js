@@ -219,7 +219,8 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.40";
+  const APP_VERSION = "2.41";
+  const ACCESS_CODE = "2051"; // 직접 접속 코드 (공유 링크는 코드 불필요)
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10747,7 +10748,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260616i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -11955,6 +11956,42 @@ ${piPagesHtml}`;
     }
   }
 
+  // 접속 코드 게이트 — 공유 링크(#share)는 무조건 통과
+  function _checkAccess() {
+    if (state.pgShareMode) return;
+    if (sessionStorage.getItem("cmAccess") === "ok") return;
+    const overlay = document.createElement("div");
+    overlay.id = "access-gate";
+    overlay.innerHTML = `
+      <div class="access-gate-box">
+        <div class="access-gate-logo">H</div>
+        <div class="access-gate-title">고객컨설팅 마스터과정<br>운영관리 시스템</div>
+        <div class="access-gate-sub">접속 코드를 입력하세요</div>
+        <input type="password" id="access-code-input" class="access-gate-input" placeholder="• • • • • •" autocomplete="off">
+        <button id="access-code-btn" class="access-gate-btn">확 인</button>
+        <div id="access-gate-msg" class="access-gate-msg"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector("#access-code-input");
+    const btn   = overlay.querySelector("#access-code-btn");
+    const msg   = overlay.querySelector("#access-gate-msg");
+    const tryLogin = () => {
+      if (input.value === ACCESS_CODE) {
+        sessionStorage.setItem("cmAccess", "ok");
+        overlay.style.opacity = "0";
+        overlay.style.transition = "opacity 0.3s";
+        setTimeout(() => overlay.remove(), 300);
+      } else {
+        msg.textContent = "접속 코드가 올바르지 않습니다.";
+        input.value = "";
+        input.focus();
+      }
+    };
+    btn.addEventListener("click", tryLogin);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryLogin(); });
+    setTimeout(() => input.focus(), 100);
+  }
+
   // 공유 링크 파라미터 감지 — #share?r=지역단&c=기수&s=스텝
   function _checkShareMode() {
     const hash = location.hash;
@@ -11982,6 +12019,7 @@ ${piPagesHtml}`;
     // 기본 view = 교육생 관리 (공유 링크인 경우 _checkShareMode가 오버라이드)
     switchView("#students");
     _checkShareMode();
+    _checkAccess();
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
     const fsEl = document.getElementById("filter-step"); if (fsEl) fsEl.value = state.filter.step || "1";
