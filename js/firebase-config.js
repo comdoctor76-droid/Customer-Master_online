@@ -595,6 +595,12 @@ window.DataAPI = {
     const snap = await getDoc(doc(db, "students", "_adm_" + String(empNo).trim()));
     return snap.exists() ? { docId: snap.id, ...snap.data() } : null;
   },
+  async getStudentByEmpNo(empNo) {
+    const id = normalizeEmpNo(empNo);
+    if (!id) return null;
+    const snap = await getDoc(doc(db, "students", id));
+    return snap.exists() ? { docId: snap.id, ...snap.data() } : null;
+  },
 };
 
 // 온라인/오프라인 상태 배지 제어

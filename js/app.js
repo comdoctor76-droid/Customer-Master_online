@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.46";
+  const APP_VERSION = "2.47";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -660,7 +660,10 @@
     }).join("");
 
     container.querySelectorAll("li[data-emp]").forEach((li) => {
-      li.addEventListener("click", () => selectStudent(li.dataset.emp));
+      li.addEventListener("click", () => {
+        if (isStudentMode()) return;
+        selectStudent(li.dataset.emp);
+      });
     });
     container.querySelectorAll("details.branch-mini").forEach((d) => {
       d.addEventListener("toggle", () => {
@@ -6236,6 +6239,7 @@ ${piPagesHtml}`;
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
       tr.addEventListener("click", () => {
         if (state.pgShareMode) return;
+        if (isStudentMode()) return;
         openProgressStudentPopup(tr.dataset.emp);
       });
     });
@@ -6245,6 +6249,7 @@ ${piPagesHtml}`;
         e.stopPropagation();
         e.preventDefault();
         if (state.pgShareMode) return;
+        if (isStudentMode()) return;
         openProgressStudentPopup(row.dataset.emp);
       });
     });
@@ -6464,17 +6469,21 @@ ${piPagesHtml}`;
       closeLabel: pushStack ? "← 목록으로" : "← 돌아가기",
       pushStack: !!pushStack
     });
-    // 면담관리 버튼 설정
+    // 면담관리 버튼 설정 (교육생 모드에서는 숨김)
     const pgModal = document.getElementById("modal-pg-full");
     const extraBtn = pgModal && pgModal.querySelector("#pg-full-modal-extra");
     if (extraBtn) {
-      extraBtn.textContent = "📝 면담관리";
-      extraBtn.hidden = false;
-      extraBtn.onclick = () => {
-        pgModal.hidden = true;
-        selectStudent(s.empNo);
-        switchView("#students");
-      };
+      if (isStudentMode()) {
+        extraBtn.hidden = true;
+      } else {
+        extraBtn.textContent = "📝 면담관리";
+        extraBtn.hidden = false;
+        extraBtn.onclick = () => {
+          pgModal.hidden = true;
+          selectStudent(s.empNo);
+          switchView("#students");
+        };
+      }
     }
   }
 
@@ -10752,7 +10761,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -11898,6 +11907,8 @@ ${piPagesHtml}`;
       "#settings":  "settings"
     };
     const target = map[href];
+    // 교육생 모드: 실적진도만 접근 허용
+    if (isStudentMode() && target !== "progress") return;
     // 관리자(설정) 진입 시 메인관리자 여부 확인
     if (target === "settings") {
       if (!isSuperAdmin()) {
@@ -11979,6 +11990,9 @@ ${piPagesHtml}`;
   function isSuperAdmin() {
     return state.currentUser?.empNo === SUPER_ADMIN_EMPNO;
   }
+  function isStudentMode() {
+    return state.currentUser?.role === "student";
+  }
 
   function _checkLogin() {
     if (state.pgShareMode) return;
@@ -12012,15 +12026,32 @@ ${piPagesHtml}`;
       if (!empNo || !pw) { msg.textContent = "사번과 비밀번호를 입력하세요."; return; }
       btn.disabled = true; btn.textContent = "확인 중...";
       try {
-        const user = await window.DataAPI.getAdminByEmpNo(empNo);
-        if (!user)              msg.textContent = "등록되지 않은 사번입니다.";
-        else if (user.password !== pw) msg.textContent = "비밀번호가 올바르지 않습니다.";
-        else {
-          state.currentUser = { empNo: user.empNo, name: user.name, role: user.role, region: user.region };
-          sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
-          ov.style.cssText += "opacity:0;transition:opacity .3s";
-          setTimeout(() => { ov.remove(); _onLoginSuccess(); }, 300);
-          return;
+        // 관리자 계정 우선 확인
+        const adminUser = await window.DataAPI.getAdminByEmpNo(empNo);
+        if (adminUser) {
+          if (adminUser.password !== pw) {
+            msg.textContent = "비밀번호가 올바르지 않습니다.";
+          } else {
+            state.currentUser = { empNo: adminUser.empNo, name: adminUser.name, role: adminUser.role, region: adminUser.region };
+            sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
+            ov.style.cssText += "opacity:0;transition:opacity .3s";
+            setTimeout(() => { ov.remove(); _onLoginSuccess(); }, 300);
+            return;
+          }
+        } else {
+          // 교육생 계정 확인 (비밀번호 0000 고정)
+          const stuUser = await window.DataAPI.getStudentByEmpNo(empNo);
+          if (!stuUser) {
+            msg.textContent = "등록되지 않은 사번입니다.";
+          } else if (pw !== "0000") {
+            msg.textContent = "비밀번호가 올바르지 않습니다.";
+          } else {
+            state.currentUser = { empNo: stuUser.empNo, name: stuUser.name, role: "student", region: stuUser.region };
+            sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
+            ov.style.cssText += "opacity:0;transition:opacity .3s";
+            setTimeout(() => { ov.remove(); _onLoginSuccess(); }, 300);
+            return;
+          }
         }
       } catch(e) { msg.textContent = "오류: " + e.message; }
       btn.disabled = false; btn.textContent = "로 그 인";
@@ -12037,13 +12068,22 @@ ${piPagesHtml}`;
     if (!u) return;
     const ui = document.getElementById("hdr-user-info");
     const lb = document.getElementById("btn-logout");
-    if (ui) { ui.textContent = `${u.name} (${u.role})`; ui.hidden = false; }
-    if (lb) lb.hidden = false;
+    if (isStudentMode()) {
+      if (ui) { ui.textContent = `${u.name} (교육생)`; ui.hidden = false; }
+      if (lb) lb.hidden = false;
+      document.body.classList.add("student-mode");
+      switchView("#progress");
+    } else {
+      if (ui) { ui.textContent = `${u.name} (${u.role})`; ui.hidden = false; }
+      if (lb) lb.hidden = false;
+      document.body.classList.remove("student-mode");
+    }
   }
 
   function _doLogout() {
     sessionStorage.removeItem("cmUser");
     state.currentUser = null;
+    document.body.classList.remove("student-mode");
     const ui = document.getElementById("hdr-user-info");
     const lb = document.getElementById("btn-logout");
     if (ui) { ui.textContent = ""; ui.hidden = true; }

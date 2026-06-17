@@ -5752,6 +5752,23 @@ body.pg-share-mode .panel-head { border-bottom: none; }
 body.pg-share-mode .layout { grid-template-columns: 1fr !important; }
 body.pg-share-mode .header-inner { justify-content: center; }
 
+/* 교육생 모드 — 실적진도 외 UI 숨김 */
+body.student-mode .top-nav a[href="#dashboard"],
+body.student-mode .top-nav a[href="#students"],
+body.student-mode .top-nav a[href="#stats"],
+body.student-mode .top-nav a[href="#settings"],
+body.student-mode .mobile-bottom-nav a[href="#dashboard"],
+body.student-mode .mobile-bottom-nav a[href="#students"],
+body.student-mode .mobile-bottom-nav a[href="#stats"],
+body.student-mode .mobile-bottom-nav a[href="#settings"],
+body.student-mode .actions-row,
+body.student-mode #unassigned-alert-wrap,
+body.student-mode #btn-error-report,
+body.student-mode #btn-hard-refresh,
+body.student-mode #btn-pg-share,
+body.student-mode #btn-pg-excel { display: none !important; }
+body.student-mode .pg-tr-click { cursor: default; }
+
 .pg-share-banner {
   background: linear-gradient(135deg, var(--navy), var(--navy-2));
   color: #fff;
