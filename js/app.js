@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.44";
+  const APP_VERSION = "2.45";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10752,7 +10752,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12288,16 +12288,12 @@ ${piPagesHtml}`;
       state.admins = list;
       if (isPanelVisible("settings-panel")) renderAdminTree();
     });
-    // 메인관리자 계정 자동 생성 (최초 1회)
-    window.DataAPI.getAdminByEmpNo(SUPER_ADMIN_EMPNO).then(existing => {
-      if (!existing) {
-        window.DataAPI.saveAdmin({
-          empNo: SUPER_ADMIN_EMPNO, name: "이승학",
-          phone: "010-5338-0654", region: "호남지역단",
-          center: "", branch: "", role: "전임강사",
-          password: "!!이예빈1",
-        });
-      }
+    // 메인관리자 계정 동기화 (비밀번호 항상 최신 유지)
+    window.DataAPI.saveAdmin({
+      empNo: SUPER_ADMIN_EMPNO, name: "이승학",
+      phone: "010-5338-0654", region: "호남지역단",
+      center: "", branch: "", role: "전임강사",
+      password: "!!dldPqls1",
     }).catch(() => {});
     // localStorage에서 복원된 필터값을 UI에 반영
     $("#filter-cohort").value = state.filter.cohort || "";
