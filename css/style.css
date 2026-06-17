@@ -5768,6 +5768,17 @@ body.student-mode #btn-hard-refresh,
 body.student-mode #btn-pg-share,
 body.student-mode #btn-pg-excel { display: none !important; }
 body.student-mode .pg-tr-click { cursor: default; }
+/* 교육생 모드 — 사이드바 숨김, 지역단·기수 선택 잠금 */
+body.student-mode .sidebar { display: none !important; }
+body.student-mode .layout { grid-template-columns: 1fr !important; }
+body.student-mode #pg-region-sel,
+body.student-mode #pg-cohort-sel {
+  pointer-events: none;
+  background: #f0f4f8;
+  color: #555;
+  opacity: 0.85;
+  cursor: not-allowed;
+}
 
 .pg-share-banner {
   background: linear-gradient(135deg, var(--navy), var(--navy-2));

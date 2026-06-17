@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.47";
+  const APP_VERSION = "2.48";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4594,7 +4594,20 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const region = pgRegSel?.value || state.progressRegion || state.filter.region || "";
     state.progressRegion = region;
 
-    if (!region) {
+    // 교육생 모드: 지역단·기수를 본인 데이터로 강제 고정
+    if (isStudentMode() && state.currentUser) {
+      const cu = state.currentUser;
+      if (cu.region) {
+        state.progressRegion = cu.region;
+        if (pgRegSel) pgRegSel.value = cu.region;
+      }
+      if (cu.cohort) {
+        state.filter.cohort = cu.cohort;
+        state.progressCohort = String(cu.cohort).replace(/기$/, "");
+      }
+    }
+
+    if (!state.progressRegion) {
       body.innerHTML = `<div class="empty-state">위 지역단 선택에서 <strong>지역단</strong>을 선택하면 해당 지역단의 실적진도가 표시됩니다.</div>`;
       return;
     }
@@ -10761,7 +10774,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12046,7 +12059,7 @@ ${piPagesHtml}`;
           } else if (pw !== "0000") {
             msg.textContent = "비밀번호가 올바르지 않습니다.";
           } else {
-            state.currentUser = { empNo: stuUser.empNo, name: stuUser.name, role: "student", region: stuUser.region };
+            state.currentUser = { empNo: stuUser.empNo, name: stuUser.name, role: "student", region: stuUser.region, cohort: stuUser.cohort || "" };
             sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
             ov.style.cssText += "opacity:0;transition:opacity .3s";
             setTimeout(() => { ov.remove(); _onLoginSuccess(); }, 300);
@@ -12072,6 +12085,12 @@ ${piPagesHtml}`;
       if (ui) { ui.textContent = `${u.name} (교육생)`; ui.hidden = false; }
       if (lb) lb.hidden = false;
       document.body.classList.add("student-mode");
+      // 교육생 지역단·기수로 필터 고정
+      if (u.region) { state.progressRegion = u.region; state.filter.region = u.region; }
+      if (u.cohort) {
+        state.progressCohort = String(u.cohort).replace(/기$/, "");
+        state.filter.cohort  = u.cohort;
+      }
       switchView("#progress");
     } else {
       if (ui) { ui.textContent = `${u.name} (${u.role})`; ui.hidden = false; }
