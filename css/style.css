@@ -5709,12 +5709,19 @@ body {
   width: 16px; height: 16px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0;
 }
 .li-remember-txt { font-size: 13px; color: #666; }
-/* 제작자 정보 */
-.login-credit {
-  font-size: 11px; color: #bbb; margin-top: 16px;
-  padding-top: 12px; border-top: 1px solid #f0f0f0;
-  line-height: 1.5;
+/* 하단 행 (제작자 + 새로고침) */
+.login-bottom-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid #f0f0f0;
+  gap: 8px;
 }
+.login-credit { font-size: 11px; color: #bbb; line-height: 1.5; text-align: left; }
+.login-refresh-btn {
+  flex-shrink: 0; background: none; border: 1px solid #e0e0e0;
+  border-radius: 7px; color: #aaa; font-size: 11px; padding: 4px 10px;
+  cursor: pointer; white-space: nowrap; transition: all .2s;
+}
+.login-refresh-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
 
 /* 헤더 유저 정보 / 로그아웃 */
 .hdr-user-info {

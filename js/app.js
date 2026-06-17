@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.51";
+  const APP_VERSION = "2.52";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10912,7 +10912,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12169,15 +12169,18 @@ ${piPagesHtml}`;
       </div>
       <div class="login-title">고객컨설팅 마스터과정<br>운영관리 시스템</div>
       <div class="login-sub">사번과 비밀번호를 입력하세요</div>
-      <input type="text"     id="li-empno" class="login-input" placeholder="사번" inputmode="numeric" autocomplete="username" value="${escapeHtml(savedEmpNo)}">
-      <input type="password" id="li-pw"    class="login-input" placeholder="비밀번호" autocomplete="current-password">
+      <input type="text" id="li-empno" class="login-input" placeholder="사번 (6자리)" inputmode="text" autocomplete="username" maxlength="6" value="${escapeHtml(savedEmpNo)}">
+      <input type="password" id="li-pw" class="login-input" placeholder="비밀번호" autocomplete="current-password">
       <label class="li-remember-wrap">
         <input type="checkbox" id="li-remember" class="li-remember-chk"${savedEmpNo ? " checked" : ""}>
         <span class="li-remember-txt">사번 기억하기</span>
       </label>
       <button id="li-btn" class="login-btn">로 그 인</button>
       <div id="li-msg" class="login-msg"></div>
-      <div class="login-credit">문의 : 호남지역단 이승학 전임강사</div>
+      <div class="login-bottom-row">
+        <div class="login-credit">문의 : 호남지역단 이승학 전임강사</div>
+        <button type="button" id="li-refresh" class="login-refresh-btn" title="새로고침">↺ 새로고침</button>
+      </div>
     </div>`;
     document.body.appendChild(ov);
     const empEl      = ov.querySelector("#li-empno");
@@ -12228,8 +12231,14 @@ ${piPagesHtml}`;
       pwEl.value = ""; pwEl.focus();
     };
     btn.addEventListener("click", doLogin);
+    // 사번: 영숫자만 허용, 6자리 입력 시 자동 커서 이동
+    empEl.addEventListener("input", () => {
+      empEl.value = empEl.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6);
+      if (empEl.value.length === 6) pwEl.focus();
+    });
     empEl.addEventListener("keydown", e => { if (e.key === "Enter") pwEl.focus(); });
     pwEl.addEventListener("keydown",  e => { if (e.key === "Enter") doLogin(); });
+    ov.querySelector("#li-refresh").addEventListener("click", () => window.location.reload());
     // 저장된 사번이 있으면 비밀번호 입력란으로 바로 포커스
     setTimeout(() => { (savedEmpNo ? pwEl : empEl).focus(); }, 120);
   }
