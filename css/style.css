@@ -5605,6 +5605,138 @@ body {
 .ta-table tbody tr:nth-child(even) { background: #fafafa; }
 .ta-table tbody tr:hover { background: #eff6ff; }
 
+/* ── 로그인 화면 ─────────────────────────────────────── */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: linear-gradient(135deg, #0d2340 0%, #1a4a8a 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  background: #fff; border-radius: 18px;
+  padding: 44px 36px; width: 320px; max-width: 90vw;
+  text-align: center; box-shadow: 0 12px 48px rgba(0,0,0,0.4);
+}
+.login-logo {
+  width: 58px; height: 58px; margin: 0 auto 18px;
+  background: linear-gradient(135deg, #1a3a6a, #2a6496);
+  color: #fff; font-size: 28px; font-weight: 900; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.login-title { font-size: 16px; font-weight: 800; color: #1a2a4a; line-height: 1.55; margin-bottom: 8px; }
+.login-sub { font-size: 13px; color: #777; margin-bottom: 22px; }
+.login-input {
+  width: 100%; box-sizing: border-box;
+  border: 2px solid #e0e0e0; border-radius: 9px;
+  padding: 11px 14px; font-size: 15px; outline: none; margin-bottom: 10px;
+  transition: border-color .2s;
+}
+.login-input:focus { border-color: #1a4a8a; }
+.login-btn {
+  width: 100%; border: none; border-radius: 9px;
+  background: linear-gradient(135deg, #1a4a8a, #2a6496);
+  color: #fff; padding: 13px; font-size: 15px; font-weight: 800;
+  cursor: pointer; letter-spacing: 3px; margin-top: 4px;
+}
+.login-btn:hover { opacity: .88; }
+.login-msg { color: #e74c3c; font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+/* 헤더 유저 정보 / 로그아웃 */
+.hdr-user-info {
+  font-size: 12px; font-weight: 700; color: #fff;
+  background: rgba(255,255,255,0.18); border-radius: 14px;
+  padding: 4px 10px; white-space: nowrap;
+}
+.btn-logout {
+  font-size: 12px; padding: 4px 10px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.4); background: transparent;
+  color: #fff; cursor: pointer; white-space: nowrap;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.2); }
+
+/* ── 관리자 계정 관리 UI ──────────────────────────────── */
+.admin-tree { margin-top: 12px; }
+.adm-region-block { margin-bottom: 14px; }
+.adm-region-head {
+  font-size: 13px; font-weight: 800; color: var(--navy);
+  background: #eef3fb; padding: 5px 10px; border-radius: 6px;
+  margin-bottom: 4px;
+}
+.adm-center-head {
+  font-size: 12px; font-weight: 700; color: #1a5a3a;
+  background: #eafaf2; padding: 4px 10px; border-radius: 5px;
+  margin: 3px 0;
+}
+.adm-branch-head {
+  font-size: 11px; font-weight: 700; color: #7a3a1a;
+  background: #fef5ee; padding: 3px 10px; border-radius: 5px;
+  margin: 2px 0;
+}
+.adm-indent-1 { padding-left: 14px; }
+.adm-indent-2 { padding-left: 28px; }
+.adm-indent-3 { padding-left: 42px; }
+.adm-user-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-radius: 6px; font-size: 12px;
+  background: #fafafa; margin-bottom: 2px; flex-wrap: wrap;
+}
+.adm-user-row:hover { background: #f0f4ff; }
+.adm-user-name { font-weight: 700; color: var(--ink); }
+.adm-user-empno { color: #888; font-size: 11px; }
+.adm-role-tag {
+  color: #fff; font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px;
+}
+.adm-user-actions { margin-left: auto; display: flex; gap: 4px; }
+.adm-btn-edit, .adm-btn-pw, .adm-btn-del {
+  font-size: 11px; padding: 2px 8px; border-radius: 5px;
+  border: 1px solid #ddd; cursor: pointer; background: #fff;
+}
+.adm-btn-edit:hover { background: #eef3ff; }
+.adm-btn-pw:hover   { background: #fffbe6; }
+.adm-btn-del:hover  { background: #fff0f0; color: #c0392b; border-color: #e74c3c; }
+
+/* 관리자 폼 모달 */
+.admin-modal { max-width: 500px; width: 94vw; }
+.adm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.adm-field { display: flex; flex-direction: column; font-size: 12px; font-weight: 700; color: #555; gap: 3px; }
+.adm-input {
+  border: 1.5px solid #ddd; border-radius: 7px;
+  padding: 7px 10px; font-size: 13px; outline: none;
+  transition: border-color .2s;
+}
+.adm-input:focus { border-color: #1a4a8a; }
+.adm-input[readonly] { background: #f7f7f7; cursor: default; }
+.adm-role-wrap { display: flex; gap: 6px; }
+.adm-role-pick-btn {
+  border: 1.5px solid #1a4a8a; border-radius: 7px;
+  background: #eef3ff; color: #1a4a8a; font-size: 12px; font-weight: 700;
+  padding: 0 10px; cursor: pointer; white-space: nowrap;
+}
+
+/* 직책 선택 팝업 */
+.role-popup-backdrop {
+  position: fixed; inset: 0; z-index: 99998;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+}
+.role-popup {
+  background: #fff; border-radius: 14px;
+  padding: 24px 28px; min-width: 220px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center;
+}
+.role-popup-title { font-size: 15px; font-weight: 800; color: var(--navy); margin-bottom: 14px; }
+.role-popup-btn {
+  display: block; width: 100%; margin-bottom: 8px;
+  padding: 10px; border-radius: 8px; border: 2px solid #ddd;
+  font-size: 14px; font-weight: 600; cursor: pointer; background: #fff;
+  transition: all .15s;
+}
+.role-popup-btn:hover, .role-popup-btn.selected { background: #1a4a8a; color: #fff; border-color: #1a4a8a; }
+.role-popup-cancel {
+  margin-top: 4px; width: 100%; padding: 8px; border-radius: 8px;
+  border: 1.5px solid #ddd; background: #f7f7f7; cursor: pointer; font-size: 13px;
+}
+
 /* ── 실적진도 공유 모드 ──────────────────────────────── */
 body.pg-share-mode .sidebar,
 body.pg-share-mode .top-nav,

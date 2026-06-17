@@ -562,6 +562,34 @@ window.DataAPI = {
     }
     return {};
   },
+
+  // ── 관리자 계정 관리 (cm_admins 컬렉션) ──────────────────────
+  subscribeAdmins(callback) {
+    return onSnapshot(collection(db, "cm_admins"), (snap) => {
+      callback(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
+    });
+  },
+  async saveAdmin(admin) {
+    const ref = doc(db, "cm_admins", String(admin.empNo).trim());
+    await setDoc(ref, {
+      empNo:    String(admin.empNo).trim(),
+      name:     admin.name     || "",
+      phone:    admin.phone    || "",
+      region:   admin.region   || "",
+      center:   admin.center   || "",
+      branch:   admin.branch   || "",
+      role:     admin.role     || "기타",
+      password: admin.password !== undefined ? admin.password : "0000",
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  },
+  async removeAdmin(empNo) {
+    await deleteDoc(doc(db, "cm_admins", String(empNo).trim()));
+  },
+  async getAdminByEmpNo(empNo) {
+    const snap = await getDoc(doc(db, "cm_admins", String(empNo).trim()));
+    return snap.exists() ? { docId: snap.id, ...snap.data() } : null;
+  },
 };
 
 // 온라인/오프라인 상태 배지 제어
