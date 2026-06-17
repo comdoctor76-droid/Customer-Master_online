@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.48";
+  const APP_VERSION = "2.49";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10774,7 +10774,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617h)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617i)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12017,22 +12017,30 @@ ${piPagesHtml}`;
   }
 
   function _showLoginScreen() {
+    const SAVED_EMPNO_KEY = "cm_saved_empno";
+    const savedEmpNo = localStorage.getItem(SAVED_EMPNO_KEY) || "";
     const ov = document.createElement("div");
     ov.id = "login-overlay";
     ov.innerHTML = `<div class="login-box">
       <div class="login-logo">H</div>
       <div class="login-title">고객컨설팅 마스터과정<br>운영관리 시스템</div>
       <div class="login-sub">사번과 비밀번호를 입력하세요</div>
-      <input type="text"     id="li-empno" class="login-input" placeholder="사번" inputmode="numeric" autocomplete="username">
+      <input type="text"     id="li-empno" class="login-input" placeholder="사번" inputmode="numeric" autocomplete="username" value="${escapeHtml(savedEmpNo)}">
       <input type="password" id="li-pw"    class="login-input" placeholder="비밀번호" autocomplete="current-password">
+      <label class="li-remember-wrap">
+        <input type="checkbox" id="li-remember" class="li-remember-chk"${savedEmpNo ? " checked" : ""}>
+        <span class="li-remember-txt">사번 기억하기</span>
+      </label>
       <button id="li-btn" class="login-btn">로 그 인</button>
       <div id="li-msg" class="login-msg"></div>
     </div>`;
     document.body.appendChild(ov);
-    const empEl = ov.querySelector("#li-empno");
-    const pwEl  = ov.querySelector("#li-pw");
-    const btn   = ov.querySelector("#li-btn");
-    const msg   = ov.querySelector("#li-msg");
+    const empEl      = ov.querySelector("#li-empno");
+    const pwEl       = ov.querySelector("#li-pw");
+    const btn        = ov.querySelector("#li-btn");
+    const msg        = ov.querySelector("#li-msg");
+    const rememberEl = ov.querySelector("#li-remember");
+    // 저장된 사번이 있으면 비밀번호 입력란으로 포커스 이동
     const doLogin = async () => {
       const empNo = empEl.value.trim();
       const pw    = pwEl.value;
@@ -12045,6 +12053,8 @@ ${piPagesHtml}`;
           if (adminUser.password !== pw) {
             msg.textContent = "비밀번호가 올바르지 않습니다.";
           } else {
+            if (rememberEl.checked) localStorage.setItem(SAVED_EMPNO_KEY, empNo);
+            else localStorage.removeItem(SAVED_EMPNO_KEY);
             state.currentUser = { empNo: adminUser.empNo, name: adminUser.name, role: adminUser.role, region: adminUser.region };
             sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
             ov.style.cssText += "opacity:0;transition:opacity .3s";
@@ -12059,6 +12069,8 @@ ${piPagesHtml}`;
           } else if (pw !== "0000") {
             msg.textContent = "비밀번호가 올바르지 않습니다.";
           } else {
+            if (rememberEl.checked) localStorage.setItem(SAVED_EMPNO_KEY, empNo);
+            else localStorage.removeItem(SAVED_EMPNO_KEY);
             state.currentUser = { empNo: stuUser.empNo, name: stuUser.name, role: "student", region: stuUser.region, cohort: stuUser.cohort || "" };
             sessionStorage.setItem("cmUser", JSON.stringify(state.currentUser));
             ov.style.cssText += "opacity:0;transition:opacity .3s";
@@ -12073,7 +12085,8 @@ ${piPagesHtml}`;
     btn.addEventListener("click", doLogin);
     empEl.addEventListener("keydown", e => { if (e.key === "Enter") pwEl.focus(); });
     pwEl.addEventListener("keydown",  e => { if (e.key === "Enter") doLogin(); });
-    setTimeout(() => empEl.focus(), 120);
+    // 저장된 사번이 있으면 비밀번호 입력란으로 바로 포커스
+    setTimeout(() => { (savedEmpNo ? pwEl : empEl).focus(); }, 120);
   }
 
   function _onLoginSuccess() {

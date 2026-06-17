@@ -5639,6 +5639,14 @@ body {
 }
 .login-btn:hover { opacity: .88; }
 .login-msg { color: #e74c3c; font-size: 13px; margin-top: 12px; min-height: 18px; }
+.li-remember-wrap {
+  display: flex; align-items: center; gap: 7px;
+  margin: 4px 0 2px; cursor: pointer; user-select: none;
+}
+.li-remember-chk {
+  width: 16px; height: 16px; accent-color: #1a4a8a; cursor: pointer; flex-shrink: 0;
+}
+.li-remember-txt { font-size: 13px; color: #555; }
 
 /* 헤더 유저 정보 / 로그아웃 */
 .hdr-user-info {
