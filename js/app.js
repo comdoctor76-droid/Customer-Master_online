@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.55";
+  const APP_VERSION = "2.56";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10926,7 +10926,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260617o)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260618a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12150,7 +12150,7 @@ ${piPagesHtml}`;
   }
 
   // ── 로그인 시스템 ────────────────────────────────────────────
-  const ADMIN_ROLES = ["전임강사", "비전센터장", "지점장", "파트장", "기타"];
+  const ADMIN_ROLES = ["전임강사", "지역단장", "비전센터장", "지점장", "부서장", "파트장", "기타"];
   const SUPER_ADMIN_EMPNO = "313766"; // 메인관리자 사번
 
   function isSuperAdmin() {
@@ -12383,14 +12383,15 @@ ${piPagesHtml}`;
   }
 
   function openAdminBulkModal() {
-    const VALID_ROLES = ["전임강사", "비전센터장", "지점장", "파트장", "기타"];
+    const VALID_ROLES = ["전임강사", "지역단장", "비전센터장", "지점장", "부서장", "파트장", "기타"];
     // 직책 별칭 정규화
     const ROLE_ALIAS = {
       "조직파트장": "파트장", "팀장": "파트장", "부팀장": "파트장",
       "비전센터": "비전센터장", "센터장": "비전센터장",
       "점장": "지점장", "지점": "지점장",
+      "사업부장": "부서장", "영업파트장": "파트장",
     };
-    const normRole = (r) => VALID_ROLES.includes(r) ? r : (ROLE_ALIAS[r] || r || "기타");
+    const normRole = (r) => VALID_ROLES.includes(r) ? r : (ROLE_ALIAS[r] || "기타");
 
     let modal = document.getElementById("modal-admin-bulk");
     if (modal) modal.remove();
@@ -12410,13 +12411,13 @@ ${piPagesHtml}`;
           <div id="abm-step1">
             <div class="abm-hint">
               <strong>붙여넣기 형식 (헤더 포함 또는 제외, 탭 구분)</strong><br>
-              사번 &nbsp;│&nbsp; 이름 &nbsp;│&nbsp; 직책 &nbsp;│&nbsp; 지역단 &nbsp;│&nbsp; 비전센터 &nbsp;│&nbsp; 지점 &nbsp;│&nbsp; 연락처<br>
-              <small style="color:#888">※ 비전센터·지점은 해당 없으면 비워두세요 &nbsp;│&nbsp; 초기 비밀번호: 0000</small>
+              사번 &nbsp;│&nbsp; 성명 &nbsp;│&nbsp; 직책 &nbsp;│&nbsp; 지역단 &nbsp;│&nbsp; 소속부서 &nbsp;│&nbsp; 휴대폰번호<br>
+              <small style="color:#888">※ 소속부서 열은 참고용이며 지역단 단위로 저장됩니다 &nbsp;│&nbsp; 초기 비밀번호: 0000</small>
             </div>
             <div class="abm-example">
-              <span class="abm-ex-row">313766&nbsp;&nbsp;이승학&nbsp;&nbsp;전임강사&nbsp;&nbsp;호남지역단</span>
-              <span class="abm-ex-row">301999&nbsp;&nbsp;홍길동&nbsp;&nbsp;비전센터장&nbsp;&nbsp;호남지역단&nbsp;&nbsp;순천비전센터</span>
-              <span class="abm-ex-row">301998&nbsp;&nbsp;김영희&nbsp;&nbsp;지점장&nbsp;&nbsp;호남지역단&nbsp;&nbsp;순천비전센터&nbsp;&nbsp;순천지점</span>
+              <span class="abm-ex-row">307273&nbsp;&nbsp;김병훈&nbsp;&nbsp;지역단장&nbsp;&nbsp;강북지역단&nbsp;&nbsp;강북지역단&nbsp;&nbsp;010-5322-5726</span>
+              <span class="abm-ex-row">308753&nbsp;&nbsp;강지원&nbsp;&nbsp;비전센터장&nbsp;&nbsp;북부지역단&nbsp;&nbsp;북부조직파트&nbsp;&nbsp;010-2970-9725</span>
+              <span class="abm-ex-row">312346&nbsp;&nbsp;윤관수&nbsp;&nbsp;지점장&nbsp;&nbsp;경기지역단&nbsp;&nbsp;경기지역단&nbsp;&nbsp;010-7611-5309</span>
             </div>
             <textarea id="abm-paste" class="abm-textarea" placeholder="여기에 붙여넣기 하세요..."></textarea>
             <div class="abm-foot">
@@ -12463,8 +12464,8 @@ ${piPagesHtml}`;
       parsedAdmins = [];
       for (let i = startIdx; i < lines.length; i++) {
         const cols = lines[i].split(/\t/).map(c => c.trim());
-        const [empNo, name, rawRole, region, center, branch, phone] = [
-          cols[0]||"", cols[1]||"", cols[2]||"", cols[3]||"", cols[4]||"", cols[5]||"", cols[6]||""
+        const [empNo, name, rawRole, region, dept, phone] = [
+          cols[0]||"", cols[1]||"", cols[2]||"", cols[3]||"", cols[4]||"", cols[5]||""
         ];
         if (!empNo) continue;
         const role = normRole(rawRole);
@@ -12472,9 +12473,7 @@ ${piPagesHtml}`;
         if (!name)   errs.push("이름 누락");
         if (!region) errs.push("지역단 누락");
         if (!VALID_ROLES.includes(role)) errs.push(`직책 오류: "${rawRole}"`);
-        if (["비전센터장","지점장","기타"].includes(role) && !center) errs.push("비전센터 누락");
-        if (["지점장"].includes(role) && center && !branch) errs.push("지점 누락");
-        parsedAdmins.push({ empNo, name, role, region, center, branch, phone, errs });
+        parsedAdmins.push({ empNo, name, role, region, dept, phone, errs });
       }
 
       if (!parsedAdmins.length) { toast("유효한 행이 없습니다.", "error"); return; }
@@ -12493,8 +12492,7 @@ ${piPagesHtml}`;
           <td><strong>${escapeHtml(a.name)}</strong></td>
           <td>${escapeHtml(a.role)}</td>
           <td>${escapeHtml(a.region)}</td>
-          <td>${escapeHtml(a.center)}</td>
-          <td>${escapeHtml(a.branch)}</td>
+          <td>${escapeHtml(a.dept)}</td>
           <td>${escapeHtml(a.phone)}</td>
           <td class="${statusCls}">${statusTxt}</td>
         </tr>`;
@@ -12511,7 +12509,7 @@ ${piPagesHtml}`;
           <table class="abm-table">
             <thead><tr>
               <th>사번</th><th>이름</th><th>직책</th><th>지역단</th>
-              <th>비전센터</th><th>지점</th><th>연락처</th><th>상태</th>
+              <th>소속부서</th><th>연락처</th><th>상태</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
           </table>
@@ -12538,7 +12536,7 @@ ${piPagesHtml}`;
         try {
           await window.DataAPI.saveAdmin({
             empNo: a.empNo, name: a.name, role: a.role,
-            region: a.region, center: a.center, branch: a.branch,
+            region: a.region, center: "", branch: "",
             phone: a.phone, password: "0000",
           });
           saved++;
