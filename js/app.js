@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.58";
+  const APP_VERSION = "2.59";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5808,7 +5808,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     // Pass 2: amt prizes
     // rate에서 이미 "mine"을 받은 사람은 amt에서 "other"로 처리 (물품 포함)
+    // 단, amt 시상금이 rate 시상금보다 크면 역으로 amt를 받고 rate는 "other"로 소급 변경
     let aSlot = 0;
+    let _rateRenumberNeeded = false;
     const amtAsgn = new Map();
     for (const st of byAmt) {
       const empNo = st.s.empNo;
@@ -5829,18 +5831,36 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (!bothEnabled) {
         amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: 0 });
       } else if (amtCash > 0 || effectiveRateCash > 0) {
-        // 현금 비교: rate 시상이 amt보다 크거나 같으면 → amt = other
-        if (effectiveRateCash >= amtCash && rateAlreadyMine) {
+        if (rateAlreadyMine && effectiveRateCash >= amtCash) {
+          // rate 시상 >= amt 시상 → rate 유지, amt = other
           amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateCash });
+        } else if (rateAlreadyMine && amtCash > effectiveRateCash) {
+          // amt 시상이 더 큼 (Pass1에서 범위 밖이었다가 캐스케이딩으로 슬롯 확보) → amt로 전환, rate 소급 취소
+          rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: amtCash });
+          amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
+          _rateRenumberNeeded = true;
         } else {
+          // rate 수상자 아님 → amt 획득
           amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
         }
       } else {
-        // 둘 다 물품: rate에서 이미 획득했으면 → amt = other
+        // 둘 다 물품(0원): rate에서 이미 획득했으면 → amt = other
         if (rateAlreadyMine) {
           amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
         } else {
           amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: 0, otherAmt: 0 });
+        }
+      }
+    }
+
+    // Pass 3: rate 소급 취소가 발생한 경우 rate 순위 재번호 (gap 제거)
+    if (_rateRenumberNeeded) {
+      let _rRank = 0;
+      for (const st of byRate) {
+        const ra = rateAsgn.get(st.s.empNo);
+        if (ra?.status === "mine") {
+          _rRank++;
+          if (ra.effectiveRank !== _rRank) rateAsgn.set(st.s.empNo, { ...ra, effectiveRank: _rRank });
         }
       }
     }
@@ -10952,7 +10972,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260619a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260619b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
