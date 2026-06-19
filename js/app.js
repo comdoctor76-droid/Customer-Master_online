@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.57";
+  const APP_VERSION = "2.58";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5884,14 +5884,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const netVal  = (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
       let rankCell, prizeCell, rowCls = "";
 
-      if (!inTopN || a.status === "none") {
-        // TOP N 밖 — 순위·시상 표시 없음
-        rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
-        prizeCell = `<span style="color:#bbb">-</span>`;
-      } else if (a.status === "mine") {
+      if (a.status === "mine") {
+        // 유효 순위 획득 — raw 순서가 topN을 넘어도 반드시 표시
         const rank = a.effectiveRank || displayRank;
         rankCell  = RB(rank);
-        prizeCell = `<span class="pg-bdg pg-b-g">${escapeHtml(prizeLabel(rank, myPayouts, a.effectiveAmt))}</span>`;
+        const prizeStr = escapeHtml(prizeLabel(rank, myPayouts, a.effectiveAmt));
+        prizeCell = `<span class="pg-bdg pg-b-g">${prizeStr}</span>`;
+      } else if (!inTopN || a.status === "none") {
+        // TOP N 밖 또는 시상 없음
+        rankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
+        prizeCell = `<span style="color:#bbb">-</span>`;
       } else if (a.status === "other") {
         // 이 카테고리는 제외 → 순위 표시 없음, 상대 카테고리 시상명 표시
         const oa      = otherAsgnMap.get(empNo);
@@ -10950,7 +10952,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260618b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260619a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
