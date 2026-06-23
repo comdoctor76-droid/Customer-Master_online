@@ -5688,6 +5688,8 @@ body {
   transition: border-color .2s; background: #fafafa;
 }
 .login-input:focus { border-color: var(--orange); background: #fff; }
+.login-hint { font-size: 12px; color: #555; background: #f0f4ff; border: 1px solid #c7d4f7; border-radius: 7px; padding: 8px 12px; margin-bottom: 12px; line-height: 1.5; text-align: center; }
+.login-hint strong { color: #2563eb; }
 /* 버튼 */
 .login-btn {
   width: 100%; border: none; border-radius: 9px;

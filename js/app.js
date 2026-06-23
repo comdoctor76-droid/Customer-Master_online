@@ -219,7 +219,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.59";
+  const APP_VERSION = "2.60";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10972,7 +10972,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260619b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260619c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12236,6 +12236,7 @@ ${piPagesHtml}`;
         <input type="checkbox" id="li-remember" class="li-remember-chk"${savedEmpNo ? " checked" : ""}>
         <span class="li-remember-txt">사번 기억하기</span>
       </label>
+      <div class="login-hint">💡 로그인은 사번, 비밀번호는 <strong>0000</strong>입니다</div>
       <button id="li-btn" class="login-btn">로 그 인</button>
       <div id="li-msg" class="login-msg"></div>
       <div class="login-bottom-row">
