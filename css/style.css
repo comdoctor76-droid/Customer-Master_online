@@ -3854,6 +3854,40 @@ body {
   flex-shrink: 0;
 }
 .ap-del-btn:hover { color: #e53935; border-color: #e53935; }
+/* 신상품시상 카드 */
+.ap-np-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ap-np-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ap-label-sm {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  min-width: 54px;
+}
+.ap-np-slab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+}
+.ap-np-slab-unit, .ap-np-slab-payunit {
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
 @media (max-width: 640px) {
   .ap-sec-head { flex-wrap: wrap; overflow-x: visible; }
   .ap-n-group { margin-left: 0; }
