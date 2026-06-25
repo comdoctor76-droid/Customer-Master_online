@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.77";
+  const APP_VERSION = "2.78";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3849,6 +3849,222 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     return `면담일지_${s ? s.name || s.empNo : ""}_${ts}${suffix || ""}.png`;
   }
 
+  // 통계 탭 시상안 출력 — 지역단별 저장 시상안 기준 (아너스 제외)
+  function buildProgressAwardSheetHtml(student, pa, opts = {}) {
+    const plan = pa.plan;
+    const region = student.region || "";
+    const vc = student.center || "";
+    const branch = student.branch || "";
+    const sName = student.name || "";
+    const branchShort = branch.replace(/지점$/, "");
+    const vcShort = vc.replace(/비전센터$/, "");
+
+    const pgCurrent = Number(student.pgCurrent || 0);
+    const pgBase = Number(student.base || 0);
+    const net = Math.max(0, pgCurrent - pgBase);
+    const rate = pgBase > 0 ? pgCurrent / pgBase * 100 : 0;
+    const fmtRaw = (v) => Math.round(v).toLocaleString() + "원";
+    const fmtPct = (v) => v.toFixed(1) + "%";
+
+    const cohortLabel = opts.cohort ? `${opts.cohort}기` : "";
+    const stepLabel = opts.step ? `Step ${opts.step}` : "Step 1";
+    const cohortStepLabel = [cohortLabel, stepLabel].filter(Boolean).join(" · ");
+    const hdrTitle = `🏆 ${escapeHtml(vcShort || region.replace(/지역단$|사업부$/, ""))} 시상 예상답안지`;
+
+    // 실적 현황
+    const netColor = net > 0 ? "#1B5E20" : "#C62828";
+    const rateColor = rate >= 100 ? "#1B5E20" : "#C62828";
+    const perfHtml = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:9px;">
+      <div class="info-card"><div class="info-lbl">기준실적</div><div class="info-val" style="font-size:12px;">${fmtRaw(pgBase)}</div></div>
+      <div class="info-card"><div class="info-lbl">현재실적</div><div class="info-val" style="font-size:12px;">${fmtRaw(pgCurrent)}</div></div>
+      <div class="info-card"><div class="info-lbl">순증</div><div class="info-val" style="font-size:12px;color:${netColor};">${net !== 0 ? (net > 0 ? "+" : "") : ""}${fmtRaw(net)}</div></div>
+      <div class="info-card"><div class="info-lbl">달성률</div><div class="info-val" style="font-size:12px;color:${rateColor};">${pgBase > 0 ? fmtPct(rate) : "—"}</div></div>
+    </div>`;
+
+    // 개인순증시상
+    let piSection = "";
+    if (plan.personalIncr?.enabled && pa.tiers.length > 0) {
+      const tierHit = pa.tiers.find((t) => net >= t.min);
+      if (tierHit) {
+        const prize = tierHit.type === "pct"
+          ? `${tierHit.payVal}% (${fmtRaw(Math.round(net * tierHit.val))})`
+          : tierHit.type === "item" ? (tierHit.itemName || "물품") : `${tierHit.payVal}만원`;
+        piSection = `<div class="sec-title grn4">🎁 개인순증시상</div>
+          <div class="hl-row">
+            <span class="hl-icon">🎁</span>
+            <div class="hl-info">
+              <div class="hl-grade">개인순증시상 달성</div>
+              <div class="hl-crit">순증 ${fmtRaw(net)} → <strong>${escapeHtml(prize)}</strong></div>
+            </div>
+            <div class="hl-amt grn4">${escapeHtml(prize)}</div>
+          </div>`;
+      } else {
+        const lowestTier = pa.tiers[pa.tiers.length - 1];
+        const need = lowestTier ? fmtRaw(lowestTier.min - net) : "";
+        piSection = `<div class="sec-title grn4">🎁 개인순증시상</div>
+          <div class="hl-none">미해당 (순증 ${fmtRaw(net)}${lowestTier ? ` · 최소기준까지 ${need} 더 필요` : ""})</div>`;
+      }
+    }
+
+    // 신장률시상
+    let rateSection = "";
+    if (pa.rateConfig) {
+      const rc = pa.rateConfig;
+      const n = Number(rc.n) || 1;
+      const payouts = rc.payouts || [];
+      const rateRank = opts.rateRank;
+      const qualify = rateRank && rateRank <= n;
+      const rankStr = rateRank ? `${rateRank}위` : "순위 미확인";
+      const poRows = Array.from({ length: n }, (_, i) => {
+        const po = payouts[i];
+        return `<tr class="${rateRank === i + 1 ? "up-next" : ""}"><td>${i + 1}위</td><td>${po ? escapeHtml(payoutLabel(po)) : "—"}</td></tr>`;
+      }).join("");
+      let awardHtml;
+      if (qualify) {
+        const prz = payouts[rateRank - 1];
+        awardHtml = `<div class="hl-row">
+          <span class="hl-icon">📈</span>
+          <div class="hl-info">
+            <div class="hl-grade">신장률시상 ${rateRank}위 달성</div>
+            <div class="hl-crit">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} · 전체 ${opts.totalStudents || "?"}명 중 ${rateRank}위</div>
+          </div>
+          <div class="hl-amt">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
+        </div>`;
+      } else {
+        awardHtml = `<div class="hl-none">미해당 (달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}, ${rankStr}, 상위 ${n}위 이내 필요)</div>`;
+      }
+      rateSection = `<div class="sec-title bl">📈 신장률시상 (상위 ${n}위)</div>${awardHtml}
+        <table class="up-table" style="margin-top:4px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
+    }
+
+    // 신장액시상
+    let amtSection = "";
+    if (pa.amtConfig) {
+      const ac = pa.amtConfig;
+      const n = Number(ac.n) || 1;
+      const payouts = ac.payouts || [];
+      const netRank = opts.netRank;
+      const qualify = netRank && netRank <= n;
+      const rankStr = netRank ? `${netRank}위` : "순위 미확인";
+      const poRows = Array.from({ length: n }, (_, i) => {
+        const po = payouts[i];
+        return `<tr class="${netRank === i + 1 ? "up-next" : ""}"><td>${i + 1}위</td><td>${po ? escapeHtml(payoutLabel(po)) : "—"}</td></tr>`;
+      }).join("");
+      let awardHtml;
+      if (qualify) {
+        const prz = payouts[netRank - 1];
+        awardHtml = `<div class="hl-row green4">
+          <span class="hl-icon">💰</span>
+          <div class="hl-info">
+            <div class="hl-grade">신장액시상 ${netRank}위 달성</div>
+            <div class="hl-crit">순증 ${fmtRaw(net)} · 전체 ${opts.totalStudents || "?"}명 중 ${netRank}위</div>
+          </div>
+          <div class="hl-amt grn4">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
+        </div>`;
+      } else {
+        awardHtml = `<div class="hl-none">미해당 (순증 ${fmtRaw(net)}, ${rankStr}, 상위 ${n}위 이내 필요)</div>`;
+      }
+      amtSection = `<div class="sec-title grn4">💰 신장액시상 (상위 ${n}위)</div>${awardHtml}
+        <table class="up-table" style="margin-top:4px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
+    }
+
+    // 팀시상
+    let teamSection = "";
+    const gi = opts.groupInfo;
+    const ga1En = !!plan.groupAward1?.enabled;
+    const ga2En = !!plan.groupAward2?.enabled;
+    if ((ga1En || ga2En) && gi) {
+      const bLabel = escapeHtml((gi.branchName || branch).replace(/지점$/, "") + "지점");
+      let ga1Html = "", ga2Html = "";
+      if (ga1En) {
+        const ga1Items2 = _ga1Items(plan.groupAward1);
+        const firstThr = ga1Items2[0]?.threshold || 5;
+        const poStr = gi.ga1Payout ? escapeHtml(payoutLabel(gi.ga1Payout)) : "";
+        if (gi.ga1Met && poStr) {
+          ga1Html = `<div class="hl-row green4">
+            <span class="hl-icon">👥</span>
+            <div class="hl-info">
+              <div class="hl-grade">팀시상1 달성 — ${bLabel}</div>
+              <div class="hl-crit">팀원 ${gi.memberCount}명 전원 순증목표 달성 → 1인당 <strong>${poStr}</strong></div>
+            </div>
+            <div class="hl-amt grn4">${poStr}</div>
+          </div>`;
+        } else {
+          ga1Html = `<div class="hl-none">팀시상1 — 미달성 (${bLabel} ${gi.memberCount}명, 전원 ${firstThr}만원↑ 순증 필요)</div>`;
+        }
+      }
+      if (ga2En) {
+        const ga2Items2 = _ga2Items(plan.groupAward2);
+        const minRate2 = ga2Items2.length ? Number(ga2Items2[0].rateThreshold || 110) : 110;
+        const poStr = gi.ga2Payout ? escapeHtml(payoutLabel(gi.ga2Payout)) : "";
+        if (gi.ga2Met && poStr) {
+          ga2Html = `<div class="hl-row green4">
+            <span class="hl-icon">🏆</span>
+            <div class="hl-info">
+              <div class="hl-grade">팀시상2 달성 — ${bLabel}</div>
+              <div class="hl-crit">팀 달성률 ${(gi.teamRate || 0).toFixed(1)}% ≥ ${minRate2}% → 1인당 <strong>${poStr}</strong></div>
+            </div>
+            <div class="hl-amt grn4">${poStr}</div>
+          </div>`;
+        } else {
+          ga2Html = `<div class="hl-none">팀시상2 — 미달성 (${bLabel} 팀달성률 ${(gi.teamRate || 0).toFixed(1)}%, 기준 ${minRate2}% 미만)</div>`;
+        }
+      }
+      if (ga1Html || ga2Html) {
+        teamSection = `<div class="sec-title" style="color:#7B1FA2;">👥 팀시상</div>${ga1Html}${ga2Html}`;
+      }
+    }
+
+    // 신상품시상
+    let npSection = "";
+    if (plan.newProductAward?.enabled) {
+      const npItems = plan.newProductAward.items || [];
+      if (npItems.length) {
+        const npRowsHtml = npItems.map((item) => {
+          const mig = _apNpMigrateItem(item);
+          const name = escapeHtml(mig.productName || "신상품");
+          const condParts = (mig.conditions || [])
+            .filter((c) => c.enabled !== false)
+            .map((c) => {
+              if (c.type === "amount") return `${c.amount || 0}만원 이상`;
+              if (c.type === "text") return escapeHtml(c.text || "");
+              if (c.type === "slab" && c.slabs?.length) {
+                return c.slabs.map((sl) => `${sl.threshold}만↑→${sl.value}${c.payType === "pct" ? "%" : "만원"}`).join(", ");
+              }
+              return "";
+            })
+            .filter(Boolean);
+          const condStr = condParts.length ? ` — ${condParts.join(" / ")}` : "";
+          return `<div class="hl-none" style="margin-bottom:3px;">📦 <strong>${name}</strong>${condStr}</div>`;
+        }).join("");
+        npSection = `<div class="sec-title" style="color:#E65100;">🆕 신상품시상</div>${npRowsHtml}`;
+      }
+    }
+
+    const hasAny = piSection || rateSection || amtSection || teamSection || npSection;
+    return `
+      <div class="pg">
+        <div class="hdr">
+          <div class="hdr-title">${hdrTitle}</div>
+          <div class="hdr-date">${new Date().toLocaleDateString("ko-KR")} 기준</div>
+        </div>
+        <div class="info-row1" style="grid-template-columns:repeat(5,1fr);">
+          <div class="info-card key"><div class="info-lbl">지역단</div><div class="info-val" style="font-size:13px;">${escapeHtml(region.replace(/지역단$|사업부$/, ""))}</div></div>
+          <div class="info-card key"><div class="info-lbl">비전센터</div><div class="info-val" style="font-size:13px;">${escapeHtml(vcShort)}</div></div>
+          <div class="info-card key"><div class="info-lbl">지점</div><div class="info-val" style="font-size:13px;">${escapeHtml(branchShort)}</div></div>
+          <div class="info-card key"><div class="info-lbl">성명</div><div class="info-val" style="font-size:16px;">${escapeHtml(sName)}</div></div>
+          <div class="info-card"><div class="info-lbl">기수·스텝</div><div class="info-val" style="font-size:12px;">${escapeHtml(cohortStepLabel)}</div></div>
+        </div>
+        ${perfHtml}
+        ${piSection}
+        ${rateSection}
+        ${amtSection}
+        ${teamSection}
+        ${npSection}
+        ${!hasAny ? '<div class="hl-none" style="text-align:center;margin-top:8px;">저장된 시상안이 없습니다. 시상안 편집에서 설정해주세요.</div>' : ""}
+      </div>`;
+  }
+
   // 통계 탭에서 호출 — 현재 필터(지역단/비전센터) 기준 학생 전체 시상안 출력
   async function printAwardSheets() {
     const f = state.filter;
@@ -3863,26 +4079,77 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const win = window.open("", "_blank", "width=900,height=1000");
     if (!win) { toast("팝업이 차단되었습니다. 허용 후 다시 시도하세요.", "error"); return; }
 
-    toast(`${students.length}명의 면담이력 수집중...`, "");
-    await ensureConsultationsFetched(students);
+    // 지역단별 저장 시상안 로드
+    const cohort = (f.cohort || state.progressCohort || "").replace(/기$/, "");
+    const step = f.step || state.progressStep || "1";
+    const pa = getProgressAwardConfig(f.region, cohort, step);
+
+    // 전체 순위 계산 (신장률, 신장액)
+    const statsArr = students.map((s) => {
+      const net = Math.max(0, Number(s.pgCurrent || 0) - Number(s.base || 0));
+      const base = Number(s.base || 0);
+      const current = Number(s.pgCurrent || 0);
+      const rate = base > 0 ? current / base * 100 : 0;
+      return { empNo: s.empNo, net, rate, base, current, branch: s.branch || "" };
+    });
+    const byRate = [...statsArr].sort((a, b) => b.rate - a.rate);
+    const rateRankMap = new Map(byRate.map((s, i) => [s.empNo, i + 1]));
+    const byNet = [...statsArr].sort((a, b) => b.net - a.net);
+    const netRankMap = new Map(byNet.map((s, i) => [s.empNo, i + 1]));
+
+    // 지점별 팀시상 계산
+    const branchMap = new Map();
+    for (const st of statsArr) {
+      const b = st.branch || "기타";
+      if (!branchMap.has(b)) branchMap.set(b, []);
+      branchMap.get(b).push(st);
+    }
+    const ga1Items = _ga1Items(pa.plan.groupAward1);
+    const ga2Items = _ga2Items(pa.plan.groupAward2);
+    const ga1En = !!pa.plan.groupAward1?.enabled;
+    const ga2En = !!pa.plan.groupAward2?.enabled;
+    const ga1Sorted = [...ga1Items].sort((a, b) => Number(b.threshold || 0) - Number(a.threshold || 0));
+    const ga2Sorted = [...ga2Items].sort((a, b) => Number(b.rateThreshold || 0) - Number(a.rateThreshold || 0));
+    const branchAwardMap = new Map();
+    for (const [bName, bMembers] of branchMap.entries()) {
+      const totalBase = bMembers.reduce((s, m) => s + m.base, 0);
+      const totalCurrent = bMembers.reduce((s, m) => s + m.current, 0);
+      const teamRate = totalBase > 0 ? totalCurrent / totalBase * 100 : 0;
+      let ga1Met = false, ga1Payout = null;
+      if (ga1En && ga1Sorted.length) {
+        for (const item of ga1Sorted) {
+          const thr = Number(item.threshold || 5) * 10000;
+          if (bMembers.every((m) => m.net >= thr)) { ga1Met = true; ga1Payout = normPayout(item.payout); break; }
+        }
+      }
+      let ga2Met = false, ga2Payout = null;
+      if (ga2En && ga2Sorted.length) {
+        for (const item of ga2Sorted) {
+          if (teamRate >= Number(item.rateThreshold || 110)) { ga2Met = true; ga2Payout = normPayout(item.payout); break; }
+        }
+      }
+      const result = { branchName: bName, memberCount: bMembers.length, teamRate, ga1Met, ga1Payout, ga2Met, ga2Payout };
+      for (const m of bMembers) branchAwardMap.set(m.empNo, result);
+    }
 
     const pages = [];
     for (const s of students) {
-      const itvs = getStudentConsultations(s.empNo);
-      const sorted = itvs.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-      const calcItv = sorted.find((i) => i.calcAvg || i.calcTgt || i.calcBaseTgt) || null;
-      const lastInsItv = sorted.find((i) => i.ins) || null;
-      const html = buildAwardSheetPageHtml(s, calcItv, lastInsItv);
+      const html = buildProgressAwardSheetHtml(s, pa, {
+        cohort, step,
+        rateRank: rateRankMap.get(s.empNo),
+        netRank: netRankMap.get(s.empNo),
+        totalStudents: students.length,
+        groupInfo: branchAwardMap.get(s.empNo),
+      });
       if (html) pages.push(html);
     }
 
     if (!pages.length) { win.close(); toast("출력할 데이터가 없습니다.", "error"); return; }
 
-    const scopeText = [f.region, f.center, f.branch].filter(Boolean).join(" · ");
+    const scopeText = [f.region, f.center, f.branch, cohort ? `${cohort}기` : "", step ? `Step${step}` : ""].filter(Boolean).join(" · ");
     win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <title>시상 예상답안지 — ${escapeHtml(scopeText)}</title>
 <style>${AWARD_PRINT_CSS}
-  /* 미리보기용 상단 바 — 화면에서만 노출, 인쇄 시 숨김 */
   .print-ovl {
     position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
     background: #1A2744; color: #fff;
@@ -3907,7 +4174,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 </head><body>
   <div class="print-ovl">
     <button type="button" class="po-back" onclick="window.close();return false;">← 돌아가기</button>
-    <span class="po-ttl">🏆 시상 예상답안지 미리보기 (${pages.length}명)</span>
+    <span class="po-ttl">🏆 시상 예상답안지 미리보기 (${pages.length}명) — ${escapeHtml(scopeText)}</span>
     <button type="button" class="po-print" onclick="window.print();return false;">🖨️ 인쇄하기</button>
   </div>
   ${pages.join("")}
@@ -11360,7 +11627,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625o)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625p)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
