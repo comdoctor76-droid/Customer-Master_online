@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.85";
+  const APP_VERSION = "2.86";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -8898,8 +8898,8 @@ ${piPagesHtml}`;
         cohorts.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}기</option>`).join("");
       if (prevCohort && cohorts.includes(prevCohort)) {
         cohortSel.value = prevCohort;
-      } else if (!prevCohort) {
-        // 첫 오픈 시 좌측 메뉴 기수/스텝 기본값으로 동기화
+      } else if (!prevCohort && !cohortSel.dataset.statsInited) {
+        // 탭 첫 오픈 시에만 좌측 메뉴 기수/스텝 기본값으로 동기화
         const sidebarCohort = (document.getElementById("filter-cohort")?.value || "").replace(/기$/, "");
         if (sidebarCohort && cohorts.includes(sidebarCohort)) cohortSel.value = sidebarCohort;
         if (stepSel) {
@@ -8907,6 +8907,7 @@ ${piPagesHtml}`;
           if (sidebarStep) stepSel.value = sidebarStep;
         }
       }
+      cohortSel.dataset.statsInited = "1";
       cohortSel.dataset.lastCohort = cohortSel.value;
     }
 
@@ -11696,7 +11697,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625w)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625x)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -13064,7 +13065,11 @@ ${piPagesHtml}`;
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     if (target === "dashboard") renderStats(filteredStudents(), "dashboard-body");
     if (target === "progress") renderProgressPanel();
-    if (target === "stats") renderMasterStats();
+    if (target === "stats") {
+      const _cSel = document.getElementById("stat-cohort-sel");
+      if (_cSel) delete _cSel.dataset.statsInited;
+      renderMasterStats();
+    }
     if (target === "settings") renderMasterTargetSettings();
       if (target === "settings") subscribeErrorReportsIfNeeded();
     if (target === "students" && state.selectedEmpNo) renderStudentDetail();
