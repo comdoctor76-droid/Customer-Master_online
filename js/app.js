@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.81";
+  const APP_VERSION = "2.82";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3604,36 +3604,36 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     .stat-key.bl{color:#1565C0;}
     .stat-val{font-size:17px;font-weight:900;color:#1A2744;white-space:nowrap;}
     .stat-val.bl{color:#1565C0;}
-    .sec-title{font-size:13px;font-weight:800;color:#4A148C;margin:7px 0 4px;}
+    .sec-title{font-size:15px;font-weight:800;color:#4A148C;margin:7px 0 4px;}
     .sec-title.bl{color:#1565C0;}
     .hl-row{display:flex;align-items:center;gap:8px;background:#E8F5E9;border-radius:7px;padding:7px 11px;margin-bottom:4px;border-left:4px solid #2E7D32;}
     .hl-row.warn{background:#FFEBEE;border-left-color:#C62828;}
     .hl-row.blue{background:#E3F2FD;border-left-color:#1565C0;}
-    .hl-icon{font-size:18px;flex-shrink:0;}
+    .hl-icon{font-size:20px;flex-shrink:0;}
     .hl-info{flex:1;min-width:0;}
-    .hl-grade{font-size:14px;font-weight:700;color:#1B5E20;}
+    .hl-grade{font-size:15px;font-weight:700;color:#1B5E20;}
     .hl-row.warn .hl-grade{color:#C62828;}
     .hl-row.blue .hl-grade{color:#1565C0;}
-    .hl-crit{font-size:12px;color:#388E3C;margin-top:2px;line-height:1.5;}
+    .hl-crit{font-size:13px;color:#388E3C;margin-top:2px;line-height:1.5;}
     .hl-row.warn .hl-crit{color:#E57373;}
     .hl-row.blue .hl-crit{color:#1976D2;}
-    .hl-crit .lbl{background:#1565C0;color:#fff;font-size:11px;padding:1px 6px;border-radius:8px;font-weight:700;}
-    .hl-sub{font-size:13px;font-weight:800;color:#0D47A1;margin-top:2px;}
-    .hl-amt{font-size:20px;font-weight:900;color:#2E7D32;white-space:nowrap;}
+    .hl-crit .lbl{background:#1565C0;color:#fff;font-size:12px;padding:1px 6px;border-radius:8px;font-weight:700;}
+    .hl-sub{font-size:14px;font-weight:800;color:#0D47A1;margin-top:2px;}
+    .hl-amt{font-size:26px;font-weight:900;color:#2E7D32;white-space:nowrap;}
     .hl-amt.rd{color:#C62828;}
-    .hl-amt.bl{color:#1565C0;font-size:22px;}
-    .hl-none{padding:6px 10px;color:#999;font-size:12px;background:#F5F5F5;border-radius:6px;margin-bottom:4px;}
+    .hl-amt.bl{color:#1565C0;font-size:26px;}
+    .hl-none{padding:6px 10px;color:#777;font-size:13px;background:#F5F5F5;border-radius:6px;margin-bottom:4px;}
     .total-bar{background:linear-gradient(135deg,#1A2744,#2C3F6E);border-radius:7px;padding:9px 15px;display:flex;align-items:center;justify-content:space-between;margin:7px 0 7px;}
     .total-lbl{color:rgba(255,255,255,.85);font-size:13px;font-weight:700;}
     .total-sub{color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;}
     .total-val{color:#FFE082;font-size:26px;font-weight:900;}
     .up-title{font-size:12px;font-weight:800;color:#1565C0;margin:5px 0 3px;}
-    .up-table{width:100%;border-collapse:collapse;font-size:11px;}
-    .up-table th{background:#E3F2FD;padding:3px 4px;border:1px solid #BBDEFB;color:#1565C0;font-weight:700;font-size:11px;}
-    .up-table td{padding:3px 4px;border:1px solid #E3E3E3;text-align:center;font-size:11px;}
+    .up-table{width:100%;border-collapse:collapse;font-size:14px;}
+    .up-table th{background:#E3F2FD;padding:4px 6px;border:1px solid #BBDEFB;color:#1565C0;font-weight:700;font-size:14px;}
+    .up-table td{padding:4px 6px;border:1px solid #E3E3E3;text-align:center;font-size:14px;}
     .up-table td.rd{color:#C62828;font-weight:700;}
     .up-table td.bl{color:#1565C0;}
-    .up-table td.grn{color:#1B5E20;font-size:12px;}
+    .up-table td.grn{color:#1B5E20;font-size:14px;}
     .up-table tr.up-next td{background:#FFF9C4;font-weight:700;}
     .warn{color:#C62828;font-size:10px;font-weight:800;}
     .note{font-size:10px;color:#888;margin-top:5px;line-height:1.4;}
@@ -3645,7 +3645,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     .hl-row.green4{background:#E8F5E9;border-left-color:#2E7D32;}
     .hl-row.green4 .hl-grade{color:#1B5E20;}
     .hl-row.green4 .hl-crit{color:#388E3C;}
-    .hl-amt.grn4{color:#2E7D32;font-size:20px;}
+    .hl-amt.grn4{color:#2E7D32;font-size:26px;}
     .hl-prev-hit{background:#E8F5E9;border-left:3px solid #4CAF50;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:13px;color:#1B5E20;font-weight:700;}
     .hl-prev-miss{background:#FFF8F0;border-left:3px solid #f59e0b;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:13px;color:#b45309;font-weight:700;}
     @media print{
@@ -3656,8 +3656,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       .hdr-title{font-size:16px;}
       .info-card.key .info-val{font-size:16px;}
       .stat-val{font-size:14px;}
-      .hl-amt{font-size:16px;}
-      .hl-amt.bl{font-size:18px;}
+      .hl-amt{font-size:20px;}
+      .hl-amt.bl{font-size:20px;}
       .total-val{font-size:22px;}
       .info-row1,.info-row2{margin-bottom:3px;}
       .hl-row{padding:5px 9px;margin-bottom:3px;}
@@ -11647,7 +11647,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625s)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625t)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
