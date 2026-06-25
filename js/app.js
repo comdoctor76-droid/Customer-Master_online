@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.82";
+  const APP_VERSION = "2.83";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3935,6 +3935,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const po = payouts[i];
         return `<tr class="${rateRank === i + 1 ? "up-next" : ""}"><td>${i + 1}위</td><td>${po ? escapeHtml(payoutLabel(po)) : "—"}</td></tr>`;
       }).join("");
+      const curRateRow = !qualify && rateRank
+        ? `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
+            <td style="color:#E65100;font-weight:800;">▶ 현재 ${rateRank}위</td>
+            <td style="color:#E65100;">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} (${n}위 이내 필요)</td>
+          </tr>`
+        : "";
       let awardHtml;
       if (qualify) {
         const prz = payouts[rateRank - 1];
@@ -3947,10 +3953,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="hl-amt" style="font-size:26px;">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
         </div>`;
       } else {
-        awardHtml = `<div class="hl-none">미해당 (달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}, ${rankStr}, 상위 ${n}위 이내 필요)</div>`;
+        awardHtml = `<div class="hl-none">미해당 — 달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}, 현재 ${rankStr} (상위 ${n}위 이내 필요)</div>`;
       }
       rateSection = `<div class="sec-title bl">📈 신장률시상 (상위 ${n}위)</div>${awardHtml}
-        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
+        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}${curRateRow}</tbody></table>`;
     }
 
     // 신장액시상
@@ -3966,6 +3972,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const po = payouts[i];
         return `<tr class="${netRank === i + 1 ? "up-next" : ""}"><td>${i + 1}위</td><td>${po ? escapeHtml(payoutLabel(po)) : "—"}</td></tr>`;
       }).join("");
+      const curNetRow = !qualify && netRank
+        ? `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
+            <td style="color:#E65100;font-weight:800;">▶ 현재 ${netRank}위</td>
+            <td style="color:#E65100;">순증 ${fmtRaw(net)} (${n}위 이내 필요)</td>
+          </tr>`
+        : "";
       let awardHtml;
       if (qualify) {
         const prz = payouts[netRank - 1];
@@ -3978,10 +3990,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="hl-amt grn4" style="font-size:26px;">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
         </div>`;
       } else {
-        awardHtml = `<div class="hl-none">미해당 (순증 ${fmtRaw(net)}, ${rankStr}, 상위 ${n}위 이내 필요)</div>`;
+        awardHtml = `<div class="hl-none">미해당 — 순증 ${fmtRaw(net)}, 현재 ${rankStr} (상위 ${n}위 이내 필요)</div>`;
       }
       amtSection = `<div class="sec-title grn4">💰 신장액시상 (상위 ${n}위)</div>${awardHtml}
-        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
+        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}${curNetRow}</tbody></table>`;
     }
 
     // 팀시상
@@ -3993,13 +4005,15 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const bLabel = escapeHtml((gi.branchName || branch).replace(/지점$/, "") + "지점");
       let ga1Html = "", ga2Html = "";
       if (ga1En) {
-        const ga1Items2 = _ga1Items(plan.groupAward1);
+        const ga1Items2 = [..._ga1Items(plan.groupAward1)].sort((a, b) => Number(a.threshold) - Number(b.threshold));
         const firstThr = ga1Items2[0]?.threshold || 5;
         const poStr = gi.ga1Payout ? escapeHtml(payoutLabel(gi.ga1Payout)) : "";
+        const ga1HitLabel = gi.ga1Met && gi.ga1Payout ? payoutLabel(gi.ga1Payout) : null;
         const ga1Overlap = !!plan.groupAward1?.allowOverlap;
         const overlapBadge1 = ga1Overlap ? `<span style="font-size:11px;background:#E3F2FD;color:#1565C0;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;">중복시상</span>` : "";
+        let ga1Status;
         if (gi.ga1Met && poStr) {
-          ga1Html = `<div class="hl-row green4">
+          ga1Status = `<div class="hl-row green4">
             <span class="hl-icon">👥</span>
             <div class="hl-info">
               <div class="hl-grade">팀시상1 달성 — ${bLabel}${overlapBadge1}</div>
@@ -4008,17 +4022,32 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="hl-amt grn4" style="font-size:26px;">${poStr}</div>
           </div>`;
         } else {
-          ga1Html = `<div class="hl-none">팀시상1 — 미달성 (${bLabel} ${gi.memberCount}명, 전원 ${firstThr}만원↑ 순증 필요)${ga1Overlap ? overlapBadge1 : ""}</div>`;
+          ga1Status = `<div class="hl-none">팀시상1 — 미달성 (${bLabel} ${gi.memberCount}명, 전원 ${firstThr}만원↑ 순증 필요)${ga1Overlap ? overlapBadge1 : ""}</div>`;
         }
+        const ga1CondRows = ga1Items2.map(it => {
+          const prStr = escapeHtml(payoutLabel(normPayout(it.payout)));
+          const isHit = ga1HitLabel && payoutLabel(normPayout(it.payout)) === ga1HitLabel;
+          return `<tr class="${isHit ? "up-next" : ""}">
+            <td${isHit ? ' style="font-weight:900;"' : ""}>전원 순증 ${it.threshold}만원 이상</td>
+            <td${isHit ? ' style="font-weight:900;color:#1B5E20;"' : ""}>${prStr}/인</td>
+          </tr>`;
+        }).join("");
+        const ga1Table = ga1Items2.length ? `<table class="up-table" style="margin-top:4px;font-size:14px;">
+          <thead><tr><th>달성 조건</th><th>시상내용</th></tr></thead>
+          <tbody>${ga1CondRows}</tbody>
+        </table>` : "";
+        ga1Html = `${ga1Status}${ga1Table}`;
       }
       if (ga2En) {
-        const ga2Items2 = _ga2Items(plan.groupAward2);
-        const minRate2 = ga2Items2.length ? Number(ga2Items2[0].rateThreshold || 110) : 110;
+        const ga2Items2 = [..._ga2Items(plan.groupAward2)].sort((a, b) => Number(a.rateThreshold) - Number(b.rateThreshold));
+        const minRate2 = ga2Items2[0]?.rateThreshold || 110;
         const poStr = gi.ga2Payout ? escapeHtml(payoutLabel(gi.ga2Payout)) : "";
+        const ga2HitLabel = gi.ga2Met && gi.ga2Payout ? payoutLabel(gi.ga2Payout) : null;
         const ga2Overlap = !!plan.groupAward2?.allowOverlap;
         const overlapBadge2 = ga2Overlap ? `<span style="font-size:11px;background:#E3F2FD;color:#1565C0;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;">중복시상</span>` : "";
+        let ga2Status;
         if (gi.ga2Met && poStr) {
-          ga2Html = `<div class="hl-row green4">
+          ga2Status = `<div class="hl-row green4">
             <span class="hl-icon">🏆</span>
             <div class="hl-info">
               <div class="hl-grade">팀시상2 달성 — ${bLabel}${overlapBadge2}</div>
@@ -4027,8 +4056,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="hl-amt grn4" style="font-size:26px;">${poStr}</div>
           </div>`;
         } else {
-          ga2Html = `<div class="hl-none">팀시상2 — 미달성 (${bLabel} 팀달성률 ${(gi.teamRate || 0).toFixed(1)}%, 기준 ${minRate2}% 미만)${ga2Overlap ? overlapBadge2 : ""}</div>`;
+          ga2Status = `<div class="hl-none">팀시상2 — 미달성 (${bLabel} 팀달성률 ${(gi.teamRate || 0).toFixed(1)}%, 기준 ${minRate2}% 미만)${ga2Overlap ? overlapBadge2 : ""}</div>`;
         }
+        const ga2CondRows = ga2Items2.map(it => {
+          const prStr = escapeHtml(payoutLabel(normPayout(it.payout)));
+          const isHit = ga2HitLabel && payoutLabel(normPayout(it.payout)) === ga2HitLabel;
+          return `<tr class="${isHit ? "up-next" : ""}">
+            <td${isHit ? ' style="font-weight:900;"' : ""}>팀달성률 ${it.rateThreshold}% 이상</td>
+            <td${isHit ? ' style="font-weight:900;color:#1B5E20;"' : ""}>${prStr}</td>
+          </tr>`;
+        }).join("");
+        const curTeamRateRow = !gi.ga2Met
+          ? `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
+              <td style="color:#E65100;font-weight:800;">▶ 현재 ${(gi.teamRate || 0).toFixed(1)}%</td>
+              <td style="color:#E65100;">${minRate2}% 이상 필요</td>
+            </tr>`
+          : "";
+        const ga2Table = ga2Items2.length ? `<table class="up-table" style="margin-top:4px;font-size:14px;">
+          <thead><tr><th>팀달성률 기준</th><th>시상내용</th></tr></thead>
+          <tbody>${ga2CondRows}${curTeamRateRow}</tbody>
+        </table>` : "";
+        ga2Html = `${ga2Status}${ga2Table}`;
       }
       if (ga1Html || ga2Html) {
         teamSection = `<div class="sec-title" style="color:#7B1FA2;">👥 팀시상</div>${ga1Html}${ga2Html}`;
@@ -11647,7 +11695,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625t)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625u)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
