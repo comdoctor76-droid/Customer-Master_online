@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.76";
+  const APP_VERSION = "2.77";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11360,7 +11360,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625n)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625o)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -11757,22 +11757,65 @@ ${piPagesHtml}`;
     }).join("");
   }
 
+  function _apNpMigrateItem(item) {
+    if (item.conditions) return item;
+    const conditions = [];
+    if (item.cond1Type === "text") {
+      conditions.push({ enabled: true, type: "text", text: item.cond1Text || "" });
+    } else {
+      conditions.push({ enabled: true, type: "amount", amount: item.cond1Amount || 0 });
+    }
+    if (item.cond2) {
+      conditions.push({ enabled: true, type: "text", text: item.cond2 });
+    }
+    if (item.paySlabs?.length || item.payType) {
+      conditions.push({ enabled: true, type: "slab", payType: item.payType || "pct", slabs: item.paySlabs?.length ? item.paySlabs : [{ threshold: 0, value: 0 }] });
+    }
+    return { productName: item.productName || "", conditions };
+  }
+
+  function _apRenderNpCond(cond, ci) {
+    const type = cond.type || "amount";
+    const enabled = cond.enabled !== false;
+    const payType = cond.payType || "pct";
+    const slabs = cond.slabs?.length ? cond.slabs : [{ threshold: 0, value: 0 }];
+    const slabsHtml = slabs.map((s) => `
+      <div class="ap-np-slab">
+        <input type="number" class="pg-input ap-np-slab-thr" value="${s.threshold}" min="0" step="1" style="width:70px;" placeholder="기준">
+        <span class="ap-np-slab-unit">만원 이상 →</span>
+        <input type="number" class="pg-input ap-np-slab-val" value="${s.value}" min="0" step="1" style="width:70px;" placeholder="지급">
+        <span class="ap-np-slab-payunit">${payType === "pct" ? "%" : "만원"}</span>
+        <button type="button" class="ap-del-btn ap-np-slab-del" title="구간삭제">✕</button>
+      </div>`).join("");
+    const typeLabel = type === "amount" ? "금액" : type === "text" ? "텍스트" : "구간";
+    const slabBlockDisplay = type === "slab" ? "display:flex;flex-direction:column;gap:4px;" : "display:none;";
+    return `<div class="ap-np-cond" data-ci="${ci}" style="opacity:${enabled ? "1" : "0.55"}">
+      <div class="ap-np-row" style="gap:4px;flex-wrap:wrap;">
+        <input type="checkbox" class="ap-np-cond-en" ${enabled ? "checked" : ""} title="이 조건 사용">
+        <button type="button" class="ap-toggle-btn ap-np-cond-type" data-val="${type}">${typeLabel}</button>
+        <input type="number" class="pg-input ap-np-cond-amount-val" value="${cond.amount || 0}" min="0" step="1" style="width:80px;${type !== "amount" ? "display:none;" : ""}">
+        <span class="ap-np-cond-amount-unit" style="font-size:12px;${type !== "amount" ? "display:none;" : ""}">만원 이상</span>
+        <input type="text" class="pg-input ap-np-cond-text-val" value="${escapeHtml(cond.text || "")}" placeholder="예: 5~10일, 통합사망 3천만원 이상" style="width:230px;${type !== "text" ? "display:none;" : ""}">
+        <button type="button" class="ap-toggle-btn ap-np-paytype" data-val="${payType}" style="${type !== "slab" ? "display:none;" : ""}">${payType === "pct" ? "%" : "정액"}</button>
+        <button type="button" class="ap-del-btn ap-np-cond-del" title="조건삭제" style="margin-left:auto;">✕</button>
+      </div>
+      <div class="ap-np-slabs-block" style="padding-left:54px;margin-top:4px;${slabBlockDisplay}">
+        <div class="ap-np-slabs" style="display:flex;flex-direction:column;gap:4px;">
+          ${slabsHtml}
+          <button type="button" class="btn-outline small ap-np-slab-add" style="width:fit-content;margin-top:2px;">＋ 구간추가</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   function _apRenderNp(items) {
     const el = document.getElementById("ap-np-list");
     if (!el) return;
     if (!items || items.length === 0) { el.innerHTML = ""; return; }
     el.innerHTML = items.map((item, i) => {
-      const c1type  = item.cond1Type || "amount";
-      const payType = item.payType   || "pct";
-      const slabs   = item.paySlabs?.length ? item.paySlabs : [{ threshold: 0, value: 0 }];
-      const slabsHtml = slabs.map((s) => `
-        <div class="ap-np-slab">
-          <input type="number" class="pg-input ap-np-slab-thr" value="${s.threshold}" min="0" step="1" style="width:70px;" placeholder="기준">
-          <span class="ap-np-slab-unit">만원 이상 →</span>
-          <input type="number" class="pg-input ap-np-slab-val" value="${s.value}" min="0" step="1" style="width:70px;" placeholder="지급">
-          <span class="ap-np-slab-payunit">${payType === "pct" ? "%" : "만원"}</span>
-          <button type="button" class="ap-del-btn ap-np-slab-del" title="구간삭제">✕</button>
-        </div>`).join("");
+      const migrated = _apNpMigrateItem(item);
+      const conds = migrated.conditions || [];
+      const condsHtml = conds.map((c, ci) => _apRenderNpCond(c, ci)).join("");
       return `
         <div class="ap-np-card" data-i="${i}">
           <div class="ap-np-row">
@@ -11781,27 +11824,12 @@ ${piPagesHtml}`;
           </div>
           <div class="ap-np-row">
             <label class="ap-label-sm">상품명</label>
-            <input type="text" class="pg-input ap-np-name" value="${escapeHtml(item.productName || "")}" placeholder="상품명 입력" style="width:200px;">
+            <input type="text" class="pg-input ap-np-name" value="${escapeHtml(migrated.productName || "")}" placeholder="상품명 입력" style="width:200px;">
           </div>
-          <div class="ap-np-row">
-            <label class="ap-label-sm">시상조건1</label>
-            <button type="button" class="ap-toggle-btn ap-np-c1type" data-val="${c1type}">${c1type === "amount" ? "금액" : "조건"}</button>
-            <input type="number" class="pg-input ap-np-c1amount" value="${item.cond1Amount || 0}" min="0" step="1" style="width:80px;${c1type === "amount" ? "" : "display:none"}">
-            <span class="ap-np-c1amount-unit" style="${c1type === "amount" ? "" : "display:none"}">만원 이상</span>
-            <input type="text" class="pg-input ap-np-c1text" value="${escapeHtml(item.cond1Text || "")}" placeholder="예: 통합사망 3천만원 이상" style="width:220px;${c1type === "text" ? "" : "display:none"}">
+          <div class="ap-np-conds" style="margin-top:6px;display:flex;flex-direction:column;gap:6px;">
+            ${condsHtml}
           </div>
-          <div class="ap-np-row">
-            <label class="ap-label-sm">시상조건2</label>
-            <input type="text" class="pg-input ap-np-cond2" value="${escapeHtml(item.cond2 || "")}" placeholder="예: 5~10일, 1주차, 해당없음" style="width:240px;">
-          </div>
-          <div class="ap-np-row" style="align-items:flex-start;">
-            <label class="ap-label-sm" style="margin-top:5px;">시상조건3</label>
-            <button type="button" class="ap-toggle-btn ap-np-paytype" data-val="${payType}" style="flex-shrink:0;">${payType === "pct" ? "%" : "정액"}</button>
-            <div class="ap-np-slabs" style="display:flex;flex-direction:column;gap:4px;">
-              ${slabsHtml}
-              <button type="button" class="btn-outline small ap-np-slab-add" style="width:fit-content;margin-top:2px;">＋ 구간추가</button>
-            </div>
-          </div>
+          <button type="button" class="btn-outline small ap-np-cond-add" style="width:fit-content;margin-top:6px;">＋ 조건추가</button>
         </div>`;
     }).join("");
   }
@@ -11809,23 +11837,32 @@ ${piPagesHtml}`;
   function _apCollectNp() {
     const items = [];
     document.querySelectorAll("#ap-np-list .ap-np-card").forEach((card) => {
-      const c1type = card.querySelector(".ap-np-c1type")?.dataset.val || "amount";
-      const payType = card.querySelector(".ap-np-paytype")?.dataset.val || "pct";
-      const slabs = [];
-      card.querySelectorAll(".ap-np-slab").forEach((s) => {
-        slabs.push({
-          threshold: Number(s.querySelector(".ap-np-slab-thr")?.value) || 0,
-          value:     Number(s.querySelector(".ap-np-slab-val")?.value) || 0
-        });
+      const conditions = [];
+      card.querySelectorAll(".ap-np-cond").forEach((condEl) => {
+        const type = condEl.querySelector(".ap-np-cond-type")?.dataset.val || "amount";
+        const enabled = condEl.querySelector(".ap-np-cond-en")?.checked !== false;
+        const cond = { enabled, type };
+        if (type === "amount") {
+          cond.amount = Number(condEl.querySelector(".ap-np-cond-amount-val")?.value) || 0;
+        } else if (type === "text") {
+          cond.text = condEl.querySelector(".ap-np-cond-text-val")?.value.trim() || "";
+        } else if (type === "slab") {
+          const payType = condEl.querySelector(".ap-np-paytype")?.dataset.val || "pct";
+          const slabs = [];
+          condEl.querySelectorAll(".ap-np-slab").forEach((s) => {
+            slabs.push({
+              threshold: Number(s.querySelector(".ap-np-slab-thr")?.value) || 0,
+              value:     Number(s.querySelector(".ap-np-slab-val")?.value) || 0
+            });
+          });
+          cond.payType = payType;
+          cond.slabs = slabs.length ? slabs : [{ threshold: 0, value: 0 }];
+        }
+        conditions.push(cond);
       });
       items.push({
-        productName:  card.querySelector(".ap-np-name")?.value.trim() || "",
-        cond1Type:    c1type,
-        cond1Amount:  Number(card.querySelector(".ap-np-c1amount")?.value) || 0,
-        cond1Text:    card.querySelector(".ap-np-c1text")?.value.trim() || "",
-        cond2:        card.querySelector(".ap-np-cond2")?.value.trim() || "",
-        payType,
-        paySlabs:     slabs.length ? slabs : [{ threshold: 0, value: 0 }]
+        productName: card.querySelector(".ap-np-name")?.value.trim() || "",
+        conditions
       });
     });
     return items;
@@ -12067,34 +12104,51 @@ ${piPagesHtml}`;
             if (txtInp) txtInp.style.display = next === "item" ? "" : "none";
             if (rateEl) rateEl.style.display = next === "item" ? "none" : "";
           }
-        } else if (tg.classList.contains("ap-np-c1type")) {
-          // 신상품 시상조건1: 금액 ↔ 조건
-          const next = tg.dataset.val === "amount" ? "text" : "amount";
+        } else if (tg.classList.contains("ap-np-cond-type")) {
+          // 신상품 조건 유형 3-way 순환: amount → text → slab → amount
+          const cur = tg.dataset.val;
+          const next = cur === "amount" ? "text" : cur === "text" ? "slab" : "amount";
+          const nextLabel = next === "amount" ? "금액" : next === "text" ? "텍스트" : "구간";
           tg.dataset.val = next;
-          tg.textContent = next === "amount" ? "금액" : "조건";
-          const row = tg.closest(".ap-np-row");
-          const amtInp  = row?.querySelector(".ap-np-c1amount");
-          const amtUnit = row?.querySelector(".ap-np-c1amount-unit");
-          const txtInp  = row?.querySelector(".ap-np-c1text");
-          if (amtInp)  amtInp.style.display  = next === "amount" ? "" : "none";
-          if (amtUnit) amtUnit.style.display  = next === "amount" ? "" : "none";
-          if (txtInp)  txtInp.style.display   = next === "text"   ? "" : "none";
+          tg.textContent = nextLabel;
+          const condEl = tg.closest(".ap-np-cond");
+          if (condEl) {
+            condEl.querySelector(".ap-np-cond-amount-val").style.display = next === "amount" ? "" : "none";
+            condEl.querySelector(".ap-np-cond-amount-unit").style.display = next === "amount" ? "" : "none";
+            condEl.querySelector(".ap-np-cond-text-val").style.display = next === "text" ? "" : "none";
+            condEl.querySelector(".ap-np-paytype").style.display = next === "slab" ? "" : "none";
+            const slabBlock = condEl.querySelector(".ap-np-slabs-block");
+            if (slabBlock) slabBlock.style.display = next === "slab" ? "flex" : "none";
+            if (next === "slab") slabBlock.style.flexDirection = "column";
+            if (next === "slab") slabBlock.style.gap = "4px";
+          }
         } else if (tg.classList.contains("ap-np-paytype")) {
-          // 신상품 시상조건3: % ↔ 정액
+          // 신상품 구간조건: % ↔ 정액
           const next = tg.dataset.val === "pct" ? "fixed" : "pct";
           tg.dataset.val = next;
           tg.textContent = next === "pct" ? "%" : "정액";
-          const npCard = tg.closest(".ap-np-card");
-          npCard?.querySelectorAll(".ap-np-slab-payunit").forEach((u) => { u.textContent = next === "pct" ? "%" : "만원"; });
+          const condEl = tg.closest(".ap-np-cond");
+          condEl?.querySelectorAll(".ap-np-slab-payunit").forEach((u) => { u.textContent = next === "pct" ? "%" : "만원"; });
+        }
+        return;
+      }
+      // 신상품 조건추가
+      const npCondAdd = e.target.closest(".ap-np-cond-add");
+      if (npCondAdd) {
+        const card = npCondAdd.closest(".ap-np-card");
+        const condsEl = card?.querySelector(".ap-np-conds");
+        if (condsEl) {
+          const ci = condsEl.querySelectorAll(".ap-np-cond").length;
+          condsEl.insertAdjacentHTML("beforeend", _apRenderNpCond({ enabled: true, type: "amount", amount: 0 }, ci));
         }
         return;
       }
       // 신상품 구간추가
       const npSlabAdd = e.target.closest(".ap-np-slab-add");
       if (npSlabAdd) {
-        const npCard   = npSlabAdd.closest(".ap-np-card");
-        const slabsEl  = npCard?.querySelector(".ap-np-slabs");
-        const payType  = npCard?.querySelector(".ap-np-paytype")?.dataset.val || "pct";
+        const condEl   = npSlabAdd.closest(".ap-np-cond");
+        const slabsEl  = condEl?.querySelector(".ap-np-slabs");
+        const payType  = condEl?.querySelector(".ap-np-paytype")?.dataset.val || "pct";
         if (slabsEl) {
           const newSlab = document.createElement("div");
           newSlab.className = "ap-np-slab";
@@ -12111,8 +12165,20 @@ ${piPagesHtml}`;
       // 삭제 버튼
       const del = e.target.closest(".ap-del-btn");
       if (del) {
-        const row = del.closest(".ap-row, .ap-pi-card, .ap-np-card, .ap-np-slab");
-        if (row) row.remove();
+        if (del.classList.contains("ap-np-cond-del")) {
+          del.closest(".ap-np-cond")?.remove();
+        } else {
+          const row = del.closest(".ap-row, .ap-pi-card, .ap-np-card, .ap-np-slab");
+          if (row) row.remove();
+        }
+      }
+    });
+
+    // 신상품 조건 체크박스 — 활성/비활성 표시
+    modal.addEventListener("change", (e) => {
+      if (e.target.classList.contains("ap-np-cond-en")) {
+        const condEl = e.target.closest(".ap-np-cond");
+        if (condEl) condEl.style.opacity = e.target.checked ? "1" : "0.55";
       }
     });
 
@@ -12153,7 +12219,7 @@ ${piPagesHtml}`;
     });
     document.getElementById("ap-np-add")?.addEventListener("click", () => {
       const cur = _apCollectNp();
-      cur.push({ productName: "", cond1Type: "amount", cond1Amount: 0, cond1Text: "", cond2: "", payType: "pct", paySlabs: [{ threshold: 0, value: 0 }] });
+      cur.push({ productName: "", conditions: [{ enabled: true, type: "amount", amount: 0 }] });
       _apRenderNp(cur);
     });
 
