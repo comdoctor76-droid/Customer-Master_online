@@ -222,7 +222,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.63";
+  const APP_VERSION = "2.64";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5452,10 +5452,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           bodyHTML: _closeBtnBar + renderTeamAwardFull(groupRanking, _hrAwardPlan, hasAnyTeam)
         };
       } else {
-        const ttls = { rate: `📈 신장률 전체 순위 (${byRateRaw.length}명)`, amt: `💰 신장액 전체 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
-        const subs = { rate: "달성률 (현재실적 ÷ 기준실적)", amt: "순증 금액 절대값", ipum: "신상품 판매액" };
+        const ttls = { rate: `📈 신장률 / 💰 신장액 통합 순위 (${byRateRaw.length}명)`, amt: `📈 신장률 / 💰 신장액 통합 순위 (${byAmt.length}명)`, ipum: `✨ 인품왕 전체 순위 (${byIpum.length}명)` };
+        const subs = { rate: "달성률 기준 정렬 · 신장액 시상 병행 표시", amt: "달성률 기준 정렬 · 신장액 시상 병행 표시", ipum: "신상품 판매액" };
         let body;
-        if (cat.key === "rate") {
+        if ((cat.key === "rate" || cat.key === "amt") && _hrankPa.bothEnabled) {
+          // 신장률·신장액 둘 다 활성: 통합 뷰 (신장률 정렬 + 신장액 시상 우측 표시)
+          body = byRateRaw.length ? renderProgressRankCombined(byRateRaw, byAmt, _hrankPa) : `<div class="pg-empty">데이터 없음</div>`;
+        } else if (cat.key === "rate") {
           body = byRateRaw.length ? renderProgressRankFullBothAware(byRateRaw, byAmt, _hrankPa, "rate") : `<div class="pg-empty">데이터 없음</div>`;
         } else if (cat.key === "amt") {
           body = byAmt.length ? renderProgressRankFullBothAware(byRateRaw, byAmt, _hrankPa, "amt") : `<div class="pg-empty">데이터 없음</div>`;
@@ -5869,6 +5872,72 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
 
     return { rateAsgn, amtAsgn };
+  }
+
+  // 신장률+신장액 통합 순위표 — 달성률 기준 정렬, 양쪽 시상 열 나란히 표시
+  function renderProgressRankCombined(byRate, byAmt, pa) {
+    const { rateAsgn, amtAsgn } = computeBothAwardAssignments(byRate, byAmt, pa);
+    const ratePayouts = pa.rateConfig?.payouts || [];
+    const amtPayouts  = pa.amtConfig?.payouts  || [];
+    const rateN = Number(pa.rateConfig?.n) || ratePayouts.length;
+    const amtN  = Number(pa.amtConfig?.n)  || amtPayouts.length;
+
+    const prizeLabel = (rank, payoutsArr, fallbackAmt) => {
+      const p = payoutsArr[rank - 1];
+      return p != null ? payoutLabel(p) : (fallbackAmt > 0 ? `${Math.round(fallbackAmt / 10000)}만원` : "물품");
+    };
+
+    const rows = byRate.map((st) => {
+      const empNo  = st.s.empNo;
+      const rateVal = (st.rate != null ? st.rate.toFixed(1) : "0.0") + "%";
+      const netVal  = (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
+      let rowCls = "";
+
+      // ── 신장률 시상 셀 ──
+      const ra = rateAsgn.get(empNo) || { status: "none" };
+      let rRankCell, rPrizeCell;
+      if (ra.status === "mine") {
+        rRankCell  = RB(ra.effectiveRank);
+        rPrizeCell = `<span class="pg-bdg pg-b-g">${escapeHtml(prizeLabel(ra.effectiveRank, ratePayouts, ra.effectiveAmt))}</span>`;
+      } else if (ra.status === "other") {
+        const aa2 = amtAsgn.get(empNo);
+        const aPrize = aa2?.effectiveRank > 0 ? escapeHtml(prizeLabel(aa2.effectiveRank, amtPayouts, aa2.effectiveAmt || 0)) : "";
+        rRankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
+        rPrizeCell = `<span class="pg-bdg pg-rank-swap">💰 신장액${aa2?.effectiveRank > 0 ? ` ${aa2.effectiveRank}위` : ""}${aPrize ? ` ${aPrize}` : ""} 시상</span>`;
+        rowCls     = " pg-rank-deferred";
+      } else if (ra.status === "ineligible") {
+        rRankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
+        rPrizeCell = `<span class="pg-bdg pg-b-no">${ra.needsNet > 0 ? `+${Nf(ra.needsNet)}원 필요` : "기준미달"}</span>`;
+      } else {
+        rRankCell  = `<span style="color:#ccc;font-size:10px">-</span>`;
+        rPrizeCell = `<span style="color:#bbb">-</span>`;
+      }
+
+      // ── 신장액 시상 셀 ──
+      const aa = amtAsgn.get(empNo) || { status: "none" };
+      let aPrizeCell;
+      if (aa.status === "mine") {
+        aPrizeCell = `<span class="pg-bdg" style="background:#dbeafe;color:#1d4ed8;">${aa.effectiveRank}위 ${escapeHtml(prizeLabel(aa.effectiveRank, amtPayouts, aa.effectiveAmt))}</span>`;
+      } else if (aa.status === "other") {
+        aPrizeCell = `<span style="color:#94a3b8;font-size:11px">신장률 수상</span>`;
+      } else if (aa.status === "ineligible") {
+        aPrizeCell = `<span class="pg-bdg pg-b-no">${aa.needsNet > 0 ? `+${Nf(aa.needsNet)}원 필요` : "기준미달"}</span>`;
+      } else {
+        aPrizeCell = `<span style="color:#bbb">-</span>`;
+      }
+
+      return `<tr class="pg-tr-click${rowCls}" data-emp="${escapeHtml(empNo)}">
+        <td>${rRankCell}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td><td class="r">${rateVal}</td><td class="r">${netVal}</td><td>${rPrizeCell}</td><td>${aPrizeCell}</td>
+      </tr>`;
+    }).join("");
+
+    return `<div class="pg-rank-notice" style="background:#f0fdf4;border-color:#86efac;">
+        📈 신장률 기준 정렬 · 신장액 시상은 우측 열에 표시 (중복시상 없음 — 더 큰 시상 1회만 지급)
+      </div>
+      <table class="pg-tbl">
+        <thead><tr><th>#</th><th>성명</th><th>지점</th><th>달성률</th><th>순증(원)</th><th>신장률 시상</th><th>신장액 시상</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
 
   function renderProgressRankFullBothAware(byRate, byAmt, pa, kind) {
@@ -10860,7 +10929,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
