@@ -222,7 +222,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.62";
+  const APP_VERSION = "2.63";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4723,8 +4723,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       amtConfig,
       bothEnabled: !!(rateConfig && amtConfig) && !!plan.bothNodup,
       isEligible: (student) => isEligibleForAward(student, plan, _sfx),
-      // Step 2+: TOP10 순위시상은 환산실적 조건 미적용 — 순증 기준으로만 판단
-      isTopEligible: _sfx ? () => true : (student) => isEligibleForAward(student, plan, _sfx)
+      // TOP10 순위시상은 환산실적 조건 미적용 — 순증(minNet) 기준으로만 판단 (전 스텝 공통)
+      isTopEligible: () => true
     };
   }
 
@@ -5090,7 +5090,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
       return { txt: "-", cls: "" };
     };
-    const pcardRateTop3 = rateFinalList.slice(0, 3).map((st, i) => {
+    const pcardRateTop3 = _rateFinalDedup.slice(0, 3).map((st, i) => {
       const rate = st.rate || 0;
       const p = _mkRatePrize(st);
       return `<li class="pg-pcard-row" data-emp="${escapeHtml(st.s.empNo)}">
@@ -10860,7 +10860,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260624b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
