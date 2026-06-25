@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.68";
+  const APP_VERSION = "2.69";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4800,7 +4800,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     ].join("");
 
     const rows = groupRanking.map((g, i) => {
-      const short = g.members.slice(0, 5).join("·") + (g.members.length > 5 ? "…" : "");
+      let shortHtml = escapeHtml(g.members.slice(0, 5).join("·") + (g.members.length > 5 ? "…" : ""));
       let metGa1Items = []; // ga2 연계 판단을 위해 상위 스코프로 선언
       let ga1Cell = "", ga1AwardCell = "";
       let allAchieved = false; // 팀시상 첫구간 달성 여부 (이름 녹색 표시용)
@@ -4810,6 +4810,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const total = (g.memberStats || []).length || g.members.length;
         const achieved = (g.memberStats || []).filter(st => st.net >= thr).length;
         allAchieved = achieved === total && total > 0;
+        // 달성/미달 구성원 개별 색상 (녹색 달성, 붉은색 미달)
+        const _mStats = g.memberStats || [];
+        if (_mStats.length > 0) {
+          shortHtml = _mStats.slice(0, 5).map(st => {
+            const ach = (st.net || 0) >= thr;
+            return `<span style="color:${ach ? '#166534' : '#dc2626'};font-weight:600">${escapeHtml(st.s?.name || "")}</span>`;
+          }).join("·") + (g.members.length > 5 ? "…" : "");
+        }
         const icon = allAchieved ? "✅" : (achieved === 0 ? "✕" : "△");
         const bdg = allAchieved ? "pg-grp-ok" : (achieved > 0 ? "pg-grp-half" : "pg-grp-no");
         metGa1Items = ga1ItemList.filter(it => {
@@ -4842,7 +4850,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         }
       }
       const nameClr = allAchieved ? ' style="color:#166534;font-weight:700;"' : '';
-      return `<tr${allAchieved ? ' style="background:#f0fdf4;"' : ''}><td>${RB(i + 1)}</td><td><strong${nameClr}>${escapeHtml(g.name)}</strong></td><td><small${nameClr}>${escapeHtml(short)}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
+      return `<tr${allAchieved ? ' style="background:#f0fdf4;"' : ''}><td>${RB(i + 1)}</td><td><strong${nameClr}>${escapeHtml(g.name)}</strong></td><td><small>${shortHtml}</small></td><td class="r">${Nf(Math.round(g.base/1000))}</td><td class="r">${Nf(Math.round(g.current/1000))}</td><td>${g.rate.toFixed(1)}%</td>${ga1Cell}${ga1AwardCell}${ga2Cell}</tr>`;
     }).join("");
 
     return `<table class="pg-tbl pg-tbl-wide"><thead><tr>${thCells}</tr></thead><tbody>${rows}</tbody></table>`;
@@ -5297,22 +5305,22 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
         ${(_rateEnabled || _amtEnabled) ? `<div class="pg-grid2 pg-desktop-only" style="${!_rateEnabled || !_amtEnabled ? "grid-template-columns:1fr" : ""}">
           ${_rateEnabled ? `<div class="pg-card">
-            <h4>📈 신장률 TOP${_pa.rateConfig?.n || ""}${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}${_pa.rateConfig?.minNetEnabled ? ` <small class="pg-top-crit-badge">순증 ${Nf(Number(_pa.rateConfig.minNet||0))}원↑ 기준</small>` : ""}</h4>
+            <h4 class="pg-modal-title" data-pg-modal="rate" title="클릭하여 전체 순위 보기">📈 신장률 TOP${_pa.rateConfig?.n || ""}${_pa.bothEnabled ? ` <small>(중복시상 시 더 큰 시상만 지급)</small>` : ""}${_pa.rateConfig?.minNetEnabled ? ` <small class="pg-top-crit-badge">순증 ${Nf(Number(_pa.rateConfig.minNet||0))}원↑ 기준</small>` : ""} <span class="pg-title-chev">›</span></h4>
             ${renderProgressTop10(_rateFinalDedup, "rate", undefined, _pa)}
           </div>` : ""}
           ${_amtEnabled ? `<div class="pg-card">
-            <h4>💰 신장액 TOP${_pa.amtConfig?.n || ""}${_pa.amtConfig?.minNetEnabled ? ` <small class="pg-top-crit-badge">순증 ${Nf(Number(_pa.amtConfig.minNet||0))}원↑ 기준</small>` : ""}</h4>
+            <h4 class="pg-modal-title" data-pg-modal="amt" title="클릭하여 전체 순위 보기">💰 신장액 TOP${_pa.amtConfig?.n || ""}${_pa.amtConfig?.minNetEnabled ? ` <small class="pg-top-crit-badge">순증 ${Nf(Number(_pa.amtConfig.minNet||0))}원↑ 기준</small>` : ""} <span class="pg-title-chev">›</span></h4>
             ${renderProgressTop10(_byAmtDedup, "amt", undefined, _pa)}
           </div>` : ""}
         </div>` : ""}
 
         <div class="pg-grid-ipum-group pg-desktop-only" style="${!_groupEnabled ? "grid-template-columns:1fr" : ""}">
           <div class="pg-card">
-            <h4>✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small></h4>
+            <h4 class="pg-modal-title" data-pg-modal="ipum" title="클릭하여 전체 순위 보기">✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small> <span class="pg-title-chev">›</span></h4>
             ${byIpum.length ? renderProgressTop10(byIpum, "ipum", undefined, _pa) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
           </div>
           ${_groupEnabled ? `<div class="pg-card">
-            <h4>🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상</h4>
+            <h4 class="pg-modal-title" data-pg-modal="group" title="클릭하여 전체 순위 보기">🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상 <span class="pg-title-chev">›</span></h4>
             <div class="pg-tbl-wrap">${renderGroupTable(groupRanking, _pa.plan, hasAnyTeam)}</div>
           </div>` : ""}
         </div>
@@ -5648,6 +5656,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       });
     }
     hrBindClicks();
+
+    section.querySelectorAll(".pg-modal-title[data-pg-modal]").forEach(h => {
+      h.addEventListener("click", () => {
+        const key = h.dataset.pgModal;
+        const data = state._hrankFullData && state._hrankFullData[key];
+        if (data) {
+          openPgFullModal(data);
+          if (key === "group") bindTacCardClicks();
+        }
+      });
+    });
 
     function hrGoTo(idx) {
       const slides = section.querySelectorAll(".hr-slide");
@@ -10955,7 +10974,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625f)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625g)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
