@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.84";
+  const APP_VERSION = "2.85";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11696,7 +11696,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625v)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625w)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12010,7 +12010,7 @@ ${piPagesHtml}`;
       const isCash = np.type !== "item";
       return `
       <div class="ap-row ap-ga2-row ap-ga1-row" data-i="${i}">
-        <input type="checkbox" class="ap-ga1-overlap" ${it.allowOverlap ? "checked" : ""} title="중복시상 가능 (개인시상과 중복 지급)">
+        <label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#555;margin-right:6px;cursor:pointer;"><input type="checkbox" class="ap-ga1-overlap" ${it.allowOverlap ? "checked" : ""} title="중복시상 가능 (개인시상과 중복 지급)">중복시상</label>
         <span class="ap-row-prefix">팀원 전원</span>
         <input type="number" class="pg-input ap-ga1-thr" value="${it.threshold || 5}" min="1" max="500" step="5" style="width:60px;" placeholder="5">
         <span class="ap-row-suffix">만원↑ 달성 시</span>
@@ -12031,7 +12031,7 @@ ${piPagesHtml}`;
       const isCash = np.type !== "item";
       return `
       <div class="ap-row ap-ga2-row" data-i="${i}">
-        <input type="checkbox" class="ap-ga2-overlap" ${it.allowOverlap ? "checked" : ""} title="중복시상 가능 (개인시상과 중복 지급)">
+        <label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#555;margin-right:6px;cursor:pointer;"><input type="checkbox" class="ap-ga2-overlap" ${it.allowOverlap ? "checked" : ""} title="중복시상 가능 (개인시상과 중복 지급)">중복시상</label>
         <span class="ap-row-prefix">팀달성률</span>
         <input type="number" class="pg-input ap-ga2-rate" value="${it.rateThreshold || 110}" min="100" max="300" step="5" style="width:70px;" placeholder="110">
         <span class="ap-row-suffix">%↑ 달성 시</span>
