@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.67";
+  const APP_VERSION = "2.68";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5717,12 +5717,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return "";
     })();
     const _chkTop10 = pa.isTopEligible || pa.isEligible;
-    // 신장률: 자격자 먼저, 순증 미달자 후순위로 재정렬 (순위 없이 아래 표시)
-    let displayList = top;
+    // 신장률: 전체 list에서 자격자 우선 수집 → 나머지 슬롯을 미달자로 채움
+    // (top 슬라이스 후 재정렬하면 슬라이스 밖의 자격자가 누락되므로 전체 list를 기반으로 처리)
+    let displayList;
     if (kind === "rate" && _rateMinNet > 0) {
-      const elig   = top.filter(st => _chkTop10(st.s) && st.net >= _rateMinNet);
-      const inelig = top.filter(st => !_chkTop10(st.s) || st.net < _rateMinNet);
-      displayList = [...elig, ...inelig];
+      const eligAll   = list.filter(st => _chkTop10(st.s) && st.net >= _rateMinNet);
+      const ineligAll = list.filter(st => !_chkTop10(st.s) || st.net < _rateMinNet);
+      const eligTop   = eligAll.slice(0, max);
+      const ineligTop = ineligAll.slice(0, Math.max(0, max - eligTop.length));
+      displayList = [...eligTop, ...ineligTop];
+    } else {
+      displayList = top;
     }
     let prizeSlot = 0; // 신장률 자격자 카운터 (시상 인덱스 결정용)
     return `${_criteriaHtml}
@@ -10950,7 +10955,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625f)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
