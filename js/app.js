@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.71";
+  const APP_VERSION = "2.72";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10523,17 +10523,21 @@ ${piPagesHtml}`;
       } : undefined,
       numFmt: numFmt || undefined,
     });
-    const S_TITLE  = mkS("1E3A5F", "FFFFFF", true);
-    const S_HDR    = mkS("2C4770", "FFFFFF", true, undefined, true);
-    const S_SEC    = mkS("E2E8F0", "1E3A5F", true);
-    const S_NUM    = (fill) => mkS(fill, "000000", false, NUM_FMT, true);
-    const S_TXT    = (fill) => mkS(fill, "000000", false, undefined, true);
-    const S_GREEN  = mkS("D1FAE5", "065F46", true, undefined, true);
-    const S_RED    = mkS("FEE2E2", "991B1B", true, undefined, true);
-    const S_NUM_G  = mkS("D1FAE5", "065F46", false, NUM_FMT, true);
-    const S_NUM_R  = mkS("FEE2E2", "991B1B", false, NUM_FMT, true);
+    const S_TITLE    = mkS("1E3A5F", "FFFFFF", true);
+    const S_HDR      = mkS("2C4770", "FFFFFF", true, undefined, true);
+    const S_SEC      = mkS("E2E8F0", "1E3A5F", true);
+    const S_TOTAL_TXT = mkS("334155", "FFFFFF", true, undefined, true);
+    const S_TOTAL    = mkS("334155", "FFFFFF", true, NUM_FMT, true);
+    const S_NUM      = (fill) => mkS(fill, "000000", false, NUM_FMT, true);
+    const S_TXT      = (fill) => mkS(fill, "000000", false, undefined, true);
+    const S_GREEN    = mkS("D1FAE5", "065F46", true, undefined, true);
+    const S_RED      = mkS("FEE2E2", "991B1B", true, undefined, true);
+    const S_NUM_G    = mkS("D1FAE5", "065F46", false, NUM_FMT, true);
+    const S_NUM_R    = mkS("FEE2E2", "991B1B", false, NUM_FMT, true);
     const S_RATE_HDR = mkS("14532D", "FFFFFF", true, undefined, true);
     const S_AMT_HDR  = mkS("1E3A8A", "FFFFFF", true, undefined, true);
+    const S_RATE_TOT = mkS("14532D", "FFFFFF", true, NUM_FMT, true);
+    const S_AMT_TOT  = mkS("1E3A8A", "FFFFFF", true, NUM_FMT, true);
     const S_RATE_ROW = (fill) => mkS(fill || "EFF6FF", "1E3A8A", false, undefined, true);
     const S_AMT_ROW  = (fill) => mkS(fill || "F0FDF4", "14532D", false, undefined, true);
     const S_RATE_NUM = (fill) => mkS(fill || "EFF6FF", "1E3A8A", false, NUM_FMT, true);
@@ -10555,10 +10559,9 @@ ${piPagesHtml}`;
     // 셀 쓰기 헬퍼
     const ws_set = (ws, r, c, v, style) => {
       const addr = XLSX.utils.encode_cell({ r, c });
-      const t = typeof v === "number" ? "n" : (v == null ? "s" : "s");
+      const t = typeof v === "number" ? "n" : "s";
       ws[addr] = { v: v ?? "", t, s: style || mkS("FFFFFF") };
     };
-    // 범위 확장
     const ws_extend = (ws, r, c) => {
       if (!ws["!ref"]) { ws["!ref"] = XLSX.utils.encode_range({ s: { r, c }, e: { r, c } }); return; }
       const rng = XLSX.utils.decode_range(ws["!ref"]);
@@ -10567,6 +10570,16 @@ ${piPagesHtml}`;
       ws["!ref"] = XLSX.utils.encode_range(rng);
     };
     const SC = (ws, r, c, v, style) => { ws_set(ws, r, c, v, style); ws_extend(ws, r, c); };
+
+    // 물품 시상 원화 환산 ("주유권5만원" → 50000)
+    const prizeKrw = (label) => {
+      if (!label || label === "-") return 0;
+      const m = String(label).match(/(\d+(?:\.\d+)?)\s*만/);
+      if (m) return Math.floor(Number(m[1]) * 10000);
+      const m2 = String(label).match(/(\d+(?:\.\d+)?)\s*원/);
+      if (m2) return Math.floor(Number(m2[1]));
+      return 0;
+    };
 
     // 수상자 맵 구성
     const _rateWinMap = new Map();
@@ -10579,50 +10592,142 @@ ${piPagesHtml}`;
       const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
       if (aA && aA.status === "mine") _amtWinMap.set(aA.effectiveRank, { st, aA });
     });
-    // 개인별 신장률/신장액 시상 조회 헬퍼
     const getRateAward = (empNo) => {
       const rA = _bothAsgn.rateAsgn.get(empNo);
-      if (!rA || rA.status !== "mine" || !_pa.rateConfig) return { label: "-", rank: "-" };
-      return { label: rankAwardLabel(_pa.rateConfig, rA.effectiveRank), rank: rA.effectiveRank };
+      if (!rA || rA.status !== "mine" || !_pa.rateConfig) return { label: "-", rank: "-", krw: 0 };
+      const label = rankAwardLabel(_pa.rateConfig, rA.effectiveRank);
+      return { label, rank: rA.effectiveRank, krw: prizeKrw(label) };
     };
     const getAmtAward = (empNo) => {
       const aA = _bothAsgn.amtAsgn.get(empNo);
-      if (!aA || aA.status !== "mine" || !_pa.amtConfig) return { label: "-", rank: "-" };
-      return { label: rankAwardLabel(_pa.amtConfig, aA.effectiveRank), rank: aA.effectiveRank };
+      if (!aA || aA.status !== "mine" || !_pa.amtConfig) return { label: "-", rank: "-", krw: 0 };
+      const label = rankAwardLabel(_pa.amtConfig, aA.effectiveRank);
+      return { label, rank: aA.effectiveRank, krw: prizeKrw(label) };
     };
 
     const rateN = _pa.rateConfig ? Number(_pa.rateConfig.n) || 0 : 0;
     const amtN  = _pa.amtConfig  ? Number(_pa.amtConfig.n)  || 0 : 0;
+
+    // ── 그룹시상 per-person 팀 시상금액 맵 (empNo → { label, krw }) ──
+    const teamAwardMap = new Map();
+    if (ga1En || ga2En) {
+      groupRanking.forEach(g => {
+        const mStats = g.memberStats || [];
+        if (!mStats.length) return;
+        let ga1Krw = 0, ga1Labels = [];
+        if (ga1En) {
+          const metGa1 = ga1ItemList.filter(it =>
+            mStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000)
+          );
+          if (metGa1.length) {
+            ga1Labels = metGa1.map(it => payoutLabel(it.payout));
+            ga1Krw = ga1Labels.reduce((s, l) => s + prizeKrw(l), 0);
+          }
+        }
+        let ga2Krw = 0, ga2Label = "";
+        if (ga2En) {
+          const ga1MetAny = ga1En ? ga1ItemList.some(it =>
+            mStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000)
+          ) : true;
+          if (!ga1En || ga1MetAny) {
+            const metGa2 = ga2ItemList.filter(it => g.rate >= Number(it.rateThreshold || 110));
+            if (metGa2.length) {
+              const bestPay = metGa2.reduce((best, it) => {
+                const np = normPayout(it.payout ?? 15);
+                if (np.type === "item") return best || np;
+                return (!best || Number(np.val) > Number(normPayout(best || 0).val)) ? np : best;
+              }, null);
+              ga2Label = payoutLabel(bestPay);
+              ga2Krw = prizeKrw(ga2Label);
+            }
+          }
+        }
+        const totalKrw = ga1Krw + ga2Krw;
+        const allLabel = [...ga1Labels, ga2Label].filter(Boolean).join("+") || "-";
+        mStats.forEach(st => {
+          if (st.s?.empNo) teamAwardMap.set(st.s.empNo, { label: allLabel, krw: totalKrw });
+        });
+      });
+    }
+
+    // ── 비전센터별 시상 데이터 수집 (centerAwardMap) ──
+    const centerAwardMap = new Map();
+    const ensurePerson = (empNo, s) => {
+      if (!centerAwardMap.has(empNo)) {
+        centerAwardMap.set(empNo, {
+          empNo, name: s.name || "", center: s.center || "", branch: s.branch || "",
+          piLabel: "-", piKrw: 0,
+          rateLabel: "-", rateRank: "-",
+          amtLabel: "-", amtRank: "-",
+          teamLabel: "-", teamKrw: 0,
+        });
+      }
+      return centerAwardMap.get(empNo);
+    };
+    byAmt.forEach(st => {
+      const _tlbl = tierLabel(st.net, undefined, _pa);
+      if (_tlbl === "-") return;
+      const _tamt = tierAward(st.net, undefined, _pa);
+      const p = ensurePerson(st.s.empNo, st.s);
+      p.piLabel = _tlbl;
+      p.piKrw = _tamt > 0 ? Math.floor(_tamt) : prizeKrw(_tlbl);
+    });
+    byRate.forEach(st => {
+      const rA = _bothAsgn.rateAsgn.get(st.s.empNo);
+      if (rA && rA.status === "mine") {
+        const p = ensurePerson(st.s.empNo, st.s);
+        p.rateLabel = rankAwardLabel(_pa.rateConfig, rA.effectiveRank);
+        p.rateRank = rA.effectiveRank;
+      }
+    });
+    byAmt.forEach(st => {
+      const aA = _bothAsgn.amtAsgn.get(st.s.empNo);
+      if (aA && aA.status === "mine") {
+        const p = ensurePerson(st.s.empNo, st.s);
+        p.amtLabel = rankAwardLabel(_pa.amtConfig, aA.effectiveRank);
+        p.amtRank = aA.effectiveRank;
+      }
+    });
+    teamAwardMap.forEach((award, empNo) => {
+      if (award.krw <= 0) return;
+      let foundS = null;
+      for (const g of groupRanking) {
+        const ms = (g.memberStats || []).find(st => st.s?.empNo === empNo);
+        if (ms) { foundS = ms.s; break; }
+      }
+      if (!foundS) return;
+      const p = ensurePerson(empNo, foundS);
+      p.teamLabel = award.label;
+      p.teamKrw = award.krw;
+    });
 
     // ── 수상내역 시트 ──
     {
       const ws = {};
       ws["!merges"] = [];
       let R = 0;
-
-      // ── 타이틀 ──
-      // 개인순증시상 섹션 열 수 = 15 (더 넓음), TOP섹션 = 11
       const TOTAL_COLS = 15;
+
       SC(ws, R, 0, `${baseTitle} 수상내역`, S_TITLE);
       ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: TOTAL_COLS - 1 } });
       R++;
 
-      // ── 개인순증시상 (최상단) ──
+      // ── 개인순증시상 ──
       if (_pa.tiers.length) {
-        R++; // 빈 행
+        R++;
         SC(ws, R, 0, "▶ 개인순증시상", S_SEC);
         ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: TOTAL_COLS - 1 } });
         R++;
-        // 헤더: 순번 사번 성명 비전센터 지점 기준(원) 현재(원) 순증(원) 달성률(%) 시상내역 시상금액(원) 신장률시상 신장률순위 신장액시상 신장액순위
         const piHdr = ["순번","사번","성명","비전센터","지점","기준실적(원)","현재실적(원)","순증(원)","달성률(%)","시상내역","시상금액(원)","신장률시상","신장률순위","신장액시상","신장액순위"];
         piHdr.forEach((h, c) => SC(ws, R, c, h, S_HDR));
         R++;
 
-        let piCnt = 0;
+        let piCnt = 0, piTotalKrw = 0;
         byAmt.forEach(st => {
           const _tlbl = tierLabel(st.net, undefined, _pa);
           if (_tlbl === "-") return;
           const _tamt = tierAward(st.net, undefined, _pa);
+          const awardKrw = _tamt > 0 ? Math.floor(_tamt) : prizeKrw(_tlbl);
           const bc = getBranchColor(st.s.branch);
           const rAwd = getRateAward(st.s.empNo);
           const aAwd = getAmtAward(st.s.empNo);
@@ -10636,11 +10741,12 @@ ${piPagesHtml}`;
           SC(ws, R, 7,  st.net,                          S_NUM(bc));
           SC(ws, R, 8,  parseFloat(st.rate.toFixed(1)), S_TXT(bc));
           SC(ws, R, 9,  _tlbl,                           S_TXT(bc));
-          SC(ws, R, 10, _tamt > 0 ? Math.floor(_tamt) : "", _tamt > 0 ? S_NUM(bc) : S_TXT(bc));
+          SC(ws, R, 10, awardKrw > 0 ? awardKrw : "",   awardKrw > 0 ? S_NUM(bc) : S_TXT(bc));
           SC(ws, R, 11, rAwd.label,                      S_TXT(bc));
           SC(ws, R, 12, rAwd.rank !== "-" ? rAwd.rank : "", S_TXT(bc));
           SC(ws, R, 13, aAwd.label,                      S_TXT(bc));
           SC(ws, R, 14, aAwd.rank !== "-" ? aAwd.rank : "", S_TXT(bc));
+          piTotalKrw += awardKrw;
           R++;
         });
         if (!piCnt) {
@@ -10648,65 +10754,70 @@ ${piPagesHtml}`;
           ws["!merges"].push({ s: { r: R, c: 1 }, e: { r: R, c: TOTAL_COLS - 1 } });
           R++;
         } else {
-          SC(ws, R, 0, `총 ${piCnt}명 시상`, S_SEC);
-          ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: TOTAL_COLS - 1 } });
+          SC(ws, R, 0, `총 ${piCnt}명`, S_TOTAL_TXT);
+          ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: 9 } });
+          SC(ws, R, 10, piTotalKrw, S_TOTAL);
+          SC(ws, R, 11, "", S_TOTAL_TXT);
+          ws["!merges"].push({ s: { r: R, c: 11 }, e: { r: R, c: TOTAL_COLS - 1 } });
           R++;
         }
       }
 
-      // ── 신장률 TOP + 신장액 TOP (좌우 병렬, 가운데 빈열 1개) ──
+      // ── 신장률 TOP + 신장액 TOP (좌우 병렬) ──
       if (rateN > 0 || amtN > 0) {
         R++;
-        // 신장률 헤더
         SC(ws, R, 0, `📈 신장률 TOP${rateN}`, S_RATE_HDR);
         ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: 4 } });
         SC(ws, R, 6, `💰 신장액 TOP${amtN}`, S_AMT_HDR);
         ws["!merges"].push({ s: { r: R, c: 6 }, e: { r: R, c: 10 } });
         R++;
-        // 열 헤더
         ["순위","성명","달성률(%)","순증(원)","시상"].forEach((h, c) => SC(ws, R, c, h, S_HDR));
         SC(ws, R, 5, "", mkS("F8FAFC"));
         ["순위","성명","순증(원)","달성률(%)","시상"].forEach((h, c) => SC(ws, R, 6 + c, h, S_HDR));
         R++;
 
-        let rateCnt = 0, amtCnt = 0;
+        let rateCnt = 0, amtCnt = 0, rateTotalKrw = 0, amtTotalKrw = 0;
         const maxN = Math.max(rateN, amtN, 1);
         for (let rank = 1; rank <= maxN; rank++) {
           const re = _rateWinMap.get(rank);
           if (re && _pa.rateConfig && rank <= rateN) {
             const { st, rA } = re;
-            SC(ws, R, 0, rank,                              S_RATE_ROW());
-            SC(ws, R, 1, st.s.name || "",                   S_RATE_ROW());
-            SC(ws, R, 2, parseFloat(st.rate.toFixed(1)),    S_RATE_ROW());
-            SC(ws, R, 3, st.net,                             S_RATE_NUM());
-            SC(ws, R, 4, rankAwardLabel(_pa.rateConfig, rA.effectiveRank), S_RATE_ROW());
-            rateCnt++;
+            const lbl = rankAwardLabel(_pa.rateConfig, rA.effectiveRank);
+            SC(ws, R, 0, rank,                           S_RATE_ROW());
+            SC(ws, R, 1, st.s.name || "",                S_RATE_ROW());
+            SC(ws, R, 2, parseFloat(st.rate.toFixed(1)), S_RATE_ROW());
+            SC(ws, R, 3, st.net,                          S_RATE_NUM());
+            SC(ws, R, 4, lbl,                             S_RATE_ROW());
+            rateTotalKrw += prizeKrw(lbl); rateCnt++;
           } else if (rank <= rateN) {
-            [0,1,2,3,4].forEach(c => SC(ws, R, c, rank === 1 + rateCnt ? rank : (c === 0 ? rank : "-"), S_RATE_ROW()));
             SC(ws, R, 0, rank, S_RATE_ROW()); SC(ws, R, 1, "-", S_RATE_ROW());
-            SC(ws, R, 2, "-", S_RATE_ROW()); SC(ws, R, 3, "-", S_RATE_ROW()); SC(ws, R, 4, "-", S_RATE_ROW());
+            SC(ws, R, 2, "-",  S_RATE_ROW()); SC(ws, R, 3, "-", S_RATE_ROW()); SC(ws, R, 4, "-", S_RATE_ROW());
           }
           SC(ws, R, 5, "", mkS("F8FAFC"));
           const ae = _amtWinMap.get(rank);
           if (ae && _pa.amtConfig && rank <= amtN) {
             const { st, aA } = ae;
-            SC(ws, R, 6,  rank,                              S_AMT_ROW());
-            SC(ws, R, 7,  st.s.name || "",                   S_AMT_ROW());
-            SC(ws, R, 8,  st.net,                             S_AMT_NUM());
-            SC(ws, R, 9,  parseFloat(st.rate.toFixed(1)),    S_AMT_ROW());
-            SC(ws, R, 10, rankAwardLabel(_pa.amtConfig, aA.effectiveRank), S_AMT_ROW());
-            amtCnt++;
+            const lbl = rankAwardLabel(_pa.amtConfig, aA.effectiveRank);
+            SC(ws, R, 6,  rank,                           S_AMT_ROW());
+            SC(ws, R, 7,  st.s.name || "",                S_AMT_ROW());
+            SC(ws, R, 8,  st.net,                          S_AMT_NUM());
+            SC(ws, R, 9,  parseFloat(st.rate.toFixed(1)), S_AMT_ROW());
+            SC(ws, R, 10, lbl,                             S_AMT_ROW());
+            amtTotalKrw += prizeKrw(lbl); amtCnt++;
           } else if (rank <= amtN) {
-            SC(ws, R, 6,  rank, S_AMT_ROW()); SC(ws, R, 7,  "-", S_AMT_ROW());
-            SC(ws, R, 8,  "-",  S_AMT_ROW()); SC(ws, R, 9,  "-", S_AMT_ROW()); SC(ws, R, 10, "-", S_AMT_ROW());
+            SC(ws, R, 6, rank, S_AMT_ROW()); SC(ws, R, 7,  "-", S_AMT_ROW());
+            SC(ws, R, 8, "-",  S_AMT_ROW()); SC(ws, R, 9,  "-", S_AMT_ROW()); SC(ws, R, 10, "-", S_AMT_ROW());
           }
           if (rank <= rateN || rank <= amtN) R++;
         }
-        SC(ws, R, 0, `신장률 ${rateCnt}명 수상`, S_SEC);
-        ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: 4 } });
+        // 합계 행
+        SC(ws, R, 0, `신장률 ${rateCnt}명`, S_RATE_HDR);
+        ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: 3 } });
+        SC(ws, R, 4, rateTotalKrw > 0 ? rateTotalKrw : "", rateTotalKrw > 0 ? S_RATE_TOT : S_RATE_HDR);
         SC(ws, R, 5, "", mkS("F8FAFC"));
-        SC(ws, R, 6, `신장액 ${amtCnt}명 수상`, S_SEC);
-        ws["!merges"].push({ s: { r: R, c: 6 }, e: { r: R, c: 10 } });
+        SC(ws, R, 6, `신장액 ${amtCnt}명`, S_AMT_HDR);
+        ws["!merges"].push({ s: { r: R, c: 6 }, e: { r: R, c: 9 } });
+        SC(ws, R, 10, amtTotalKrw > 0 ? amtTotalKrw : "", amtTotalKrw > 0 ? S_AMT_TOT : S_AMT_HDR);
         R++;
       }
 
@@ -10716,27 +10827,27 @@ ${piPagesHtml}`;
         SC(ws, R, 0, `▶ 그룹시상 (${groupLabel}별)`, S_SEC);
         ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: TOTAL_COLS - 1 } });
         R++;
+        // 미달금액 제거, 순증(원)/달성률(%)/시상금액(원) 추가
         const grpHdr = ["순위", groupLabel, "기준합계(원)", "현재합계(원)", "달성률(%)"];
         if (ga1En) grpHdr.push("그룹시상1");
         if (ga2En) grpHdr.push("그룹시상2");
-        grpHdr.push("구성원", "달성여부", "미달금액(원)");
+        grpHdr.push("구성원", "달성여부", "순증(원)", "달성률(%)", "시상금액(원)");
         grpHdr.forEach((h, c) => SC(ws, R, c, h, S_HDR));
         R++;
 
-        const ga1Thr = ga1En && ga1ItemList.length ? Number(ga1ItemList[0].threshold || 5) * 10000 : 0;
-        const grpBaseC = grpHdr.length - 3; // 구성원 열 시작 col index
-        const shortfallC = grpHdr.length - 1;
-        const statusC    = grpHdr.length - 2;
-        const memberC    = grpHdr.length - 3;
+        const ga1Thr  = ga1En && ga1ItemList.length ? Number(ga1ItemList[0].threshold || 5) * 10000 : 0;
+        const memberC = grpHdr.length - 5;
+        const statusC = grpHdr.length - 4;
+        const netC    = grpHdr.length - 3;
+        const mRateC  = grpHdr.length - 2;
+        const awardC  = grpHdr.length - 1;
 
         groupRanking.forEach((g, i) => {
           const mStats = g.memberStats || [];
-          // 그룹 집계행
           const gRow = [i + 1, g.name, g.base, g.current, parseFloat(g.rate.toFixed(1))];
           if (ga1En) {
-            const total = mStats.length || g.members.length;
             const met = ga1ItemList.filter(it =>
-              mStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000) && total > 0
+              mStats.every(st => (st.net || 0) >= Number(it.threshold || 5) * 10000) && mStats.length > 0
             );
             gRow.push(met.length ? met.map(it => payoutLabel(it.payout)).join("+") : "미달");
           }
@@ -10757,55 +10868,62 @@ ${piPagesHtml}`;
               } else { gRow.push(`미달(${ga2ItemList[0]?.rateThreshold || 110}%↑)`); }
             }
           }
-          // 집계행 출력 (구성원 수 병합)
-          const rowSpan = mStats.length || 1;
+
+          const rowSpan = Math.max(mStats.length, 1);
+          const groupStartRow = R;
+
+          // 그룹 집계열: 첫 행에 쓰기
           gRow.forEach((v, c) => {
-            if (c < 2) SC(ws, R, c, v, S_TXT("E2E8F0"));
-            else if (typeof v === "number") SC(ws, R, c, v, S_NUM("E2E8F0"));
-            else SC(ws, R, c, v, S_TXT("E2E8F0"));
+            if (c < 2) SC(ws, groupStartRow, c, v, S_TXT("E2E8F0"));
+            else if (typeof v === "number") SC(ws, groupStartRow, c, v, S_NUM("E2E8F0"));
+            else SC(ws, groupStartRow, c, v, S_TXT("E2E8F0"));
           });
-          // 빈 셀 채움 (구성원/달성/미달 열)
-          SC(ws, R, memberC, "", S_TXT("F8FAFC"));
-          SC(ws, R, statusC, "", S_TXT("F8FAFC"));
-          SC(ws, R, shortfallC, "", S_TXT("F8FAFC"));
+
+          // 집계열 세로 병합 (rowSpan > 1 일 때)
           if (rowSpan > 1) {
             for (let cc = 0; cc < memberC; cc++) {
-              ws["!merges"].push({ s: { r: R, c: cc }, e: { r: R + rowSpan - 1, c: cc } });
+              ws["!merges"].push({ s: { r: groupStartRow, c: cc }, e: { r: groupStartRow + rowSpan - 1, c: cc } });
+              for (let mr = groupStartRow + 1; mr < groupStartRow + rowSpan; mr++) {
+                SC(ws, mr, cc, "", S_TXT("E2E8F0"));
+              }
             }
           }
-          const grpFirstRow = R;
-          R++;
-          // 구성원 서브행 (달성=녹색, 미달=적색)
-          mStats.forEach(st => {
-            const ach = ga1Thr > 0 ? (st.net || 0) >= ga1Thr : true;
-            const shortfall = ga1Thr > 0 ? Math.max(0, ga1Thr - (st.net || 0)) : 0;
-            // 집계열(순위~시상)은 이미 병합 → 구성원/달성/미달 열만
-            for (let cc = 0; cc < memberC; cc++) SC(ws, R, cc, "", S_TXT("F8FAFC"));
-            SC(ws, R, memberC,    st.s?.name || "",     ach ? S_GREEN : S_RED);
-            SC(ws, R, statusC,    ach ? "달성" : "미달", ach ? S_GREEN : S_RED);
-            SC(ws, R, shortfallC, ach ? 0 : Math.floor(shortfall), ach ? S_NUM_G : S_NUM_R);
-            R++;
-          });
-          if (!mStats.length) R++; // 구성원 정보 없으면 빈 행
+
+          // 구성원 — 첫 번째 멤버를 groupStartRow와 같은 행에 배치
+          if (!mStats.length) {
+            SC(ws, groupStartRow, memberC, "", S_TXT("F8FAFC"));
+            SC(ws, groupStartRow, statusC, "", S_TXT("F8FAFC"));
+            SC(ws, groupStartRow, netC,    "", S_TXT("F8FAFC"));
+            SC(ws, groupStartRow, mRateC,  "", S_TXT("F8FAFC"));
+            SC(ws, groupStartRow, awardC,  "", S_TXT("F8FAFC"));
+            R = groupStartRow + 1;
+          } else {
+            mStats.forEach((st, mi) => {
+              const rowR = groupStartRow + mi;
+              const mNet = st.net || 0;
+              const ach  = ga1Thr > 0 ? mNet >= ga1Thr : true;
+              const mRateVal = ga1Thr > 0
+                ? parseFloat((mNet / ga1Thr * 100).toFixed(1))
+                : (typeof st.rate === "number" ? parseFloat(st.rate.toFixed(1)) : 0);
+              const mAward = teamAwardMap.get(st.s?.empNo);
+              const mAwardKrw = (ach && mAward) ? mAward.krw : 0;
+              const nameS = ach ? S_GREEN : S_RED;
+              const numS  = ach ? S_NUM_G : S_NUM_R;
+              SC(ws, rowR, memberC, st.s?.name || "",     nameS);
+              SC(ws, rowR, statusC, ach ? "달성" : "미달", nameS);
+              SC(ws, rowR, netC,    mNet,                  numS);
+              SC(ws, rowR, mRateC,  mRateVal,              nameS);
+              SC(ws, rowR, awardC,  mAwardKrw > 0 ? mAwardKrw : "", mAwardKrw > 0 ? numS : nameS);
+            });
+            R = groupStartRow + rowSpan;
+          }
         });
       }
 
       ws["!cols"] = [
-        { wch: 5 },  // 순번
-        { wch: 11 }, // 사번
-        { wch: 10 }, // 성명
-        { wch: 16 }, // 비전센터
-        { wch: 14 }, // 지점
-        { wch: 14 }, // 기준실적
-        { wch: 14 }, // 현재실적
-        { wch: 14 }, // 순증
-        { wch: 9 },  // 달성률
-        { wch: 16 }, // 시상내역
-        { wch: 14 }, // 시상금액
-        { wch: 14 }, // 신장률시상
-        { wch: 9 },  // 신장률순위
-        { wch: 14 }, // 신장액시상
-        { wch: 9 },  // 신장액순위
+        { wch: 5 },  { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
+        { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 9 },
+        { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 9 }, { wch: 14 }, { wch: 9 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, "수상내역");
     }
@@ -10862,6 +10980,50 @@ ${piPagesHtml}`;
         { wch: 16 }, { wch: 14 }, { wch: 20 }, { wch: 20 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, "전체검증");
+    }
+
+    // ── 비전센터별 시트 ──
+    {
+      const centerGroups = new Map();
+      centerAwardMap.forEach(rec => {
+        const k = rec.center || "미지정";
+        if (!centerGroups.has(k)) centerGroups.set(k, []);
+        centerGroups.get(k).push(rec);
+      });
+      const C_HDR = ["사번","성명","지점","개인시상","개인금액(원)","신장률시상","신장률순위","신장액시상","신장액순위","팀시상","팀시상금액(원)"];
+      centerGroups.forEach((recs, cName) => {
+        recs.sort((a, b) => (a.branch || "").localeCompare(b.branch || ""));
+        const ws = {};
+        ws["!merges"] = [];
+        let R = 0;
+        const sheetCols = C_HDR.length;
+        SC(ws, R, 0, `${cName} 수상내역`, S_TITLE);
+        ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: sheetCols - 1 } });
+        R += 2;
+        C_HDR.forEach((h, c) => SC(ws, R, c, h, S_HDR));
+        R++;
+        recs.forEach(rec => {
+          const bc = getBranchColor(rec.branch);
+          SC(ws, R, 0,  rec.empNo || "",                              S_TXT(bc));
+          SC(ws, R, 1,  rec.name || "",                               S_TXT(bc));
+          SC(ws, R, 2,  rec.branch || "",                             S_TXT(bc));
+          SC(ws, R, 3,  rec.piLabel !== "-" ? rec.piLabel : "",       S_TXT(bc));
+          SC(ws, R, 4,  rec.piKrw > 0 ? rec.piKrw : "",              rec.piKrw > 0 ? S_NUM(bc) : S_TXT(bc));
+          SC(ws, R, 5,  rec.rateLabel !== "-" ? rec.rateLabel : "",   S_TXT(bc));
+          SC(ws, R, 6,  rec.rateRank !== "-" ? rec.rateRank : "",     S_TXT(bc));
+          SC(ws, R, 7,  rec.amtLabel !== "-" ? rec.amtLabel : "",     S_TXT(bc));
+          SC(ws, R, 8,  rec.amtRank !== "-" ? rec.amtRank : "",       S_TXT(bc));
+          SC(ws, R, 9,  rec.teamLabel !== "-" ? rec.teamLabel : "",   S_TXT(bc));
+          SC(ws, R, 10, rec.teamKrw > 0 ? rec.teamKrw : "",          rec.teamKrw > 0 ? S_NUM(bc) : S_TXT(bc));
+          R++;
+        });
+        ws["!cols"] = [
+          { wch: 11 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 },
+          { wch: 14 }, { wch: 9 },  { wch: 14 }, { wch: 9 },  { wch: 20 }, { wch: 14 },
+        ];
+        const safeName = String(cName).replace(/[\\/:\*\?\[\]]/g, "").trim().substring(0, 31) || "기타센터";
+        XLSX.utils.book_append_sheet(wb, ws, safeName);
+      });
     }
 
     const today   = new Date();
@@ -11150,7 +11312,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625i)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625j)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
