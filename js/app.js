@@ -34,8 +34,8 @@
       minNetEnabled: true, minNet: 300000
     },
     bothNodup: true,
-    groupAward1: { enabled: false, threshold: 5, payout: 5 },
-    groupAward2: { enabled: false, rateThreshold: 110, payout: 15 },
+    groupAward1: { enabled: false, threshold: 5, payout: 5, allowOverlap: false },
+    groupAward2: { enabled: false, rateThreshold: 110, payout: 15, allowOverlap: false },
     // 4. 기준조건 (eligibility)
     eligibility: {
       enabled: true,
@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.80";
+  const APP_VERSION = "2.81";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -1941,7 +1941,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             for (const it of [...ga1items].sort((a, b) => Number(b.threshold) - Number(a.threshold))) {
               if (_teamSize >= Number(it.threshold)) {
                 const np = normPayout(it.payout);
-                _ga1Card = { icon: "👥", label: `팀시상 — ${_myTeam}조`, sub: `팀원 ${_teamSize}명`, prize: payoutLabel(it.payout), isItem: np.type === "item", isTeam: true };
+                _ga1Card = { icon: "👥", label: `팀시상 — ${_myTeam}조`, sub: `팀원 ${_teamSize}명`, prize: payoutLabel(it.payout), isItem: np.type === "item", isTeam: true, allowOverlap: !!_plan.groupAward1?.allowOverlap };
                 break;
               }
             }
@@ -1951,7 +1951,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               for (const it of [...ga2items].sort((a, b) => Number(b.rateThreshold) - Number(a.rateThreshold))) {
                 if (_teamAvg >= Number(it.rateThreshold)) {
                   const np = normPayout(it.payout);
-                  _ga2Card = { icon: "🏅", label: `팀달성률 — ${_myTeam}조`, sub: `평균 ${_teamAvg.toFixed(1)}%`, prize: payoutLabel(it.payout), isItem: np.type === "item", isTeam: true };
+                  _ga2Card = { icon: "🏅", label: `팀달성률 — ${_myTeam}조`, sub: `평균 ${_teamAvg.toFixed(1)}%`, prize: payoutLabel(it.payout), isItem: np.type === "item", isTeam: true, allowOverlap: !!_plan.groupAward2?.allowOverlap };
                   break;
                 }
               }
@@ -2010,7 +2010,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
           const mkCard = (c) => `
             <div class="aps-award-card${c.isItem ? " aps-item-prize" : ""}${c.isTeam ? " aps-team-prize" : ""}">
-              <div class="aps-awd-head">${c.icon} ${escapeHtml(c.label)}</div>
+              <div class="aps-awd-head">${c.icon} ${escapeHtml(c.label)}${c.allowOverlap ? `<span style="margin-left:5px;font-size:10px;background:#E3F2FD;color:#1565C0;border-radius:3px;padding:1px 4px;vertical-align:middle;">중복시상</span>` : ""}</div>
               <div class="aps-awd-body">
                 <div class="aps-awd-stat">${escapeHtml(c.sub)}</div>
                 <div class="aps-awd-result">${escapeHtml(c.prize)}<span class="aps-awd-near"> 근접</span></div>
@@ -3996,34 +3996,38 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const ga1Items2 = _ga1Items(plan.groupAward1);
         const firstThr = ga1Items2[0]?.threshold || 5;
         const poStr = gi.ga1Payout ? escapeHtml(payoutLabel(gi.ga1Payout)) : "";
+        const ga1Overlap = !!plan.groupAward1?.allowOverlap;
+        const overlapBadge1 = ga1Overlap ? `<span style="font-size:11px;background:#E3F2FD;color:#1565C0;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;">중복시상</span>` : "";
         if (gi.ga1Met && poStr) {
           ga1Html = `<div class="hl-row green4">
             <span class="hl-icon">👥</span>
             <div class="hl-info">
-              <div class="hl-grade">팀시상1 달성 — ${bLabel}</div>
-              <div class="hl-crit">팀원 ${gi.memberCount}명 전원 순증목표 달성 → 1인당 <strong>${poStr}</strong></div>
+              <div class="hl-grade">팀시상1 달성 — ${bLabel}${overlapBadge1}</div>
+              <div class="hl-crit">팀원 ${gi.memberCount}명 전원 순증목표 달성 → 1인당 <strong>${poStr}</strong>${ga1Overlap ? " (개인시상과 중복 지급)" : ""}</div>
             </div>
-            <div class="hl-amt grn4">${poStr}</div>
+            <div class="hl-amt grn4" style="font-size:26px;">${poStr}</div>
           </div>`;
         } else {
-          ga1Html = `<div class="hl-none">팀시상1 — 미달성 (${bLabel} ${gi.memberCount}명, 전원 ${firstThr}만원↑ 순증 필요)</div>`;
+          ga1Html = `<div class="hl-none">팀시상1 — 미달성 (${bLabel} ${gi.memberCount}명, 전원 ${firstThr}만원↑ 순증 필요)${ga1Overlap ? overlapBadge1 : ""}</div>`;
         }
       }
       if (ga2En) {
         const ga2Items2 = _ga2Items(plan.groupAward2);
         const minRate2 = ga2Items2.length ? Number(ga2Items2[0].rateThreshold || 110) : 110;
         const poStr = gi.ga2Payout ? escapeHtml(payoutLabel(gi.ga2Payout)) : "";
+        const ga2Overlap = !!plan.groupAward2?.allowOverlap;
+        const overlapBadge2 = ga2Overlap ? `<span style="font-size:11px;background:#E3F2FD;color:#1565C0;border-radius:3px;padding:1px 5px;margin-left:4px;vertical-align:middle;">중복시상</span>` : "";
         if (gi.ga2Met && poStr) {
           ga2Html = `<div class="hl-row green4">
             <span class="hl-icon">🏆</span>
             <div class="hl-info">
-              <div class="hl-grade">팀시상2 달성 — ${bLabel}</div>
-              <div class="hl-crit">팀 달성률 ${(gi.teamRate || 0).toFixed(1)}% ≥ ${minRate2}% → 1인당 <strong>${poStr}</strong></div>
+              <div class="hl-grade">팀시상2 달성 — ${bLabel}${overlapBadge2}</div>
+              <div class="hl-crit">팀 달성률 ${(gi.teamRate || 0).toFixed(1)}% ≥ ${minRate2}% → 1인당 <strong>${poStr}</strong>${ga2Overlap ? " (개인시상과 중복 지급)" : ""}</div>
             </div>
-            <div class="hl-amt grn4">${poStr}</div>
+            <div class="hl-amt grn4" style="font-size:26px;">${poStr}</div>
           </div>`;
         } else {
-          ga2Html = `<div class="hl-none">팀시상2 — 미달성 (${bLabel} 팀달성률 ${(gi.teamRate || 0).toFixed(1)}%, 기준 ${minRate2}% 미만)</div>`;
+          ga2Html = `<div class="hl-none">팀시상2 — 미달성 (${bLabel} 팀달성률 ${(gi.teamRate || 0).toFixed(1)}%, 기준 ${minRate2}% 미만)${ga2Overlap ? overlapBadge2 : ""}</div>`;
         }
       }
       if (ga1Html || ga2Html) {
@@ -11643,7 +11647,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625r)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625s)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12226,6 +12230,8 @@ ${piPagesHtml}`;
       [{ v: "and", t: "AND" }, { v: "or", t: "OR" }]);
     _apRenderElig((plan.eligibility?.conditions?.length ? plan.eligibility.conditions : [{ field: "converted", threshold: 80 }]));
     document.getElementById("ap-ga1-en").checked = !!plan.groupAward1?.enabled;
+    const ga1OverlapEl = document.getElementById("ap-ga1-overlap");
+    if (ga1OverlapEl) ga1OverlapEl.checked = !!plan.groupAward1?.allowOverlap;
     // ga1 items (구형: threshold+payout → items 배열로 변환)
     const ga1RawItems = plan.groupAward1?.items?.length
       ? plan.groupAward1.items
@@ -12234,6 +12240,8 @@ ${piPagesHtml}`;
     document.getElementById("ap-ga2-en").checked   = !!plan.groupAward2?.enabled;
     const ga2LinkEl = document.getElementById("ap-ga2-link");
     if (ga2LinkEl) ga2LinkEl.checked = !!plan.groupAward2?.linkToGroup1;
+    const ga2OverlapEl = document.getElementById("ap-ga2-overlap");
+    if (ga2OverlapEl) ga2OverlapEl.checked = !!plan.groupAward2?.allowOverlap;
     const ga2Items = plan.groupAward2?.items?.length
       ? plan.groupAward2.items
       : [{ rateThreshold: plan.groupAward2?.rateThreshold ?? 110, payout: plan.groupAward2?.payout ?? 15 }];
@@ -12306,6 +12314,7 @@ ${piPagesHtml}`;
       },
       groupAward1: {
         enabled: document.getElementById("ap-ga1-en")?.checked ?? false,
+        allowOverlap: document.getElementById("ap-ga1-overlap")?.checked ?? false,
         items: (() => {
           const arr = [];
           document.querySelectorAll("#ap-ga1-list .ap-ga1-row").forEach((row) => {
@@ -12322,6 +12331,7 @@ ${piPagesHtml}`;
       },
       groupAward2: {
         enabled: document.getElementById("ap-ga2-en")?.checked ?? false,
+        allowOverlap: document.getElementById("ap-ga2-overlap")?.checked ?? false,
         linkToGroup1: document.getElementById("ap-ga2-link")?.checked ?? false,
         items: (() => {
           const arr = [];
