@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.69";
+  const APP_VERSION = "2.70";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5657,17 +5657,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     }
     hrBindClicks();
 
-    section.querySelectorAll(".pg-modal-title[data-pg-modal]").forEach(h => {
-      h.addEventListener("click", () => {
-        const key = h.dataset.pgModal;
-        const data = state._hrankFullData && state._hrankFullData[key];
-        if (data) {
-          openPgFullModal(data);
-          if (key === "group") bindTacCardClicks();
-        }
-      });
-    });
-
     function hrGoTo(idx) {
       const slides = section.querySelectorAll(".hr-slide");
       slides.forEach((s, i) => {
@@ -6567,6 +6556,18 @@ ${piPagesHtml}`;
         }
       });
     }
+
+    // 실적진도 h4 제목 클릭 → 전체 순위 팝업
+    document.querySelectorAll("#progress-body .pg-modal-title[data-pg-modal]").forEach(h => {
+      h.addEventListener("click", () => {
+        const key = h.dataset.pgModal;
+        const data = state._pgCardFullData && state._pgCardFullData[key];
+        if (data) {
+          openPgFullModal(data);
+          if (key === "group") bindTacCardClicks();
+        }
+      });
+    });
   }
 
   function openProgressStudentPopup(empNo, pushStack) {
@@ -10974,7 +10975,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625g)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625h)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
