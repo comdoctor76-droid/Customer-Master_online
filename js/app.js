@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.74";
+  const APP_VERSION = "2.75";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10511,9 +10511,9 @@ ${piPagesHtml}`;
 
     // ── 셀 스타일 헬퍼 ──
     const NUM_FMT = "#,##0";
-    const mkS = (fill, font, bold, numFmt, border) => ({
+    const mkS = (fill, font, bold, numFmt, border, sz) => ({
       fill: fill ? { fgColor: { rgb: fill } } : { fgColor: { rgb: "FFFFFF" } },
-      font: { name: "맑은 고딕", sz: 10, bold: !!bold, color: { rgb: font || "000000" } },
+      font: { name: "맑은 고딕", sz: sz || 10, bold: !!bold, color: { rgb: font || "000000" } },
       alignment: { horizontal: "center", vertical: "center", wrapText: false },
       border: border ? {
         top: { style: "thin", color: { rgb: "CCCCCC" } },
@@ -10523,21 +10523,21 @@ ${piPagesHtml}`;
       } : undefined,
       numFmt: numFmt || undefined,
     });
-    const S_TITLE    = mkS("1E3A5F", "FFFFFF", true);
-    const S_HDR      = mkS("2C4770", "FFFFFF", true, undefined, true);
-    const S_SEC      = mkS("E2E8F0", "1E3A5F", true);
-    const S_TOTAL_TXT = mkS("334155", "FFFFFF", true, undefined, true);
-    const S_TOTAL    = mkS("334155", "FFFFFF", true, NUM_FMT, true);
+    const S_TITLE    = mkS("1E3A5F", "FFFFFF", true, undefined, undefined, 15);
+    const S_HDR      = mkS("2C4770", "FFFFFF", true, undefined, true, 15);
+    const S_SEC      = mkS("E2E8F0", "1E3A5F", true, undefined, undefined, 15);
+    const S_TOTAL_TXT = mkS("334155", "FFFFFF", true, undefined, true, 15);
+    const S_TOTAL    = mkS("334155", "FFFFFF", true, NUM_FMT, true, 15);
     const S_NUM      = (fill) => mkS(fill, "000000", false, NUM_FMT, true);
     const S_TXT      = (fill) => mkS(fill, "000000", false, undefined, true);
     const S_GREEN    = mkS("D1FAE5", "065F46", true, undefined, true);
     const S_RED      = mkS("FEE2E2", "991B1B", true, undefined, true);
     const S_NUM_G    = mkS("D1FAE5", "065F46", false, NUM_FMT, true);
     const S_NUM_R    = mkS("FEE2E2", "991B1B", false, NUM_FMT, true);
-    const S_RATE_HDR = mkS("14532D", "FFFFFF", true, undefined, true);
-    const S_AMT_HDR  = mkS("1E3A8A", "FFFFFF", true, undefined, true);
-    const S_RATE_TOT = mkS("14532D", "FFFFFF", true, NUM_FMT, true);
-    const S_AMT_TOT  = mkS("1E3A8A", "FFFFFF", true, NUM_FMT, true);
+    const S_RATE_HDR = mkS("14532D", "FFFFFF", true, undefined, true, 15);
+    const S_AMT_HDR  = mkS("1E3A8A", "FFFFFF", true, undefined, true, 15);
+    const S_RATE_TOT = mkS("14532D", "FFFFFF", true, NUM_FMT, true, 15);
+    const S_AMT_TOT  = mkS("1E3A8A", "FFFFFF", true, NUM_FMT, true, 15);
     const S_RATE_ROW = (fill) => mkS(fill || "EFF6FF", "1E3A8A", false, undefined, true);
     const S_AMT_ROW  = (fill) => mkS(fill || "F0FDF4", "14532D", false, undefined, true);
     const S_RATE_NUM = (fill) => mkS(fill || "EFF6FF", "1E3A8A", false, NUM_FMT, true);
@@ -10727,30 +10727,31 @@ ${piPagesHtml}`;
         piHdr.forEach((h, c) => SC(ws, R, c, h, S_HDR));
         R++;
 
-        let piCnt = 0, piTotalKrw = 0;
+        let piCnt = 0, piAwardCnt = 0, piTotalKrw = 0;
         byAmt.forEach(st => {
           const _tlbl = tierLabel(st.net, undefined, _pa);
-          if (_tlbl === "-") return;
-          const _tamt = tierAward(st.net, undefined, _pa);
-          const awardKrw = _tamt > 0 ? Math.floor(_tamt) : prizeKrw(_tlbl);
+          const hasAward = _tlbl !== "-";
+          const _tamt = hasAward ? tierAward(st.net, undefined, _pa) : 0;
+          const awardKrw = hasAward ? (_tamt > 0 ? Math.floor(_tamt) : prizeKrw(_tlbl)) : 0;
           const bc = getBranchColor(st.s.branch);
           const rAwd = getRateAward(st.s.empNo);
           const aAwd = getAmtAward(st.s.empNo);
-          SC(ws, R, 0,  ++piCnt,                        S_TXT(bc));
-          SC(ws, R, 1,  st.s.empNo || "",               S_TXT(bc));
-          SC(ws, R, 2,  st.s.name  || "",               S_TXT(bc));
-          SC(ws, R, 3,  st.s.center || "",              S_TXT(bc));
-          SC(ws, R, 4,  st.s.branch || "",              S_TXT(bc));
-          SC(ws, R, 5,  st.base,                         S_NUM(bc));
-          SC(ws, R, 6,  st.current,                      S_NUM(bc));
-          SC(ws, R, 7,  st.net,                          S_NUM(bc));
-          SC(ws, R, 8,  parseFloat(st.rate.toFixed(1)), S_TXT(bc));
-          SC(ws, R, 9,  _tlbl,                           S_TXT(bc));
-          SC(ws, R, 10, awardKrw > 0 ? awardKrw : "",   awardKrw > 0 ? S_NUM(bc) : S_TXT(bc));
-          SC(ws, R, 11, rAwd.label,                      S_TXT(bc));
+          SC(ws, R, 0,  ++piCnt,                           S_TXT(bc));
+          SC(ws, R, 1,  st.s.empNo || "",                  S_TXT(bc));
+          SC(ws, R, 2,  st.s.name  || "",                  S_TXT(bc));
+          SC(ws, R, 3,  st.s.center || "",                 S_TXT(bc));
+          SC(ws, R, 4,  st.s.branch || "",                 S_TXT(bc));
+          SC(ws, R, 5,  st.base,                            S_NUM(bc));
+          SC(ws, R, 6,  st.current,                         S_NUM(bc));
+          SC(ws, R, 7,  st.net,                             S_NUM(bc));
+          SC(ws, R, 8,  parseFloat(st.rate.toFixed(1)),    S_TXT(bc));
+          SC(ws, R, 9,  hasAward ? _tlbl : "해당없음",     S_TXT(bc));
+          SC(ws, R, 10, awardKrw > 0 ? awardKrw : "",      awardKrw > 0 ? S_NUM(bc) : S_TXT(bc));
+          SC(ws, R, 11, rAwd.label,                         S_TXT(bc));
           SC(ws, R, 12, rAwd.rank !== "-" ? rAwd.rank : "", S_TXT(bc));
-          SC(ws, R, 13, aAwd.label,                      S_TXT(bc));
+          SC(ws, R, 13, aAwd.label,                         S_TXT(bc));
           SC(ws, R, 14, aAwd.rank !== "-" ? aAwd.rank : "", S_TXT(bc));
+          if (hasAward) piAwardCnt++;
           piTotalKrw += awardKrw;
           R++;
         });
@@ -10759,7 +10760,7 @@ ${piPagesHtml}`;
           ws["!merges"].push({ s: { r: R, c: 1 }, e: { r: R, c: TOTAL_COLS - 1 } });
           R++;
         } else {
-          SC(ws, R, 0, `총 ${piCnt}명`, S_TOTAL_TXT);
+          SC(ws, R, 0, `총 ${piCnt}명 (수상 ${piAwardCnt}명)`, S_TOTAL_TXT);
           ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: 9 } });
           SC(ws, R, 10, piTotalKrw, S_TOTAL);
           SC(ws, R, 11, "", S_TOTAL_TXT);
@@ -11026,7 +11027,7 @@ ${piPagesHtml}`;
         ws["!merges"] = [];
         let R = 0;
         const sheetCols = C_HDR.length;
-        SC(ws, R, 0, `${cName} 수상내역`, S_TITLE);
+        SC(ws, R, 0, `${baseTitle} ${cName} 시상안`, S_TITLE);
         ws["!merges"].push({ s: { r: R, c: 0 }, e: { r: R, c: sheetCols - 1 } });
         R += 2;
         C_HDR.forEach((h, c) => SC(ws, R, c, h, S_HDR));
@@ -11359,7 +11360,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625l)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625m)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
