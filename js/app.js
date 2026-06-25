@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.73";
+  const APP_VERSION = "2.74";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -10847,6 +10847,22 @@ ${piPagesHtml}`;
         const mRateC  = grpHdr.length - 2;
         const awardC  = grpHdr.length - 1;
 
+        // 팀별 고유 배경색 팔레트
+        const TEAM_COLORS = [
+          "DBEAFE","D1FAE5","FEF9C3","FCE7F3","EDE9FE",
+          "CFFAFE","FEF3C7","DCFCE7","E0E7FF","FFE4E6",
+        ];
+        // 팀 구분 굵은 경계선 적용
+        const setThickBottom = (ws, row, colCount) => {
+          for (let c = 0; c < colCount; c++) {
+            const addr = XLSX.utils.encode_cell({ r: row, c });
+            if (ws[addr]) {
+              const s = ws[addr].s || {};
+              ws[addr].s = { ...s, border: { ...(s.border || {}), bottom: { style: "medium", color: { rgb: "475569" } } } };
+            }
+          }
+        };
+
         groupRanking.forEach((g, i) => {
           const mStats = g.memberStats || [];
           const gRow = [i + 1, g.name, g.base, g.current, parseFloat(g.rate.toFixed(1))];
@@ -10876,12 +10892,13 @@ ${piPagesHtml}`;
 
           const rowSpan = Math.max(mStats.length, 1);
           const groupStartRow = R;
+          const tc = TEAM_COLORS[i % TEAM_COLORS.length]; // 팀 고유 색
 
-          // 그룹 집계열: 첫 행에 쓰기
+          // 그룹 집계열: 첫 행에 팀 색으로 쓰기
           gRow.forEach((v, c) => {
-            if (c < 2) SC(ws, groupStartRow, c, v, S_TXT("E2E8F0"));
-            else if (typeof v === "number") SC(ws, groupStartRow, c, v, S_NUM("E2E8F0"));
-            else SC(ws, groupStartRow, c, v, S_TXT("E2E8F0"));
+            if (c < 2) SC(ws, groupStartRow, c, v, S_TXT(tc));
+            else if (typeof v === "number") SC(ws, groupStartRow, c, v, S_NUM(tc));
+            else SC(ws, groupStartRow, c, v, S_TXT(tc));
           });
 
           // 집계열 세로 병합 (rowSpan > 1 일 때)
@@ -10889,7 +10906,7 @@ ${piPagesHtml}`;
             for (let cc = 0; cc < memberC; cc++) {
               ws["!merges"].push({ s: { r: groupStartRow, c: cc }, e: { r: groupStartRow + rowSpan - 1, c: cc } });
               for (let mr = groupStartRow + 1; mr < groupStartRow + rowSpan; mr++) {
-                SC(ws, mr, cc, "", S_TXT("E2E8F0"));
+                SC(ws, mr, cc, "", S_TXT(tc));
               }
             }
           }
@@ -10914,7 +10931,9 @@ ${piPagesHtml}`;
               const mAwardKrw = (ach && mAward) ? mAward.krw : 0;
               const nameS = ach ? S_GREEN : S_RED;
               const numS  = ach ? S_NUM_G : S_NUM_R;
-              SC(ws, rowR, memberC, st.s?.name || "",     nameS);
+              // 비전센터 + 지점 + 이름
+              const mLabel = [st.s?.center || "", st.s?.branch || "", st.s?.name || ""].filter(Boolean).join(" ");
+              SC(ws, rowR, memberC, mLabel,                nameS);
               SC(ws, rowR, statusC, ach ? "달성" : "미달", nameS);
               SC(ws, rowR, netC,    mNet,                  numS);
               SC(ws, rowR, mRateC,  mRateVal,              nameS);
@@ -10922,13 +10941,15 @@ ${piPagesHtml}`;
             });
             R = groupStartRow + rowSpan;
           }
+          // 팀 경계 굵은 선 (마지막 행 하단)
+          setThickBottom(ws, R - 1, awardC + 1);
         });
       }
 
       ws["!cols"] = [
         { wch: 5 },  { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
-        { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 9 },
-        { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 9 }, { wch: 14 }, { wch: 9 },
+        { wch: 14 }, { wch: 14 }, { wch: 30 }, { wch: 9 },
+        { wch: 14 }, { wch: 9 },  { wch: 14 }, { wch: 9 }, { wch: 14 }, { wch: 9 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, "수상내역");
     }
@@ -11338,7 +11359,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625k)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625l)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
