@@ -210,6 +210,14 @@
     return Math.round(Number(np.val) * 10000);
   }
 
+  // 시상 비교용 가치 (원 단위) — 물품도 이름에서 만원 단위 파싱 (예: "주유권10만" → 100000)
+  function payoutCompareValue(p) {
+    const np = normPayout(p);
+    if (np.type !== "item") return Math.round(Number(np.val || 0) * 10000);
+    const m = String(np.val || "").match(/(\d+(?:\.\d+)?)\s*만/);
+    return m ? Math.round(Number(m[1]) * 10000) : 1;
+  }
+
   // 정렬: type "rate" or "amt"
   function sortStatsForType(stats, type) {
     return [...stats].sort((a, b) => {
@@ -222,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.65";
+  const APP_VERSION = "2.66";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4710,8 +4718,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const top2 = plan.topAward2?.enabled ? plan.topAward2 : null;
     const rateConfig = (top1 && top1.type === "rate") ? top1 : (top2 && top2.type === "rate") ? top2 : null;
     const amtConfig  = (top1 && top1.type === "amt")  ? top1 : (top2 && top2.type === "amt")  ? top2 : null;
-    const rateTop = rateConfig ? Array.from({ length: Number(rateConfig.n) }, (_, i) => calcRankAward(i + 1, rateConfig)) : [];
-    const amtTop  = amtConfig  ? Array.from({ length: Number(amtConfig.n)  }, (_, i) => calcRankAward(i + 1, amtConfig))  : [];
+    const rateTop    = rateConfig ? Array.from({ length: Number(rateConfig.n) }, (_, i) => calcRankAward(i + 1, rateConfig)) : [];
+    const amtTop     = amtConfig  ? Array.from({ length: Number(amtConfig.n)  }, (_, i) => calcRankAward(i + 1, amtConfig))  : [];
+    // 물품 포함 실질 가치 비교 배열 (주유권10만 → 100000 등 이름에서 파싱)
+    const rateTopCmp = rateConfig ? (rateConfig.payouts || []).slice(0, Number(rateConfig.n) || 0).map(payoutCompareValue) : [];
+    const amtTopCmp  = amtConfig  ? (amtConfig.payouts  || []).slice(0, Number(amtConfig.n)  || 0).map(payoutCompareValue) : [];
     // Step 2 이상이면 sfx="2"/"3"…, Step 1은 sfx=""
     const _sfx = (_step && _step !== "1") ? String(_step) : "";
     return {
@@ -4719,6 +4730,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       tiers,
       rateTop10: rateTop,
       amtTop10:  amtTop,
+      rateTopCmp,
+      amtTopCmp,
       rateConfig,
       amtConfig,
       bothEnabled: !!(rateConfig && amtConfig) && !!plan.bothNodup,
@@ -5771,8 +5784,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     byAmt.forEach((st, i) => { amtRankMap[st.s.empNo] = i; });
 
     // Pass 1: rate prizes
-    // 물품(item) 시상은 calcRankAward=0 → 현금 비교 불가 → 순위(rank)로 비교
+    // rateTopCmp/amtTopCmp 기반 가치 비교 (물품 포함, 예: 주유권10만 > 주유권5만)
     const _chkTopElig = pa.isTopEligible || pa.isEligible;
+    const rateTopCmp = pa.rateTopCmp || [];
+    const amtTopCmp  = pa.amtTopCmp  || [];
     let rSlot = 0;
     const rateAsgn = new Map();
     for (const st of byRate) {
@@ -5787,29 +5802,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (!inRateRange) { rateAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 }); continue; }
 
       const rateCash   = rateTop[rSlot] || 0;
+      const rateCmp    = rateTopCmp[rSlot] ?? rateCash;
       const amtRankIdx = amtRankMap[empNo] !== undefined ? amtRankMap[empNo] : Infinity;
       const inAmtRange = bothEnabled && amtRankIdx < amtN;
       const amtCash    = inAmtRange ? (amtTop[amtRankIdx] || 0) : 0;
+      const amtCmp     = inAmtRange ? (amtTopCmp[amtRankIdx] ?? amtCash) : 0;
 
       if (!bothEnabled || !inAmtRange) {
         // 충돌 없음 → rate 획득
         rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: rateCash, otherAmt: amtCash });
-      } else if (rateCash > 0 || amtCash > 0) {
-        // 현금 비교: 더 큰 시상 쪽으로 (동점은 rate 우선)
-        if (amtCash > rateCash) {
-          rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: amtCash });
-        } else {
-          rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: rateCash, otherAmt: amtCash });
-        }
+      } else if (amtCmp > rateCmp) {
+        // amt 시상 가치가 더 큼 → amt 쪽으로 (현금·물품 모두 비교)
+        rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: amtCash });
       } else {
-        // 둘 다 물품(0원): 순위 비교 — 더 좋은 순위 쪽으로 (동점은 rate 우선)
-        if (amtRankIdx < rSlot) {
-          // amt 순위가 더 좋음 → amt 쪽으로
-          rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
-        } else {
-          // rate 순위가 같거나 더 좋음 → rate 획득
-          rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: 0, otherAmt: 0 });
-        }
+        // rate 시상 가치가 같거나 더 큼 → rate 획득 (동점 rate 우선)
+        rateAsgn.set(empNo, { status: "mine", effectiveRank: ++rSlot, effectiveAmt: rateCash, otherAmt: amtCash });
       }
     }
 
@@ -5831,32 +5838,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       if (!inAmtRange) { amtAsgn.set(empNo, { status: "none", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 }); continue; }
 
       const amtCash         = amtTop[aSlot] || 0;
+      const amtCmpVal       = amtTopCmp[aSlot] ?? amtCash;
       const rateResult      = rateAsgn.get(empNo);
       const effectiveRateCash = bothEnabled ? (rateResult?.effectiveAmt || 0) : 0;
-      const rateAlreadyMine   = bothEnabled && rateResult?.status === "mine";
+      // 비교값: 물품 포함 실질 가치 (effectiveRank는 1-based)
+      const effectiveRateCmpVal = bothEnabled && rateResult?.effectiveRank > 0
+        ? (rateTopCmp[rateResult.effectiveRank - 1] ?? effectiveRateCash)
+        : effectiveRateCash;
+      const rateAlreadyMine = bothEnabled && rateResult?.status === "mine";
 
       if (!bothEnabled) {
         amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: 0 });
-      } else if (amtCash > 0 || effectiveRateCash > 0) {
-        if (rateAlreadyMine && effectiveRateCash >= amtCash) {
-          // rate 시상 >= amt 시상 → rate 유지, amt = other
-          amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateCash });
-        } else if (rateAlreadyMine && amtCash > effectiveRateCash) {
-          // amt 시상이 더 큼 (Pass1에서 범위 밖이었다가 캐스케이딩으로 슬롯 확보) → amt로 전환, rate 소급 취소
-          rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: amtCash });
-          amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
-          _rateRenumberNeeded = true;
-        } else {
-          // rate 수상자 아님 → amt 획득
-          amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
-        }
+      } else if (rateAlreadyMine && effectiveRateCmpVal >= amtCmpVal) {
+        // rate 시상 >= amt 시상 → rate 유지, amt = other
+        amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: effectiveRateCash });
+      } else if (rateAlreadyMine && amtCmpVal > effectiveRateCmpVal) {
+        // amt 시상이 더 큼 → amt로 전환, rate 소급 취소 (현금·물품 모두 비교)
+        rateAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: amtCash });
+        amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
+        _rateRenumberNeeded = true;
       } else {
-        // 둘 다 물품(0원): rate에서 이미 획득했으면 → amt = other
-        if (rateAlreadyMine) {
-          amtAsgn.set(empNo, { status: "other", effectiveRank: 0, effectiveAmt: 0, otherAmt: 0 });
-        } else {
-          amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: 0, otherAmt: 0 });
-        }
+        // rate 수상자 아님 → amt 획득
+        amtAsgn.set(empNo, { status: "mine", effectiveRank: ++aSlot, effectiveAmt: amtCash, otherAmt: effectiveRateCash });
       }
     }
 
@@ -10932,7 +10935,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
