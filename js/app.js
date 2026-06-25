@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.79";
+  const APP_VERSION = "2.80";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3896,27 +3896,27 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="hl-grade">개인순증시상 달성</div>
             <div class="hl-crit">순증 ${fmtRaw(net)} → <strong>${escapeHtml(prize)}</strong></div>
           </div>
-          <div class="hl-amt grn4">${escapeHtml(prize)}</div>
+          <div class="hl-amt grn4" style="font-size:26px;">${escapeHtml(prize)}</div>
         </div>`;
       } else {
         const lowestTier = pa.tiers[pa.tiers.length - 1];
         const need = lowestTier ? fmtRaw(lowestTier.min - net) : "";
         statusHtml = `<div class="hl-none" style="margin-bottom:4px;">미해당 (순증 ${fmtRaw(net)}${lowestTier ? ` · 최소기준까지 ${need} 더 필요` : ""})</div>`;
       }
-      // 전 구간 테이블 — 달성 구간 up-next(노란 배경+굵게) 처리
+      // 전 구간 테이블 — 최고 달성 구간 하나만 up-next(노란 배경+굵게) 처리
       const tierRows = pa.tiers.map((t) => {
-        const isHit = net >= t.min;
+        const isHit = tierHit && t === tierHit;
         const prizeStr = t.type === "pct"
           ? `${t.payVal}%`
           : t.type === "item" ? (t.itemName || "물품") : `${t.payVal}만원`;
         return `<tr class="${isHit ? "up-next" : ""}">
-          <td${isHit ? ' style="font-weight:900;"' : ""}>${fmtRaw(t.min)} 이상</td>
-          <td${isHit ? ' style="font-weight:900;color:#1B5E20;"' : ""}>${escapeHtml(prizeStr)}</td>
+          <td${isHit ? ' style="font-weight:900;font-size:14px;"' : ' style="font-size:14px;"'}>${fmtRaw(t.min)} 이상</td>
+          <td${isHit ? ' style="font-weight:900;color:#1B5E20;font-size:14px;"' : ' style="font-size:14px;"'}>${escapeHtml(prizeStr)}</td>
         </tr>`;
       }).join("");
       piSection = `<div class="sec-title grn4">🎁 개인순증시상</div>
         ${statusHtml}
-        <table class="up-table" style="margin-top:2px;">
+        <table class="up-table" style="margin-top:2px;font-size:14px;">
           <thead><tr><th>순증 기준</th><th>시상내용</th></tr></thead>
           <tbody>${tierRows}</tbody>
         </table>`;
@@ -3944,13 +3944,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="hl-grade">신장률시상 ${rateRank}위 달성</div>
             <div class="hl-crit">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} · 전체 ${opts.totalStudents || "?"}명 중 ${rateRank}위</div>
           </div>
-          <div class="hl-amt">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
+          <div class="hl-amt" style="font-size:26px;">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
         </div>`;
       } else {
         awardHtml = `<div class="hl-none">미해당 (달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}, ${rankStr}, 상위 ${n}위 이내 필요)</div>`;
       }
       rateSection = `<div class="sec-title bl">📈 신장률시상 (상위 ${n}위)</div>${awardHtml}
-        <table class="up-table" style="margin-top:4px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
+        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
     }
 
     // 신장액시상
@@ -3975,13 +3975,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <div class="hl-grade">신장액시상 ${netRank}위 달성</div>
             <div class="hl-crit">순증 ${fmtRaw(net)} · 전체 ${opts.totalStudents || "?"}명 중 ${netRank}위</div>
           </div>
-          <div class="hl-amt grn4">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
+          <div class="hl-amt grn4" style="font-size:26px;">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
         </div>`;
       } else {
         awardHtml = `<div class="hl-none">미해당 (순증 ${fmtRaw(net)}, ${rankStr}, 상위 ${n}위 이내 필요)</div>`;
       }
       amtSection = `<div class="sec-title grn4">💰 신장액시상 (상위 ${n}위)</div>${awardHtml}
-        <table class="up-table" style="margin-top:4px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
+        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}</tbody></table>`;
     }
 
     // 팀시상
@@ -11643,7 +11643,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625q)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625r)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
