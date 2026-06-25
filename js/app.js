@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.66";
+  const APP_VERSION = "2.67";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5716,49 +5716,64 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
       return "";
     })();
+    const _chkTop10 = pa.isTopEligible || pa.isEligible;
+    // 신장률: 자격자 먼저, 순증 미달자 후순위로 재정렬 (순위 없이 아래 표시)
+    let displayList = top;
+    if (kind === "rate" && _rateMinNet > 0) {
+      const elig   = top.filter(st => _chkTop10(st.s) && st.net >= _rateMinNet);
+      const inelig = top.filter(st => !_chkTop10(st.s) || st.net < _rateMinNet);
+      displayList = [...elig, ...inelig];
+    }
+    let prizeSlot = 0; // 신장률 자격자 카운터 (시상 인덱스 결정용)
     return `${_criteriaHtml}
       <table class="pg-tbl">
         <thead><tr><th>#</th><th>성명</th><th>지점</th>${kind === "ipum" ? "<th>인품실적</th>" : "<th>달성률</th><th>순증</th>"}<th>시상</th></tr></thead>
-        <tbody>${top.map((st, i) => {
-          let value, value2, prize;
+        <tbody>${displayList.map((st, i) => {
+          let value, value2, prize, rankCell;
           if (kind === "ipum") {
             value = (st.ipumCount ? st.ipumCount + "건 " : "") + Nf(st.ipumAmt) + "원";
             value2 = null;
             const grade = ["인품의 황제", "인품의 제왕", "인품의 왕"][i];
             prize = grade ? `<span class="pg-bdg pg-b-p">${grade}</span>` : "-";
+            rankCell = RB(i + 1);
           } else if (kind === "rate") {
             value = (st.rate || 0).toFixed(1) + "%";
             value2 = (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
             const _rNetMiss = _rateMinNet > 0 && st.net < _rateMinNet;
-            const _chkTop10 = pa.isTopEligible || pa.isEligible;
             if (!_chkTop10(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+              rankCell = `<span style="color:#ccc;font-size:10px">-</span>`;
             } else if (_rNetMiss) {
               prize = `<span class="pg-bdg pg-b-no">+${Nf(_rateMinNet - st.net)}원 필요</span>`;
+              rankCell = `<span style="color:#ccc;font-size:10px">-</span>`;
             } else {
-              const v = (pa.rateConfig?.payouts || [])[i];
-              const lbl = v != null ? payoutLabel(v) : (pa.rateTop10[i] > 0 ? `${Math.round(pa.rateTop10[i]/10000)}만원` : null);
+              const v = (pa.rateConfig?.payouts || [])[prizeSlot];
+              const lbl = v != null ? payoutLabel(v) : (pa.rateTop10[prizeSlot] > 0 ? `${Math.round(pa.rateTop10[prizeSlot]/10000)}만원` : null);
               prize = lbl ? `<span class="pg-bdg pg-b-g">${escapeHtml(lbl)}</span>` : "-";
+              rankCell = RB(prizeSlot + 1);
+              prizeSlot++;
             }
           } else {
             value = (st.net >= 0 ? "+" : "") + Nf(st.net) + "원";
             value2 = (st.rate || 0).toFixed(1) + "%";
             const _aNetMiss = _amtMinNet > 0 && st.net < _amtMinNet;
-            const _chkTop10 = pa.isTopEligible || pa.isEligible;
             if (!_chkTop10(st.s)) {
               prize = `<span class="pg-bdg pg-b-no">기준미달</span>`;
+              rankCell = `<span style="color:#ccc;font-size:10px">-</span>`;
             } else if (_aNetMiss) {
               prize = `<span class="pg-bdg pg-b-no">+${Nf(_amtMinNet - st.net)}원 필요</span>`;
+              rankCell = `<span style="color:#ccc;font-size:10px">-</span>`;
             } else {
               const v = (pa.amtConfig?.payouts || [])[i];
               const lbl = v != null ? payoutLabel(v) : (pa.amtTop10[i] > 0 ? `${Math.round(pa.amtTop10[i]/10000)}만원` : null);
               prize = lbl ? `<span class="pg-bdg pg-b-g">${escapeHtml(lbl)}</span>` : "-";
+              rankCell = RB(i + 1);
             }
           }
           const valueCells = value2 != null
             ? `<td class="r">${value}</td><td class="r">${value2}</td>`
             : `<td class="r">${value}</td>`;
-          return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s.empNo)}"><td>${RB(i + 1)}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td>${valueCells}<td>${prize}</td></tr>`;
+          return `<tr class="pg-tr-click" data-emp="${escapeHtml(st.s.empNo)}"><td>${rankCell}</td><td><strong>${escapeHtml(st.s.name || "")}</strong></td><td>${escapeHtml(st.s.branch || "")}</td>${valueCells}<td>${prize}</td></tr>`;
         }).join("")}</tbody>
       </table>
     `;
@@ -10935,7 +10950,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
