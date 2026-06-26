@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.87";
+  const APP_VERSION = "2.88";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5389,6 +5389,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byAmt  = [...stats].sort((a, b) => b.net - a.net);
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
+    const byMasterRate = [...stats].sort((a, b) => {
+      const ag = Number(a.s.target) > 0 ? Number(a.s.target) : a.base;
+      const bg = Number(b.s.target) > 0 ? Number(b.s.target) : b.base;
+      const ar = ag > 0 ? a.current / ag : 0;
+      const br = bg > 0 ? b.current / bg : 0;
+      return br - ar;
+    });
 
     // 중복시상: 신장률·신장액 양쪽 대상이 되는 경우 더 큰 시상만 지급 (표시는 양쪽 그대로)
     const rateFinalList = byRate;
@@ -5677,13 +5684,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
 
         <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
-          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small>(신장액 내림차순, 클릭 시 상세)</small>
+          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small>(마스터 달성률 내림차순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle">펼쳐보기</button>
             <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
             <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th>전화번호</th><th>시상</th></tr></thead>
-            <tbody>${byAmt.map((st, i) => {
+            <tbody>${byMasterRate.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
               const masterNet  = st.current - masterGoal;
@@ -11712,7 +11719,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260626a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260626b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
