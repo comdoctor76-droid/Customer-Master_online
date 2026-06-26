@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.86";
+  const APP_VERSION = "2.87";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3651,7 +3651,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     @media print{
       @page{size:A4 portrait;margin:5mm 7mm;}
       body{font-size:11px;}
-      .pg{padding:4mm 6mm;}
+      .pg{padding:4mm 6mm;break-inside:avoid;}
       .hdr{padding:6px 11px;margin-bottom:6px;}
       .hdr-title{font-size:16px;}
       .info-card.key .info-val{font-size:16px;}
@@ -3922,78 +3922,94 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </table>`;
     }
 
-    // 신장률시상
-    let rateSection = "";
-    if (pa.rateConfig) {
-      const rc = pa.rateConfig;
-      const n = Number(rc.n) || 1;
-      const payouts = rc.payouts || [];
+    // 신장률+신장액 합산 시상 테이블
+    let rankSection = "";
+    const hasRate = !!pa.rateConfig;
+    const hasAmt = !!pa.amtConfig;
+    if (hasRate || hasAmt) {
+      const rc = pa.rateConfig || {};
+      const ac = pa.amtConfig || {};
+      const rateN = hasRate ? (Number(rc.n) || 1) : 0;
+      const amtN = hasAmt ? (Number(ac.n) || 1) : 0;
+      const maxN = Math.max(rateN, amtN);
+      const ratePayouts = rc.payouts || [];
+      const amtPayouts = ac.payouts || [];
       const rateRank = opts.rateRank;
-      const qualify = rateRank && rateRank <= n;
-      const rankStr = rateRank ? `${rateRank}위` : "순위 미확인";
-      const poRows = Array.from({ length: n }, (_, i) => {
-        const po = payouts[i];
-        return `<tr class="${rateRank === i + 1 ? "up-next" : ""}"><td>${i + 1}위</td><td>${po ? escapeHtml(payoutLabel(po)) : "—"}</td></tr>`;
-      }).join("");
-      const curRateRow = !qualify && rateRank
-        ? `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
-            <td style="color:#E65100;font-weight:800;">▶ 현재 ${rateRank}위</td>
-            <td style="color:#E65100;">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} (${n}위 이내 필요)</td>
-          </tr>`
-        : "";
-      let awardHtml;
-      if (qualify) {
-        const prz = payouts[rateRank - 1];
-        awardHtml = `<div class="hl-row">
-          <span class="hl-icon">📈</span>
-          <div class="hl-info">
-            <div class="hl-grade">신장률시상 ${rateRank}위 달성</div>
-            <div class="hl-crit">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} · 전체 ${opts.totalStudents || "?"}명 중 ${rateRank}위</div>
-          </div>
-          <div class="hl-amt" style="font-size:26px;">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
-        </div>`;
-      } else {
-        awardHtml = `<div class="hl-none">미해당 — 달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}, 현재 ${rankStr} (상위 ${n}위 이내 필요)</div>`;
-      }
-      rateSection = `<div class="sec-title bl">📈 신장률시상 (상위 ${n}위)</div>${awardHtml}
-        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}${curRateRow}</tbody></table>`;
-    }
-
-    // 신장액시상
-    let amtSection = "";
-    if (pa.amtConfig) {
-      const ac = pa.amtConfig;
-      const n = Number(ac.n) || 1;
-      const payouts = ac.payouts || [];
       const netRank = opts.netRank;
-      const qualify = netRank && netRank <= n;
-      const rankStr = netRank ? `${netRank}위` : "순위 미확인";
-      const poRows = Array.from({ length: n }, (_, i) => {
-        const po = payouts[i];
-        return `<tr class="${netRank === i + 1 ? "up-next" : ""}"><td>${i + 1}위</td><td>${po ? escapeHtml(payoutLabel(po)) : "—"}</td></tr>`;
-      }).join("");
-      const curNetRow = !qualify && netRank
-        ? `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
-            <td style="color:#E65100;font-weight:800;">▶ 현재 ${netRank}위</td>
-            <td style="color:#E65100;">순증 ${fmtRaw(net)} (${n}위 이내 필요)</td>
-          </tr>`
-        : "";
-      let awardHtml;
-      if (qualify) {
-        const prz = payouts[netRank - 1];
-        awardHtml = `<div class="hl-row green4">
-          <span class="hl-icon">💰</span>
+      const rateQualify = hasRate && rateRank && rateRank <= rateN;
+      const amtQualify = hasAmt && netRank && netRank <= amtN;
+
+      // 상태 행 (달성/미달성 통합)
+      let statusHtml;
+      if (rateQualify || amtQualify) {
+        const parts = [];
+        const mainPrizeArr = [];
+        if (rateQualify) {
+          const prz = ratePayouts[rateRank - 1];
+          parts.push(`📈 신장률 ${rateRank}위`);
+          if (prz) mainPrizeArr.push(escapeHtml(payoutLabel(prz)));
+        }
+        if (amtQualify) {
+          const prz = amtPayouts[netRank - 1];
+          parts.push(`💰 신장액 ${netRank}위`);
+          if (prz) mainPrizeArr.push(escapeHtml(payoutLabel(prz)));
+        }
+        const critParts = [];
+        if (hasRate) critParts.push(`달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}`);
+        if (hasAmt) critParts.push(`순증 +${fmtRaw(net)}`);
+        statusHtml = `<div class="hl-row">
+          <span class="hl-icon">🏆</span>
           <div class="hl-info">
-            <div class="hl-grade">신장액시상 ${netRank}위 달성</div>
-            <div class="hl-crit">순증 ${fmtRaw(net)} · 전체 ${opts.totalStudents || "?"}명 중 ${netRank}위</div>
+            <div class="hl-grade">${parts.join(" · ")} 달성</div>
+            <div class="hl-crit">${critParts.join(" · ")}</div>
           </div>
-          <div class="hl-amt grn4" style="font-size:26px;">${prz ? escapeHtml(payoutLabel(prz)) : "시상"}</div>
+          <div class="hl-amt" style="font-size:22px;text-align:right;line-height:1.4;">${mainPrizeArr.join("<br>")}</div>
         </div>`;
       } else {
-        awardHtml = `<div class="hl-none">미해당 — 순증 ${fmtRaw(net)}, 현재 ${rankStr} (상위 ${n}위 이내 필요)</div>`;
+        const statusParts = [];
+        if (hasRate) statusParts.push(rateRank ? `신장률 현재 ${rateRank}위 (상위 ${rateN}위 필요)` : "신장률 순위 미확인");
+        if (hasAmt) statusParts.push(netRank ? `신장액 현재 ${netRank}위 (상위 ${amtN}위 필요)` : "신장액 순위 미확인");
+        statusHtml = `<div class="hl-none">미해당 — ${statusParts.join(" / ")}</div>`;
       }
-      amtSection = `<div class="sec-title grn4">💰 신장액시상 (상위 ${n}위)</div>${awardHtml}
-        <table class="up-table" style="margin-top:4px;font-size:14px;"><thead><tr><th>순위</th><th>시상내용</th></tr></thead><tbody>${poRows}${curNetRow}</tbody></table>`;
+
+      // 합산 순위 테이블
+      const rateTh = hasRate ? `<th>📈 신장률 시상</th>` : "";
+      const amtTh = hasAmt ? `<th>💰 신장액 시상</th>` : "";
+      const tableRows = Array.from({ length: maxN }, (_, i) => {
+        const rankNo = i + 1;
+        const isMyRate = hasRate && rateRank === rankNo;
+        const isMyAmt = hasAmt && netRank === rankNo;
+        const isHit = isMyRate || isMyAmt;
+        const rankMark = isMyRate && isMyAmt ? " ✔" : isMyRate ? " 📈" : isMyAmt ? " 💰" : "";
+        const rCell = hasRate ? `<td style="${isMyRate ? "font-weight:900;" : ""}font-size:13px;">${rankNo <= rateN ? (ratePayouts[i] ? escapeHtml(payoutLabel(ratePayouts[i])) : "—") : ""}</td>` : "";
+        const aCell = hasAmt ? `<td style="${isMyAmt ? "font-weight:900;color:#1B5E20;" : ""}font-size:13px;">${rankNo <= amtN ? (amtPayouts[i] ? escapeHtml(payoutLabel(amtPayouts[i])) : "—") : ""}</td>` : "";
+        return `<tr ${isHit ? 'class="up-next"' : ""}><td style="font-size:13px;${isHit ? "font-weight:900;" : ""}">${rankNo}위${rankMark}</td>${rCell}${aCell}</tr>`;
+      }).join("");
+      let curRows = "";
+      if (hasRate && !rateQualify && rateRank) {
+        curRows += `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
+          <td style="color:#E65100;font-weight:800;">▶ 신장률 ${rateRank}위</td>
+          <td style="color:#E65100;">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} (${rateN}위 이내 필요)</td>
+          ${hasAmt ? "<td></td>" : ""}
+        </tr>`;
+      }
+      if (hasAmt && !amtQualify && netRank) {
+        curRows += `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
+          <td style="color:#E65100;font-weight:800;">▶ 신장액 ${netRank}위</td>
+          ${hasRate ? "<td></td>" : ""}
+          <td style="color:#E65100;">순증 +${fmtRaw(net)} (${amtN}위 이내 필요)</td>
+        </tr>`;
+      }
+      const sTitle = hasRate && hasAmt ? "📈💰 신장률 · 신장액 시상"
+        : hasRate ? "📈 신장률시상" : "💰 신장액시상";
+      const topLabel = hasRate && hasAmt ? `상위 ${rateN}위 / ${amtN}위`
+        : hasRate ? `상위 ${rateN}위` : `상위 ${amtN}위`;
+      rankSection = `<div class="sec-title bl">${sTitle} (${topLabel})</div>
+        ${statusHtml}
+        <table class="up-table" style="margin-top:4px;">
+          <thead><tr><th>순위</th>${rateTh}${amtTh}</tr></thead>
+          <tbody>${tableRows}${curRows}</tbody>
+        </table>`;
     }
 
     // 팀시상
@@ -4110,7 +4126,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
     }
 
-    const hasAny = piSection || rateSection || amtSection || teamSection || npSection;
+    const hasAny = piSection || rankSection || teamSection || npSection;
     return `
       <div class="pg">
         <div class="hdr">
@@ -4126,8 +4142,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
         ${perfHtml}
         ${piSection}
-        ${rateSection}
-        ${amtSection}
+        ${rankSection}
         ${teamSection}
         ${npSection}
         ${!hasAny ? '<div class="hl-none" style="text-align:center;margin-top:8px;">저장된 시상안이 없습니다. 시상안 편집에서 설정해주세요.</div>' : ""}
@@ -11697,7 +11712,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260625x)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260626a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
