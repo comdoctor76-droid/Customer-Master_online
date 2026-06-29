@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.88";
+  const APP_VERSION = "2.89";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5380,7 +5380,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
   function renderProgressHome(list) {
     const stats = list.map(getProgressStat);
     const total = stats.length;
-    const avgR = stats.reduce((a, s) => a + s.rate, 0) / total;
+    // 상단 KPI와 동일한 공식: 전체 현재실적 합계 ÷ 전체 기준실적 합계
+    const _sumBase = stats.reduce((a, s) => a + s.base, 0);
+    const _sumCurrent = stats.reduce((a, s) => a + s.current, 0);
+    const avgR = _sumBase > 0 ? _sumCurrent / _sumBase * 100 : 0;
     const over5 = stats.filter((s) => s.net >= 50000).length;
     const _pgCohort = (state.filter.cohort || state.progressCohort || "").replace(/기$/, "");
     const _pgStep   = state.filter.step || state.progressStep || "1";
@@ -11719,7 +11722,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260626b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260626c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
