@@ -556,6 +556,24 @@ body {
 .pg-goal-adj-btn:hover { background: #c7d2fe; }
 .pg-goal-pending .pg-goal-val { color: #b45309; }
 .pg-goal-pending { background: #fffbeb !important; }
+.pg-current-cell { white-space: nowrap; }
+.pg-current-edit-btn {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  color: #15803d;
+  cursor: pointer;
+  vertical-align: middle;
+  opacity: 0.6;
+}
+.pg-current-edit-btn:hover { opacity: 1; background: #dcfce7; }
+.pg-current-pending .pg-current-val { color: #b45309; font-weight: 700; }
+.pg-current-pending { background: #fffbeb !important; }
 .pg-goal-adj-popup {
   position: fixed;
   z-index: 9000;
