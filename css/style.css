@@ -3997,6 +3997,19 @@ body {
 .pg-tbl tr:nth-child(even) td { background: #F7FAFD; }
 .pg-tbl tr.pg-tr-click { cursor: pointer; }
 .pg-tbl tr.pg-tr-click:hover td { background: var(--orange-light); }
+.pg-sum-row td {
+  background: #1e3a5f !important;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 12px;
+  border-top: 2px solid #0f2440;
+}
+.pg-sum-row td.pg-net-p { color: #86efac !important; }
+.pg-sum-row td.pg-net-m { color: #fca5a5 !important; }
+.pg-sum-row td.pg-c-over { color: #93c5fd !important; }
+.pg-sum-row td.pg-c-good { color: #86efac !important; }
+.pg-sum-row td.pg-c-mid  { color: #fde68a !important; }
+.pg-sum-row td.pg-c-low  { color: #fca5a5 !important; }
 .pg-c-over { color: #0040b0; font-weight: 900; }
 .pg-c-good { color: #006030; font-weight: 700; }
 .pg-c-mid { color: #884400; font-weight: 600; }
