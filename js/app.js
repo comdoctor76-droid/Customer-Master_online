@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.89";
+  const APP_VERSION = "2.90";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5709,7 +5709,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const rateDisp     = masterGoal > 0 ? masterRate.toFixed(1) + "%"    : "—";
               const baseRateDisp = st.base > 0    ? baseRate.toFixed(1) + "%"      : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r">${Nf(st.current)}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span><button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
           </table></div>
         </div>
@@ -6817,6 +6817,7 @@ ${piPagesHtml}`;
 
     // 마스터목표 개별조정 팝업 (한 번만 생성)
     if (!state._pgTblPendingGoals) state._pgTblPendingGoals = new Map();
+    if (!state._pgTblPendingCurrents) state._pgTblPendingCurrents = new Map();
     let adjPopup = document.getElementById("pg-goal-adj-popup");
     if (!adjPopup) {
       adjPopup = document.createElement("div");
@@ -6868,6 +6869,20 @@ ${piPagesHtml}`;
       if (saveBtn2) saveBtn2.hidden = false;
     }
 
+    // 기존 현재실적 pending 재적용
+    if (state._pgTblPendingCurrents && state._pgTblPendingCurrents.size > 0) {
+      state._pgTblPendingCurrents.forEach(({ newCurrent }, emp) => {
+        const td = document.querySelector(`#pg-full-tbl-card td.pg-current-cell[data-emp="${emp}"]`);
+        if (td) {
+          const valSpan = td.querySelector(".pg-current-val");
+          if (valSpan) valSpan.textContent = Nf(newCurrent);
+          td.classList.add("pg-current-pending");
+        }
+      });
+      const saveBtn3 = document.getElementById("btn-pg-tbl-save");
+      if (saveBtn3) saveBtn3.hidden = false;
+    }
+
     // ± 버튼 이벤트 (매 렌더마다 바인딩)
     document.querySelectorAll("#pg-full-tbl-card .pg-goal-adj-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -6889,26 +6904,91 @@ ${piPagesHtml}`;
       });
     });
 
+    // ✏️ 현재실적 편집 버튼 이벤트 (매 렌더마다 바인딩)
+    document.querySelectorAll("#pg-full-tbl-card .pg-current-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const td = btn.closest("td");
+        if (!td || td.querySelector("input.pg-current-input")) return;
+        const valSpan = td.querySelector(".pg-current-val");
+        const emp = btn.dataset.emp;
+        const curVal = state._pgTblPendingCurrents && state._pgTblPendingCurrents.has(emp)
+          ? state._pgTblPendingCurrents.get(emp).newCurrent
+          : Number(btn.dataset.current) || 0;
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.className = "pg-current-input";
+        inp.value = curVal;
+        inp.style.cssText = "width:90px;font-size:12px;text-align:right;padding:1px 2px;";
+        if (valSpan) valSpan.replaceWith(inp);
+        btn.style.display = "none";
+        inp.focus();
+        inp.select();
+        const commit = () => {
+          const newVal = Math.max(0, Math.round(Number(inp.value) || 0));
+          if (!state._pgTblPendingCurrents) state._pgTblPendingCurrents = new Map();
+          state._pgTblPendingCurrents.set(emp, { newCurrent: newVal });
+          const span = document.createElement("span");
+          span.className = "pg-current-val";
+          span.textContent = Nf(newVal);
+          inp.replaceWith(span);
+          btn.style.display = "";
+          td.classList.add("pg-current-pending");
+          const sv = document.getElementById("btn-pg-tbl-save");
+          if (sv) sv.hidden = false;
+        };
+        inp.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") { ev.preventDefault(); commit(); }
+          if (ev.key === "Escape") {
+            const span = document.createElement("span");
+            span.className = "pg-current-val";
+            span.textContent = Nf(curVal);
+            inp.replaceWith(span);
+            btn.style.display = "";
+          }
+        });
+        inp.addEventListener("blur", commit);
+      });
+    });
+
     // 저장 버튼
     const saveBtn = document.getElementById("btn-pg-tbl-save");
     if (saveBtn) {
       saveBtn.addEventListener("click", async () => {
-        if (!state._pgTblPendingGoals || state._pgTblPendingGoals.size === 0) return;
+        if ((!state._pgTblPendingGoals || state._pgTblPendingGoals.size === 0) && (!state._pgTblPendingCurrents || state._pgTblPendingCurrents.size === 0)) return;
         saveBtn.disabled = true;
         saveBtn.textContent = "저장 중...";
         try {
-          const updates = [];
-          state._pgTblPendingGoals.forEach(({ newGoal }, empNo) => {
-            const s = state.students.find((x) => x.empNo === empNo);
-            if (s) updates.push({ ...s, target: newGoal });
-          });
+          const updMap = new Map();
+          if (state._pgTblPendingGoals) {
+            state._pgTblPendingGoals.forEach(({ newGoal }, empNo) => {
+              const s = state.students.find((x) => x.empNo === empNo);
+              if (s) updMap.set(empNo, { ...s, target: newGoal });
+            });
+          }
+          if (state._pgTblPendingCurrents) {
+            const sfx = _pgStepSfx();
+            const curField = sfx ? `pgCurrent${sfx}` : "pgCurrent";
+            state._pgTblPendingCurrents.forEach(({ newCurrent }, empNo) => {
+              const existing = updMap.get(empNo);
+              if (existing) {
+                updMap.set(empNo, { ...existing, [curField]: newCurrent });
+              } else {
+                const s = state.students.find((x) => x.empNo === empNo);
+                if (s) updMap.set(empNo, { ...s, [curField]: newCurrent });
+              }
+            });
+          }
+          const updates = Array.from(updMap.values());
           if (updates.length > 0) {
             if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(updates);
             else for (const r of updates) await window.DataAPI.save(r);
           }
-          state._pgTblPendingGoals.clear();
+          if (state._pgTblPendingGoals) state._pgTblPendingGoals.clear();
+          if (state._pgTblPendingCurrents) state._pgTblPendingCurrents.clear();
           saveBtn.hidden = true;
           document.querySelectorAll("#pg-full-tbl-card td.pg-goal-pending").forEach((td) => td.classList.remove("pg-goal-pending"));
+          document.querySelectorAll("#pg-full-tbl-card td.pg-current-pending").forEach((td) => td.classList.remove("pg-current-pending"));
         } catch (err) {
           alert("저장 실패: " + (err.message || err));
         } finally {
@@ -11722,7 +11802,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260626c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260630a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
