@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.90";
+  const APP_VERSION = "2.91";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5711,6 +5711,30 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
               return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span><button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
+            ${(() => {
+              const _tBase    = byMasterRate.reduce((a, st) => a + st.base, 0);
+              const _tCurrent = byMasterRate.reduce((a, st) => a + st.current, 0);
+              const _tGoal    = byMasterRate.reduce((a, st) => a + (Number(st.s.target) > 0 ? Number(st.s.target) : st.base), 0);
+              const _tMNet    = _tCurrent - _tGoal;
+              const _tBNet    = _tCurrent - _tBase;
+              const _tMRate   = _tGoal > 0 ? (_tCurrent / _tGoal * 100) : 0;
+              const _tBRate   = _tBase > 0 ? (_tCurrent / _tBase * 100) : 0;
+              const _tmC = _tMNet > 0 ? "pg-net-p" : _tMNet < 0 ? "pg-net-m" : "";
+              const _tbC = _tBNet > 0 ? "pg-net-p" : _tBNet < 0 ? "pg-net-m" : "";
+              const _tnc = _tMRate >= 120 ? "pg-c-over" : _tMRate >= 100 ? "pg-c-good" : _tMRate >= 80 ? "pg-c-mid" : "pg-c-low";
+              const _tbc = _tBRate >= 120 ? "pg-c-over" : _tBRate >= 100 ? "pg-c-good" : _tBRate >= 80 ? "pg-c-mid" : "pg-c-low";
+              return `<tfoot><tr class="pg-sum-row">
+                <td colspan="4">합계 (${byMasterRate.length}명)</td>
+                <td class="r">${Nf(_tBase)}</td>
+                <td class="r">${Nf(_tCurrent)}</td>
+                <td class="r">${Nf(_tGoal)}</td>
+                <td class="${_tnc}">${_tMRate.toFixed(1)}%</td>
+                <td class="r ${_tmC}">${_tMNet >= 0 ? "+" : ""}${Nf(_tMNet)}</td>
+                <td class="${_tbc}">${_tBRate.toFixed(1)}%</td>
+                <td class="r ${_tbC}">${_tBNet >= 0 ? "+" : ""}${Nf(_tBNet)}</td>
+                <td colspan="2"></td>
+              </tr></tfoot>`;
+            })()}
           </table></div>
         </div>
       </div>
@@ -11802,7 +11826,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260630a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260630b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
