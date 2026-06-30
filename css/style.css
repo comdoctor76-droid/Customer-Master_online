@@ -574,6 +574,24 @@ body {
 .pg-current-edit-btn:hover { opacity: 1; background: #dcfce7; }
 .pg-current-pending .pg-current-val { color: #b45309; font-weight: 700; }
 .pg-current-pending { background: #fffbeb !important; }
+.pg-expected-cell { white-space: nowrap; }
+.pg-expected-edit-btn {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+  color: #1d4ed8;
+  cursor: pointer;
+  vertical-align: middle;
+  opacity: 0.6;
+}
+.pg-expected-edit-btn:hover { opacity: 1; background: #dbeafe; }
+.pg-expected-pending .pg-expected-val { color: #7c3aed; font-weight: 700; }
+.pg-expected-pending { background: #f5f3ff !important; }
 .pg-goal-adj-popup {
   position: fixed;
   z-index: 9000;

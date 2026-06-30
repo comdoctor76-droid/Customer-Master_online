@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.92";
+  const APP_VERSION = "2.93";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -2139,13 +2139,23 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     // 현재실적: 실적진도현황 pgCurrent 우선, 없으면 s.curAct 복원
     const curActEl = $("#iv-curAct");
+    const { current: _ivCurrent } = getProgressStat(s);
     if (curActEl && !curActEl.value) {
-      const { current } = getProgressStat(s);
-      if (current > 0) {
-        curActEl.value = current;
+      if (_ivCurrent > 0) {
+        curActEl.value = _ivCurrent;
       } else if (Number(s.curAct) > 0) {
         curActEl.value = Math.round(Number(s.curAct));
       }
+    }
+
+    // 예상실적(2차마감): pgExpected 값이 현재실적보다 크면 그 값, 아니면 현재실적
+    const close2El = $("#iv-close2");
+    if (close2El && !close2El.value) {
+      const _sfx = _pgStepSfx();
+      const _expF = _sfx ? `pgExpected${_sfx}` : "pgExpected";
+      const _rawExp = Number(s[_expF] || 0);
+      const _fillExp = _rawExp > _ivCurrent ? _rawExp : _ivCurrent;
+      if (_fillExp > 0) close2El.value = _fillExp;
     }
 
     calcIvPct();
@@ -2320,6 +2330,19 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         window.DataAPI.updateStudentInsAvg(empNo, rec.ins).catch((e) => {
           console.warn("[insAvg sync]", e);
         });
+      }
+      // 예상실적(2차마감) 변경 시 학생 레코드 pgExpected 동기화
+      if (rec.close2 > 0) {
+        const _sfxIv = _pgStepSfx();
+        const _expFIv = _sfxIv ? `pgExpected${_sfxIv}` : "pgExpected";
+        const _curSt = state.students.find((x) => x.empNo === empNo);
+        if (_curSt) {
+          const _prevExp = Number(_curSt[_expFIv] || 0);
+          const { current: _ivCur } = getProgressStat(_curSt);
+          if (rec.close2 > _ivCur || rec.close2 !== _prevExp) {
+            window.DataAPI.save({ ..._curSt, [_expFIv]: rec.close2 }).catch((e) => console.warn("[pgExpected sync]", e));
+          }
+        }
       }
       // 팀(조) 번호 변경 시 학생 레코드에 저장
       // 팀(조) 번호: 값이 있을 때만 저장 — 빈 값으로는 기존 팀 데이터를 절대 덮어쓰지 않음
@@ -5599,6 +5622,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     state.pgPrintData = { byRate, byAmt, _pa, groupRanking, plan: _plan, stats,
       region: state.progressRegion, cohort: _pgCohort, step: _pgStep,
       hasAnyTeam, _rateFinalDedup, _byAmtDedup };
+    const _expSfx   = _pgStep === "1" ? "" : _pgStep;
+    const _expField = _expSfx ? `pgExpected${_expSfx}` : "pgExpected";
     return `
       <div class="pg-wrap">
         ${_shareBannerHtml}
@@ -5704,7 +5729,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th class="r" style="width:80px">예상<br>실적</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byMasterRate.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
@@ -5720,13 +5745,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const goalDisp     = masterGoal > 0 ? Nf(masterGoal)                 : "—";
               const rateDisp     = masterGoal > 0 ? masterRate.toFixed(1) + "%"    : "—";
               const baseRateDisp = st.base > 0    ? baseRate.toFixed(1) + "%"      : "—";
+              const rawExp = Number(st.s[_expField] || 0);
+              const expectedVal = rawExp > st.current ? rawExp : st.current;
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span><button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span><button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="r pg-expected-cell" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}"><span class="pg-expected-val">${Nf(expectedVal)}</span><button type="button" class="pg-expected-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
             ${(() => {
               const _tBase    = byMasterRate.reduce((a, st) => a + st.base, 0);
               const _tCurrent = byMasterRate.reduce((a, st) => a + st.current, 0);
               const _tGoal    = byMasterRate.reduce((a, st) => a + (Number(st.s.target) > 0 ? Number(st.s.target) : st.base), 0);
+              const _tExp     = byMasterRate.reduce((a, st) => { const re = Number(st.s[_expField] || 0); return a + (re > st.current ? re : st.current); }, 0);
               const _tMNet    = _tCurrent - _tGoal;
               const _tBNet    = _tCurrent - _tBase;
               const _tMRate   = _tGoal > 0 ? (_tCurrent / _tGoal * 100) : 0;
@@ -5744,6 +5772,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 <td class="r ${_tmC}">${_tMNet >= 0 ? "+" : ""}${Nf(_tMNet)}</td>
                 <td class="${_tbc}">${_tBRate.toFixed(1)}%</td>
                 <td class="r ${_tbC}">${_tBNet >= 0 ? "+" : ""}${Nf(_tBNet)}</td>
+                <td class="r">${Nf(_tExp)}</td>
                 <td colspan="2"></td>
               </tr></tfoot>`;
             })()}
@@ -6798,9 +6827,10 @@ ${piPagesHtml}`;
 
   function bindProgressHomeEvents(list) {
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
-      tr.addEventListener("click", () => {
+      tr.addEventListener("click", (e) => {
         if (state.pgShareMode) return;
         if (isStudentMode()) return;
+        if (e.target.closest(".pg-current-cell, .pg-expected-cell")) return;
         openProgressStudentPopup(tr.dataset.emp);
       });
     });
@@ -6854,6 +6884,7 @@ ${piPagesHtml}`;
     // 마스터목표 개별조정 팝업 (한 번만 생성)
     if (!state._pgTblPendingGoals) state._pgTblPendingGoals = new Map();
     if (!state._pgTblPendingCurrents) state._pgTblPendingCurrents = new Map();
+    if (!state._pgTblPendingExpecteds) state._pgTblPendingExpecteds = new Map();
     let adjPopup = document.getElementById("pg-goal-adj-popup");
     if (!adjPopup) {
       adjPopup = document.createElement("div");
@@ -6917,6 +6948,20 @@ ${piPagesHtml}`;
       });
       const saveBtn3 = document.getElementById("btn-pg-tbl-save");
       if (saveBtn3) saveBtn3.hidden = false;
+    }
+
+    // 기존 예상실적 pending 재적용
+    if (state._pgTblPendingExpecteds && state._pgTblPendingExpecteds.size > 0) {
+      state._pgTblPendingExpecteds.forEach(({ newExpected }, emp) => {
+        const td = document.querySelector(`#pg-full-tbl-card td.pg-expected-cell[data-emp="${emp}"]`);
+        if (td) {
+          const valSpan = td.querySelector(".pg-expected-val");
+          if (valSpan) valSpan.textContent = Nf(newExpected);
+          td.classList.add("pg-expected-pending");
+        }
+      });
+      const saveBtn4 = document.getElementById("btn-pg-tbl-save");
+      if (saveBtn4) saveBtn4.hidden = false;
     }
 
     // ± 버튼 이벤트 (매 렌더마다 바인딩)
@@ -6987,11 +7032,60 @@ ${piPagesHtml}`;
       });
     });
 
+    // ✏️ 예상실적 편집 버튼 이벤트 (매 렌더마다 바인딩)
+    document.querySelectorAll("#pg-full-tbl-card .pg-expected-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const td = btn.closest("td");
+        if (!td || td.querySelector("input.pg-expected-input")) return;
+        const valSpan = td.querySelector(".pg-expected-val");
+        const emp = btn.dataset.emp;
+        const curVal = state._pgTblPendingExpecteds && state._pgTblPendingExpecteds.has(emp)
+          ? state._pgTblPendingExpecteds.get(emp).newExpected
+          : Number(btn.dataset.expected) || 0;
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.className = "pg-expected-input";
+        inp.value = curVal;
+        inp.style.cssText = "width:90px;font-size:12px;text-align:right;padding:1px 2px;";
+        if (valSpan) valSpan.replaceWith(inp);
+        btn.style.display = "none";
+        inp.focus();
+        inp.select();
+        const commit = () => {
+          const rawNew = Math.max(0, Math.round(Number(inp.value) || 0));
+          const curCurrent = Number(btn.dataset.current) || 0;
+          const newExpected = rawNew > 0 ? rawNew : curCurrent;
+          if (!state._pgTblPendingExpecteds) state._pgTblPendingExpecteds = new Map();
+          state._pgTblPendingExpecteds.set(emp, { newExpected });
+          const span = document.createElement("span");
+          span.className = "pg-expected-val";
+          span.textContent = Nf(newExpected);
+          inp.replaceWith(span);
+          btn.style.display = "";
+          td.classList.add("pg-expected-pending");
+          const sv = document.getElementById("btn-pg-tbl-save");
+          if (sv) sv.hidden = false;
+        };
+        inp.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") { ev.preventDefault(); commit(); }
+          if (ev.key === "Escape") {
+            const span = document.createElement("span");
+            span.className = "pg-expected-val";
+            span.textContent = Nf(curVal);
+            inp.replaceWith(span);
+            btn.style.display = "";
+          }
+        });
+        inp.addEventListener("blur", commit);
+      });
+    });
+
     // 저장 버튼
     const saveBtn = document.getElementById("btn-pg-tbl-save");
     if (saveBtn) {
       saveBtn.addEventListener("click", async () => {
-        if ((!state._pgTblPendingGoals || state._pgTblPendingGoals.size === 0) && (!state._pgTblPendingCurrents || state._pgTblPendingCurrents.size === 0)) return;
+        if ((!state._pgTblPendingGoals || state._pgTblPendingGoals.size === 0) && (!state._pgTblPendingCurrents || state._pgTblPendingCurrents.size === 0) && (!state._pgTblPendingExpecteds || state._pgTblPendingExpecteds.size === 0)) return;
         saveBtn.disabled = true;
         saveBtn.textContent = "저장 중...";
         try {
@@ -7015,6 +7109,19 @@ ${piPagesHtml}`;
               }
             });
           }
+          if (state._pgTblPendingExpecteds) {
+            const sfx = _pgStepSfx();
+            const expField = sfx ? `pgExpected${sfx}` : "pgExpected";
+            state._pgTblPendingExpecteds.forEach(({ newExpected }, empNo) => {
+              const existing = updMap.get(empNo);
+              if (existing) {
+                updMap.set(empNo, { ...existing, [expField]: newExpected });
+              } else {
+                const s = state.students.find((x) => x.empNo === empNo);
+                if (s) updMap.set(empNo, { ...s, [expField]: newExpected });
+              }
+            });
+          }
           const updates = Array.from(updMap.values());
           if (updates.length > 0) {
             if (typeof window.DataAPI.saveMany === "function") await window.DataAPI.saveMany(updates);
@@ -7022,9 +7129,11 @@ ${piPagesHtml}`;
           }
           if (state._pgTblPendingGoals) state._pgTblPendingGoals.clear();
           if (state._pgTblPendingCurrents) state._pgTblPendingCurrents.clear();
+          if (state._pgTblPendingExpecteds) state._pgTblPendingExpecteds.clear();
           saveBtn.hidden = true;
           document.querySelectorAll("#pg-full-tbl-card td.pg-goal-pending").forEach((td) => td.classList.remove("pg-goal-pending"));
           document.querySelectorAll("#pg-full-tbl-card td.pg-current-pending").forEach((td) => td.classList.remove("pg-current-pending"));
+          document.querySelectorAll("#pg-full-tbl-card td.pg-expected-pending").forEach((td) => td.classList.remove("pg-expected-pending"));
         } catch (err) {
           alert("저장 실패: " + (err.message || err));
         } finally {
@@ -11838,7 +11947,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260630c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260630d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
