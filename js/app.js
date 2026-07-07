@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.93";
+  const APP_VERSION = "2.94";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11947,7 +11947,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260630d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -13411,10 +13411,46 @@ ${piPagesHtml}`;
       <div class="login-hint">💡 로그인은 사번, 비밀번호는 <strong>0000</strong>입니다</div>
       <button id="li-btn" class="login-btn">로 그 인</button>
       <div id="li-msg" class="login-msg"></div>
+      <button type="button" id="li-register-btn" class="login-register-btn">가입하기</button>
       <div class="login-bottom-row">
         <div class="login-credit">문의 : 호남지역단 이승학 전임강사</div>
         <button type="button" id="li-refresh" class="login-refresh-btn" title="새로고침">↺ 새로고침</button>
       </div>
+    </div>
+
+    <div class="login-box login-register-box" id="login-register-box" hidden>
+      <div class="login-brand-row">
+        <div class="login-logo">H</div>
+        <div class="login-brand-info">
+          <div class="login-brand-name">Hyundai Marine &amp; Fire</div>
+          <span class="login-brand-ver">회원가입</span>
+        </div>
+      </div>
+      <div class="login-title" style="font-size:17px">가입 신청</div>
+      <div class="login-sub" style="margin-bottom:12px">정보를 입력하고 신청하세요. 초기 비밀번호는 <strong>0000</strong>입니다.</div>
+      <div class="reg-field-group">
+        <label class="reg-label">이름 <span class="reg-req">*</span></label>
+        <input type="text" id="reg-name" class="login-input" placeholder="이름을 입력하세요" autocomplete="name">
+      </div>
+      <div class="reg-field-group">
+        <label class="reg-label">사번 <span class="reg-req">*</span></label>
+        <input type="text" id="reg-empno" class="login-input" placeholder="사번 (6자리)" maxlength="8" inputmode="text" autocomplete="username">
+      </div>
+      <div class="reg-field-group">
+        <label class="reg-label">전화번호</label>
+        <input type="tel" id="reg-phone" class="login-input" placeholder="010-0000-0000" autocomplete="tel">
+      </div>
+      <div class="reg-field-group">
+        <label class="reg-label">소속 (지점명)</label>
+        <input type="text" id="reg-branch" class="login-input" placeholder="예) 전남지점, 목포지점">
+      </div>
+      <div class="reg-field-group">
+        <label class="reg-label">직책</label>
+        <input type="text" id="reg-jobtitle" class="login-input" placeholder="예) 설계사, 팀장, 지점장">
+      </div>
+      <button id="reg-submit-btn" class="login-btn" style="margin-top:4px">신 청 하 기</button>
+      <div id="reg-msg" class="login-msg"></div>
+      <button type="button" id="reg-back-btn" class="login-register-btn" style="margin-top:6px">← 로그인으로 돌아가기</button>
     </div>`;
     document.body.appendChild(ov);
     const empEl      = ov.querySelector("#li-empno");
@@ -13475,6 +13511,69 @@ ${piPagesHtml}`;
     ov.querySelector("#li-refresh").addEventListener("click", () => window.location.reload());
     // 저장된 사번이 있으면 비밀번호 입력란으로 바로 포커스
     setTimeout(() => { (savedEmpNo ? pwEl : empEl).focus(); }, 120);
+
+    // 가입하기 ↔ 로그인 전환
+    const loginBox     = ov.querySelector(".login-box:first-child");
+    const registerBox  = ov.querySelector("#login-register-box");
+    const regMsg       = ov.querySelector("#reg-msg");
+    ov.querySelector("#li-register-btn").addEventListener("click", () => {
+      loginBox.hidden = true;
+      registerBox.hidden = false;
+      ov.querySelector("#reg-name").focus();
+    });
+    ov.querySelector("#reg-back-btn").addEventListener("click", () => {
+      registerBox.hidden = true;
+      loginBox.hidden = false;
+      empEl.focus();
+    });
+
+    // 신청하기 처리
+    const regSubmit = ov.querySelector("#reg-submit-btn");
+    regSubmit.addEventListener("click", async () => {
+      const rName    = ov.querySelector("#reg-name").value.trim();
+      const rEmpNo   = ov.querySelector("#reg-empno").value.trim().replace(/[^a-zA-Z0-9]/g, "");
+      const rPhone   = ov.querySelector("#reg-phone").value.trim();
+      const rBranch  = ov.querySelector("#reg-branch").value.trim();
+      const rTitle   = ov.querySelector("#reg-jobtitle").value.trim();
+      if (!rName)  { regMsg.textContent = "이름을 입력해주세요."; regMsg.style.color = "#c0392b"; return; }
+      if (!rEmpNo) { regMsg.textContent = "사번을 입력해주세요."; regMsg.style.color = "#c0392b"; return; }
+      regSubmit.disabled = true; regSubmit.textContent = "처리 중...";
+      regMsg.textContent = "";
+      try {
+        // 이미 등록된 사번인지 확인
+        const existing = await window.DataAPI.getStudentByEmpNo(rEmpNo);
+        const existingAdmin = await window.DataAPI.getAdminByEmpNo(rEmpNo);
+        if (existing || existingAdmin) {
+          regMsg.textContent = "이미 등록된 사번입니다.";
+          regMsg.style.color = "#c0392b";
+          regSubmit.disabled = false; regSubmit.textContent = "신 청 하 기";
+          return;
+        }
+        await window.DataAPI.save({
+          empNo:    rEmpNo,
+          name:     rName,
+          phone:    rPhone,
+          branch:   rBranch,
+          jobTitle: rTitle,
+          region:   "",
+          cohort:   "",
+        });
+        regMsg.textContent = `✅ 가입 신청 완료! 사번 ${rEmpNo}, 초기 비밀번호 0000으로 로그인하세요.`;
+        regMsg.style.color = "#0f7b3c";
+        regSubmit.textContent = "신청 완료";
+        setTimeout(() => {
+          registerBox.hidden = true;
+          loginBox.hidden = false;
+          empEl.value = rEmpNo;
+          pwEl.value = "";
+          pwEl.focus();
+        }, 2500);
+      } catch (e) {
+        regMsg.textContent = "오류: " + (e.message || "저장 실패");
+        regMsg.style.color = "#c0392b";
+        regSubmit.disabled = false; regSubmit.textContent = "신 청 하 기";
+      }
+    });
   }
 
   function _onLoginSuccess() {
