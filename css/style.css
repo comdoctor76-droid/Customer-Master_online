@@ -4044,6 +4044,9 @@ body {
 .pg-goal-cell span { font-weight: 700; color: #4A148C; }
 /* 스크롤 힌트 — 데스크탑에서는 숨김 */
 .pg-tbl-scroll-hint { display: none; font-size: 11px; color: #888; text-align: center; margin: 2px 0 4px; }
+/* 공지하기 버튼: 모바일/PC 텍스트 분리 */
+.pg-notice-btn-mobile { display: none; }
+.pg-notice-btn-desktop { display: inline; }
 .pg-full-tbl-toggle { display: none; }
 .pg-bdg {
   display: inline-block;
@@ -4679,6 +4682,9 @@ body {
   .pg-full-tbl-toggle { display: inline-block !important; }
   /* 스크롤 힌트 표시 */
   .pg-tbl-scroll-hint { display: block; }
+  /* 공지하기 버튼 텍스트 모바일 전환 */
+  .pg-notice-btn-mobile { display: inline; }
+  .pg-notice-btn-desktop { display: none; }
   /* 모바일 간략표: 성명·기준실적·현재실적·마스터목표·마스터달성률·시상만 표시 */
   .pg-full-rank-tbl thead th:nth-child(1),
   .pg-full-rank-tbl tbody td:nth-child(1) { display: none; }  /* 순위 */

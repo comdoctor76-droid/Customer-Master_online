@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.97";
+  const APP_VERSION = "2.98";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5715,7 +5715,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small class="pg-desktop-only">(시상확정↓시상금액순 · 미확정↓마스터달성률순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle">펼쳐보기</button>
             ${!state.pgShareMode && !isStudentMode() ? `<button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="font-size:12px;padding:4px 10px;">💾 변경 저장</button>` : ""}
-            ${!state.pgShareMode ? `<button type="button" class="btn-outline small" id="btn-pg-notice-share" style="margin-left:auto;font-size:12px;padding:4px 10px;">📢 공지하기</button>` : ""}
+            ${!state.pgShareMode ? `<button type="button" class="btn-outline small" id="btn-pg-notice-share" style="margin-left:auto;font-size:12px;padding:4px 10px;"><span class="pg-notice-btn-mobile">📢 카카오톡 공지하기</span><span class="pg-notice-btn-desktop">📢 공지하기</span></button>` : ""}
           </h4>
           <div class="pg-tbl-scroll-hint">← 좌우로 스크롤해서 볼 수 있습니다 →</div>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
@@ -6817,7 +6817,7 @@ ${piPagesHtml}`;
 
   async function shareProgressNotice() {
     const btn = document.getElementById("btn-pg-notice-share");
-    const orig = btn?.textContent;
+    const origHTML = btn?.innerHTML;
     if (btn) { btn.disabled = true; btn.textContent = "생성중..."; }
     try {
       if (typeof window.html2canvas !== "function") {
@@ -6833,6 +6833,13 @@ ${piPagesHtml}`;
       const pad = (n) => String(n).padStart(2, "0");
       const dateStr = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
       const scopeStr = [region.replace(/지역단$|사업부$/,""), cohort, step ? `Step${step}` : ""].filter(Boolean).join(" · ");
+      // 파일명: 지역단명_과정기수_스텝_날자_교육생실적진도
+      const yy = String(now.getFullYear()).slice(2);
+      const cohortName = cohort ? (cohort.endsWith("기") ? cohort : cohort + "기") : "";
+      const stepName = step ? ("Step" + String(step).replace(/^[Ss]tep\s*/,"")) : "";
+      const dateShort = `${yy}.${pad(now.getMonth()+1)}.${pad(now.getDate())}`;
+      const filename = [region, cohortName, stepName, dateShort, "교육생실적진도"]
+        .filter(Boolean).join("_") + ".png";
       // A4 landscape width
       const A4W = 1050;
       const PHONE_COL = 12; // 전화번호 열 (0-indexed)
@@ -6850,11 +6857,10 @@ ${piPagesHtml}`;
         if (i === MASTER_COL) th.style.cssText = `background:#4A148C;color:#FFE082;padding:6px 4px;border:1px solid #7B1FA2;text-align:center;font-weight:900;font-size:13px;white-space:nowrap;`;
       });
       // tbody/tfoot 셀 스타일
-      Array.from(clone.querySelectorAll("tbody td, tfoot td")).forEach((td, _idx) => {
+      Array.from(clone.querySelectorAll("tbody td, tfoot td")).forEach((td) => {
         const base = `padding:5px 4px;border:1px solid #e0e0e0;text-align:center;font-size:12px;`;
         td.style.cssText = base + (td.style.cssText || "");
-        const colIdx = td.cellIndex;
-        if (colIdx === MASTER_COL) {
+        if (td.cellIndex === MASTER_COL) {
           td.style.cssText = base + `font-weight:900;color:#4A148C;background:#F3E5F5;`;
         }
       });
@@ -6862,32 +6868,44 @@ ${piPagesHtml}`;
         td.style.cssText = `padding:5px 4px;border:1px solid #374a7a;background:#1A2744;color:#fff;text-align:center;font-weight:700;font-size:12px;`;
       });
       clone.style.cssText = `width:100%;border-collapse:collapse;font-size:12px;`;
+      const footerDiv = document.createElement("div");
+      footerDiv.style.cssText = `margin-top:8px;font-size:11px;color:#666;text-align:right;`;
+      footerDiv.textContent = "전일 마감 실적 기준 입니다";
       const wrap = document.createElement("div");
-      wrap.style.cssText = `position:fixed;left:-9999px;top:0;width:${A4W}px;background:#fff;padding:16px 20px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;box-sizing:border-box;`;
+      // position:absolute (fixed는 뷰포트에서 잘릴 수 있음)
+      wrap.style.cssText = `position:absolute;left:-9999px;top:0;width:${A4W}px;background:#fff;padding:16px 20px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;box-sizing:border-box;overflow:visible;`;
       const hdrDiv = document.createElement("div");
       hdrDiv.style.cssText = `background:linear-gradient(135deg,#1A2744,#2C3F6E);color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;`;
       hdrDiv.innerHTML = `<div style="font-size:17px;font-weight:900;">📊 전체 교육생 실적표</div><div style="font-size:12px;opacity:0.8;">${escapeHtml(scopeStr)} · ${dateStr}</div>`;
       wrap.appendChild(hdrDiv);
       wrap.appendChild(clone);
+      wrap.appendChild(footerDiv);
       document.body.appendChild(wrap);
-      await new Promise(r => setTimeout(r, 100));
+      // 레이아웃 계산 대기 (더 긴 대기로 전체 행 렌더링 보장)
+      await new Promise(r => setTimeout(r, 200));
+      const totalH = wrap.scrollHeight;
       const canvas = await window.html2canvas(wrap, {
         scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
-        width: A4W, height: wrap.scrollHeight,
-        windowWidth: A4W, windowHeight: wrap.scrollHeight
+        width: A4W, height: totalH,
+        windowWidth: A4W + 200, windowHeight: totalH + 200,
+        scrollX: 0, scrollY: 0
       });
       document.body.removeChild(wrap);
-      const filename = `실적표_${scopeStr.replace(/[·\s]/g,"_")}_${dateStr.replace(/[.: ]/g,"").replace(/:/g,"")}.png`;
       const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
       const file = new File([blob], filename, { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "전체 교육생 실적표" });
+      const isMobile = navigator.canShare && navigator.canShare({ files: [file] });
+      if (isMobile) {
+        await navigator.share({
+          files: [file],
+          title: "전체 교육생 실적표",
+          text: "전일 마감 실적 기준 입니다"
+        });
       } else {
         const link = document.createElement("a");
         link.download = filename;
         link.href = canvas.toDataURL("image/png");
         link.click();
-        toast("이미지가 저장되었습니다. 카카오톡에서 직접 공유하세요.", "success");
+        toast(`이미지가 저장되었습니다. (${filename})`, "success");
       }
     } catch (e) {
       if (e?.name !== "AbortError") {
@@ -6895,7 +6913,7 @@ ${piPagesHtml}`;
         toast("공유 중 오류: " + e.message, "error");
       }
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = orig; }
+      if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
     }
   }
 
@@ -12027,7 +12045,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260708a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
