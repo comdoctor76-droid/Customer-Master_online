@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.94";
+  const APP_VERSION = "2.95";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -3884,7 +3884,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 
     const pgCurrent = Number(student.pgCurrent || 0);
     const pgBase = Number(student.base || 0);
-    const net = Math.max(0, pgCurrent - pgBase);
+    const masterGoal = Number(student.target || 0) > 0 ? Number(student.target) : pgBase;
+    const netFromBase = Math.max(0, pgCurrent - pgBase);
+    const net = pgCurrent - masterGoal;
     const rate = pgBase > 0 ? pgCurrent / pgBase * 100 : 0;
     const fmtRaw = (v) => Math.round(v).toLocaleString() + "원";
     const fmtPct = (v) => v.toFixed(1) + "%";
@@ -3892,16 +3894,17 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const cohortLabel = opts.cohort ? `${opts.cohort}기` : "";
     const stepLabel = opts.step ? `Step ${opts.step}` : "Step 1";
     const cohortStepLabel = [cohortLabel, stepLabel].filter(Boolean).join(" · ");
-    const hdrTitle = `🏆 ${escapeHtml(vcShort || region.replace(/지역단$|사업부$/, ""))} 시상 예상답안지`;
+    const hdrTitle = `🏆 ${escapeHtml(sName)}님 시상 예상답안지`;
 
     // 실적 현황
     const netColor = net > 0 ? "#1B5E20" : "#C62828";
     const rateColor = rate >= 100 ? "#1B5E20" : "#C62828";
-    const perfHtml = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:9px;">
-      <div class="info-card"><div class="info-lbl">기준실적</div><div class="info-val" style="font-size:12px;">${fmtRaw(pgBase)}</div></div>
-      <div class="info-card"><div class="info-lbl">현재실적</div><div class="info-val" style="font-size:12px;">${fmtRaw(pgCurrent)}</div></div>
-      <div class="info-card"><div class="info-lbl">순증</div><div class="info-val" style="font-size:12px;color:${netColor};">${net !== 0 ? (net > 0 ? "+" : "") : ""}${fmtRaw(net)}</div></div>
-      <div class="info-card"><div class="info-lbl">달성률</div><div class="info-val" style="font-size:12px;color:${rateColor};">${pgBase > 0 ? fmtPct(rate) : "—"}</div></div>
+    const perfHtml = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:9px;">
+      <div class="info-card"><div class="info-lbl">기준실적</div><div class="info-val" style="font-size:15px;">${fmtRaw(pgBase)}</div></div>
+      <div class="info-card"><div class="info-lbl">현재실적</div><div class="info-val" style="font-size:15px;">${fmtRaw(pgCurrent)}</div></div>
+      <div class="info-card"><div class="info-lbl">마스터목표</div><div class="info-val" style="font-size:15px;">${fmtRaw(masterGoal)}</div></div>
+      <div class="info-card"><div class="info-lbl">순증(마스터대비)</div><div class="info-val" style="font-size:15px;color:${netColor};">${net >= 0 ? "+" : ""}${fmtRaw(net)}</div></div>
+      <div class="info-card"><div class="info-lbl">달성률</div><div class="info-val" style="font-size:15px;color:${rateColor};">${pgBase > 0 ? fmtPct(rate) : "—"}</div></div>
     </div>`;
 
     // 개인순증시상 — 전 구간 표시, 달성 구간 강조
@@ -3959,7 +3962,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const amtPayouts = ac.payouts || [];
       const rateRank = opts.rateRank;
       const netRank = opts.netRank;
-      const rateQualify = hasRate && rateRank && rateRank <= rateN;
+      // 신장률 순위는 순증(기준실적 대비) 30만원 이상인 경우만 인정
+      const rateRankEff = (netFromBase >= 300000) ? rateRank : undefined;
+      const rateQualify = hasRate && rateRankEff && rateRankEff <= rateN;
       const amtQualify = hasAmt && netRank && netRank <= amtN;
 
       // 상태 행 (달성/미달성 통합)
@@ -3968,8 +3973,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         const parts = [];
         const mainPrizeArr = [];
         if (rateQualify) {
-          const prz = ratePayouts[rateRank - 1];
-          parts.push(`📈 신장률 ${rateRank}위`);
+          const prz = ratePayouts[rateRankEff - 1];
+          parts.push(`📈 신장률 ${rateRankEff}위`);
           if (prz) mainPrizeArr.push(escapeHtml(payoutLabel(prz)));
         }
         if (amtQualify) {
@@ -3979,7 +3984,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         }
         const critParts = [];
         if (hasRate) critParts.push(`달성률 ${pgBase > 0 ? fmtPct(rate) : "—"}`);
-        if (hasAmt) critParts.push(`순증 +${fmtRaw(net)}`);
+        if (hasAmt) critParts.push(`순증 +${fmtRaw(netFromBase)}`);
         statusHtml = `<div class="hl-row">
           <span class="hl-icon">🏆</span>
           <div class="hl-info">
@@ -3989,10 +3994,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="hl-amt" style="font-size:22px;text-align:right;line-height:1.4;">${mainPrizeArr.join("<br>")}</div>
         </div>`;
       } else {
-        const statusParts = [];
-        if (hasRate) statusParts.push(rateRank ? `신장률 현재 ${rateRank}위 (상위 ${rateN}위 필요)` : "신장률 순위 미확인");
-        if (hasAmt) statusParts.push(netRank ? `신장액 현재 ${netRank}위 (상위 ${amtN}위 필요)` : "신장액 순위 미확인");
-        statusHtml = `<div class="hl-none">미해당 — ${statusParts.join(" / ")}</div>`;
+        statusHtml = `<div class="hl-none">미해당 — ${hasRate ? "신장률" : ""}${hasRate && hasAmt ? " / " : ""}${hasAmt ? "신장액" : ""} 시상 조건 미충족</div>`;
       }
 
       // 합산 순위 테이블
@@ -4000,29 +4002,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       const amtTh = hasAmt ? `<th>💰 신장액 시상</th>` : "";
       const tableRows = Array.from({ length: maxN }, (_, i) => {
         const rankNo = i + 1;
-        const isMyRate = hasRate && rateRank === rankNo;
-        const isMyAmt = hasAmt && netRank === rankNo;
+        const isMyRate = hasRate && rateRankEff === rankNo && rateQualify;
+        const isMyAmt = hasAmt && netRank === rankNo && amtQualify;
         const isHit = isMyRate || isMyAmt;
         const rankMark = isMyRate && isMyAmt ? " ✔" : isMyRate ? " 📈" : isMyAmt ? " 💰" : "";
         const rCell = hasRate ? `<td style="${isMyRate ? "font-weight:900;" : ""}font-size:13px;">${rankNo <= rateN ? (ratePayouts[i] ? escapeHtml(payoutLabel(ratePayouts[i])) : "—") : ""}</td>` : "";
         const aCell = hasAmt ? `<td style="${isMyAmt ? "font-weight:900;color:#1B5E20;" : ""}font-size:13px;">${rankNo <= amtN ? (amtPayouts[i] ? escapeHtml(payoutLabel(amtPayouts[i])) : "—") : ""}</td>` : "";
         return `<tr ${isHit ? 'class="up-next"' : ""}><td style="font-size:13px;${isHit ? "font-weight:900;" : ""}">${rankNo}위${rankMark}</td>${rCell}${aCell}</tr>`;
       }).join("");
-      let curRows = "";
-      if (hasRate && !rateQualify && rateRank) {
-        curRows += `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
-          <td style="color:#E65100;font-weight:800;">▶ 신장률 ${rateRank}위</td>
-          <td style="color:#E65100;">달성률 ${pgBase > 0 ? fmtPct(rate) : "—"} (${rateN}위 이내 필요)</td>
-          ${hasAmt ? "<td></td>" : ""}
-        </tr>`;
-      }
-      if (hasAmt && !amtQualify && netRank) {
-        curRows += `<tr style="border-top:2px dashed #bbb;background:#FFF8E1;">
-          <td style="color:#E65100;font-weight:800;">▶ 신장액 ${netRank}위</td>
-          ${hasRate ? "<td></td>" : ""}
-          <td style="color:#E65100;">순증 +${fmtRaw(net)} (${amtN}위 이내 필요)</td>
-        </tr>`;
-      }
       const sTitle = hasRate && hasAmt ? "📈💰 신장률 · 신장액 시상"
         : hasRate ? "📈 신장률시상" : "💰 신장액시상";
       const topLabel = hasRate && hasAmt ? `상위 ${rateN}위 / ${amtN}위`
@@ -4031,7 +4018,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         ${statusHtml}
         <table class="up-table" style="margin-top:4px;">
           <thead><tr><th>순위</th>${rateTh}${amtTh}</tr></thead>
-          <tbody>${tableRows}${curRows}</tbody>
+          <tbody>${tableRows}</tbody>
         </table>`;
     }
 
@@ -4157,11 +4144,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           <div class="hdr-date">${new Date().toLocaleDateString("ko-KR")} 기준</div>
         </div>
         <div class="info-row1" style="grid-template-columns:repeat(5,1fr);">
-          <div class="info-card key"><div class="info-lbl">지역단</div><div class="info-val" style="font-size:13px;">${escapeHtml(region.replace(/지역단$|사업부$/, ""))}</div></div>
-          <div class="info-card key"><div class="info-lbl">비전센터</div><div class="info-val" style="font-size:13px;">${escapeHtml(vcShort)}</div></div>
-          <div class="info-card key"><div class="info-lbl">지점</div><div class="info-val" style="font-size:13px;">${escapeHtml(branchShort)}</div></div>
-          <div class="info-card key"><div class="info-lbl">성명</div><div class="info-val" style="font-size:16px;">${escapeHtml(sName)}</div></div>
-          <div class="info-card"><div class="info-lbl">기수·스텝</div><div class="info-val" style="font-size:12px;">${escapeHtml(cohortStepLabel)}</div></div>
+          <div class="info-card key"><div class="info-lbl">지역단</div><div class="info-val" style="font-size:16px;">${escapeHtml(region.replace(/지역단$|사업부$/, ""))}</div></div>
+          <div class="info-card key"><div class="info-lbl">비전센터</div><div class="info-val" style="font-size:16px;">${escapeHtml(vcShort)}</div></div>
+          <div class="info-card key"><div class="info-lbl">지점</div><div class="info-val" style="font-size:16px;">${escapeHtml(branchShort)}</div></div>
+          <div class="info-card key"><div class="info-lbl">성명</div><div class="info-val" style="font-size:20px;">${escapeHtml(sName)}</div></div>
+          <div class="info-card"><div class="info-lbl">기수·스텝</div><div class="info-val" style="font-size:15px;">${escapeHtml(cohortStepLabel)}</div></div>
         </div>
         ${perfHtml}
         ${piSection}
@@ -11947,7 +11934,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
