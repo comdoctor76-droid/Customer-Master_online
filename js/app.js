@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.96";
+  const APP_VERSION = "2.97";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5611,6 +5611,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       hasAnyTeam, _rateFinalDedup, _byAmtDedup };
     const _expSfx   = _pgStep === "1" ? "" : _pgStep;
     const _expField = _expSfx ? `pgExpected${_expSfx}` : "pgExpected";
+    const _canEdit  = !state.pgShareMode && !isStudentMode();
     return `
       <div class="pg-wrap">
         ${_shareBannerHtml}
@@ -5711,11 +5712,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
 
         <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
-          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small>(시상확정↓시상금액순 · 미확정↓마스터달성률순, 클릭 시 상세)</small>
+          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small class="pg-desktop-only">(시상확정↓시상금액순 · 미확정↓마스터달성률순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle">펼쳐보기</button>
-            <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="font-size:12px;padding:4px 10px;">💾 변경 저장</button>
-            <button type="button" class="btn-outline small" id="btn-pg-notice-share" style="margin-left:auto;font-size:12px;padding:4px 10px;">📢 공지하기</button>
+            ${!state.pgShareMode && !isStudentMode() ? `<button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="font-size:12px;padding:4px 10px;">💾 변경 저장</button>` : ""}
+            ${!state.pgShareMode ? `<button type="button" class="btn-outline small" id="btn-pg-notice-share" style="margin-left:auto;font-size:12px;padding:4px 10px;">📢 공지하기</button>` : ""}
           </h4>
+          <div class="pg-tbl-scroll-hint">← 좌우로 스크롤해서 볼 수 있습니다 →</div>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
             <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th class="r" style="width:80px">예상<br>실적</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byMasterRate.map((st, i) => {
@@ -5736,7 +5738,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const rawExp = Number(st.s[_expField] || 0);
               const expectedVal = rawExp > st.current ? rawExp : st.current;
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span><button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span><button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button></td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="r pg-expected-cell" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}"><span class="pg-expected-val">${Nf(expectedVal)}</span><button type="button" class="pg-expected-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button></td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span>${_canEdit ? `<button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button>` : ""}</td><td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span>${_canEdit ? `<button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button>` : ""}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="r pg-expected-cell" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}"><span class="pg-expected-val">${Nf(expectedVal)}</span>${_canEdit ? `<button type="button" class="pg-expected-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button>` : ""}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
             ${(() => {
               const _tBase    = byMasterRate.reduce((a, st) => a + st.base, 0);
@@ -6948,6 +6950,11 @@ ${piPagesHtml}`;
     const fullCard = document.getElementById("pg-full-tbl-card");
     const toggleBtn = document.getElementById("btn-pg-full-toggle");
     if (fullCard && toggleBtn) {
+      // 공유 링크 접속 시 모바일에서도 처음부터 펼쳐 보임
+      if (state.pgShareMode) {
+        fullCard.classList.add("show");
+        toggleBtn.textContent = "접기";
+      }
       toggleBtn.addEventListener("click", () => {
         fullCard.classList.toggle("show");
         toggleBtn.textContent = fullCard.classList.contains("show") ? "접기" : "펼쳐보기";
@@ -12020,7 +12027,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
