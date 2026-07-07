@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.98";
+  const APP_VERSION = "2.99";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7704,33 +7704,13 @@ ${piPagesHtml}`;
               <label><input type="radio" name="pg-global-step" value="2"> Step 2</label>
             </div>
             <div class="pg-paste-mode-btns">
-              <button class="btn-outline pg-paste-mode-btn active" data-mode="monthly">📊 총괄월별실적 붙여넣기</button>
-              <button class="btn-outline pg-paste-mode-btn" data-mode="progress">📈 실적진도현황 붙여넣기</button>
+              <button class="btn-outline pg-paste-mode-btn active" data-mode="progress">📈 실적진도현황 붙여넣기</button>
               <button class="btn-outline pg-paste-mode-btn" data-mode="honors">🏆 아너스목표 붙여넣기</button>
               <button class="btn-outline pg-paste-mode-btn" data-mode="ipum">✨ 인품실적 붙여넣기</button>
             </div>
 
-            <!-- 총괄월별실적 -->
-            <div id="pg-paste-mode-monthly" class="pg-admin-paste">
-              <div class="pg-paste-desc">"사번 장기하이캡 실적" 탭/공백으로 구분 (단위: 천원)</div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin:4px 0 6px;cursor:pointer">
-                <input type="checkbox" id="pg-monthly-bulk-chk">
-                <span>최초 붙여넣기 — 지역단·비전센터·지점·사번·성명 포함 전체형식 (헤더 자동인식, 미등록 교육생 신규 추가)</span>
-              </label>
-              <textarea id="pg-paste" rows="6" placeholder="예)
-1B1312	15,613	710
-986037	61,050	2,782
-9A1520	45,624	1,955
-9A1766	37,956	1,699"></textarea>
-              <div class="pg-actions">
-                <button class="btn-primary" id="btn-pg-paste-apply">📥 총괄월별실적 저장</button>
-                <button class="btn-outline small" id="btn-pg-paste-clear">🗑 초기화</button>
-                <span id="pg-paste-msg" class="pg-msg"></span>
-              </div>
-            </div>
-
             <!-- 실적진도현황 -->
-            <div id="pg-paste-mode-progress" class="pg-admin-paste" style="display:none">
+            <div id="pg-paste-mode-progress" class="pg-admin-paste">
               <div class="pg-paste-desc" id="pg-progress-paste-desc"><strong>[Step 1 저장]</strong> 지역단·비전센터·지점·사원번호·성명·위촉차월·기준실적·현재실적·계약건수·실적 (탭 구분, 금액단위: 원) — 헤더 포함 입력 권장</div>
               <textarea id="pg-progress-paste" rows="7" placeholder="지역단	비전센터	지점	사원번호	성명	위촉차월	기준실적	현재실적	계약건수	실적
 강북지역단	성동비전센터	강북수유지점	069563	권명숙	340	274273	199270	0	0
@@ -8082,11 +8062,9 @@ ${piPagesHtml}`;
         root.querySelectorAll(".pg-paste-mode-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         const mode = btn.dataset.mode;
-        const monthlyDiv = document.getElementById("pg-paste-mode-monthly");
         const progressDiv = document.getElementById("pg-paste-mode-progress");
         const honorsDiv  = document.getElementById("pg-paste-mode-honors");
         const ipumGlDiv  = document.getElementById("pg-paste-mode-ipum");
-        if (monthlyDiv)  monthlyDiv.style.display  = mode === "monthly"  ? "" : "none";
         if (progressDiv) progressDiv.style.display = mode === "progress" ? "" : "none";
         if (honorsDiv)   honorsDiv.style.display   = mode === "honors"   ? "" : "none";
         if (ipumGlDiv)   ipumGlDiv.style.display   = mode === "ipum"     ? "" : "none";
@@ -8107,180 +8085,6 @@ ${piPagesHtml}`;
         });
       });
     }
-
-    // 총괄월별실적 붙여넣기 반영 (사번 | 장기하이캡(천원) | 실적(천원) → 즉시 Firestore 저장)
-    const pasteApply = $("#btn-pg-paste-apply");
-    if (pasteApply) pasteApply.addEventListener("click", async () => {
-      const txt = $("#pg-paste").value;
-      const m = $("#pg-paste-msg");
-      // 공통 스텝 (Step 1 / Step 2) — 저장 필드 결정
-      const _pgGlobalStep = document.querySelector('input[name="pg-global-step"]:checked')?.value || "1";
-      const _sfxG = _pgGlobalStep === "2" ? "2" : "";
-      const _curField  = _sfxG ? `pgCurrent${_sfxG}`  : "current";
-      const _hicField  = _sfxG ? `hiCap${_sfxG}`      : "hiCap";
-
-      // ── 최초 붙여넣기 모드: 전체형식 (지역단·비전센터·지점·사번·성명·기준실적·현재실적 포함) ──
-      if (document.getElementById("pg-monthly-bulk-chk")?.checked) {
-        const _cohort = document.getElementById("pg-global-cohort-sel")?.value || "";
-        const lines = txt.split(/\r?\n/).filter((l) => l.trim());
-        if (!lines.length) { if (m) { m.textContent = "❌ 붙여넣을 내용이 없습니다."; m.className = "pg-msg err"; } return; }
-
-        const firstRow = lines[0].trim().split(/\t/).map((c) => c.trim());
-        const isHeader = firstRow.some((h) => Object.prototype.hasOwnProperty.call(PG_HEADER_AUTOMAP, h));
-        let dataLines, bulkMap;
-        if (isHeader) {
-          dataLines = lines.slice(1);
-          bulkMap = firstRow.map((h) => PG_HEADER_AUTOMAP[h] ?? "ignore");
-        } else {
-          dataLines = lines;
-          // 기본: 지역단(0)·비전센터(1)·지점(2)·사번(3)·성명(4)·위촉차월(5)·기준실적(6)·현재실적(7)·...
-          bulkMap = ["region", "center", "branch", "empNo", "name", "pgMonth", "pgBase", "pgCurrent", "ignore", "ignore"];
-        }
-        const getBC = (p, f) => { const i = bulkMap.indexOf(f); return i >= 0 ? (p[i] || "").trim() : ""; };
-        const getBA = (p, f) => { const i = bulkMap.indexOf(f); return i >= 0 ? parseInt((p[i] || "").replace(/,/g, ""), 10) || 0 : 0; };
-        const _ro = (pasted, stored) => {
-          if (!pasted) return stored || undefined;
-          if (!stored) return pasted;
-          if (stored.startsWith(pasted)) return stored;
-          if (pasted.startsWith(stored)) return pasted;
-          return stored;
-        };
-
-        const updateRecords = [], newRecords = [];
-        dataLines.forEach((line) => {
-          const p = line.trim().split(/\t/).map((c) => c.replace(/,/g, "").trim());
-          const empNo = getBC(p, "empNo").replace(/[/\\\s]/g, "");
-          if (!empNo) return;
-          const region = getBC(p, "region");
-          const center = getBC(p, "center");
-          const branch = getBC(p, "branch");
-          const name   = getBC(p, "name");
-          const pgBase    = getBA(p, "pgBase");
-          const pgCurrent = getBA(p, "pgCurrent");
-          const student = state.students.find((x) => x.empNo === empNo);
-          if (student) {
-            const centerUpd = center ? { center: _ro(center, student.center) } : {};
-            const branchUpd = branch ? { branch: _ro(branch, student.branch) } : {};
-            const nameUpd   = name   ? { name }   : {};
-            // Step 인식: Step 2면 hiCap2·pgCurrent2에 저장
-            const baseUpd = pgBase    > 0 ? { [_hicField]: pgBase, base: pgBase } : {};
-            const curUpd  = pgCurrent > 0 ? { [_curField]: pgCurrent } : {};
-            updateRecords.push({ ...student, ...centerUpd, ...branchUpd, ...nameUpd, ...baseUpd, ...curUpd });
-          } else {
-            newRecords.push({ region, center, branch, cohort: _cohort, empNo, name,
-              [_hicField]: pgBase, base: pgBase, [_curField]: pgCurrent });
-          }
-        });
-
-        if (updateRecords.length === 0 && newRecords.length === 0) {
-          if (m) { m.textContent = "❌ 매칭된 사번 없음. 헤더 포함 전체 형식 여부를 확인하세요."; m.className = "pg-msg err"; }
-          return;
-        }
-        if (m) m.textContent = "저장중...";
-        pasteApply.disabled = true;
-        if (updateRecords.length > 0) {
-          const { ok, failed } = await saveWithRetry(updateRecords, "총괄월별실적 저장");
-          let msg = ok > 0 ? `✅ ${ok}명 저장 완료` : "";
-          if (failed > 0) msg += (msg ? " · " : "") + `❌ ${failed}건 실패(팝업 확인)`;
-          if (newRecords.length) msg += (msg ? " · " : "") + `신규 ${newRecords.length}명 확인 필요`;
-          if (m) { m.textContent = msg; m.className = failed > 0 ? "pg-msg err" : "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 8000); }
-          if (ok > 0) { toast(`${ok}명 총괄월별실적 저장`, "success"); renderDebounced(); }
-        }
-        if (newRecords.length > 0) openPgNewStudentModal(newRecords);
-        pasteApply.disabled = false;
-        return;
-      }
-
-      const _pasteRgn = document.getElementById("pg-global-region-sel")?.value || "";
-      const records = [];
-      const unmatched = [];
-      const crossRegionItems = []; // 다른 지역단에 있는 사번
-      const crossRegionData = new Map(); // empNo → {hiCapVal, curVal}
-
-      // 다중열 자동감지: 지역단·지점·사번·성명·... 형식에서 사번과 금액 컬럼 탐지
-      const _detectMultiCol = (parts) => {
-        // 사번 후보: 숫자가 아닌 첫 두 컬럼 이후에서 학생 empNo 매칭
-        for (let i = 1; i < Math.min(parts.length - 2, 5); i++) {
-          const candidateEmp = parts[i];
-          if (!candidateEmp || /^[\d,]+$/.test(parts[i - 1] || "")) continue; // 앞이 숫자면 스킵
-          const hit = state.students.find((x) => x.empNo === candidateEmp);
-          if (hit) {
-            // i가 사번 위치 → 금액은 i+2 이후 숫자 컬럼에서
-            const amtCols = parts.slice(i + 2).map((v) => parseInt(v, 10)).filter((v) => !isNaN(v));
-            const baseAmt = amtCols[0] ?? 0;
-            const curAmt  = amtCols[1] ?? 0;
-            return { empNo: candidateEmp, baseAmt, curAmt, unit: 1 }; // 원 단위 (곱셈 없음)
-          }
-        }
-        return null;
-      };
-
-      txt.split(/\r?\n/).forEach((line) => {
-        const parts = line.trim().split(/[\t]+/).map((p) => p.replace(/,/g, "").trim()).filter(Boolean);
-        if (parts.length < 3) return;
-        const searchPool = _pasteRgn ? state.students.filter((x) => x.region === _pasteRgn) : state.students;
-
-        let empNo = parts[0];
-        let hiCapVal = parseInt(parts[1], 10);
-        let curVal   = parseInt(parts[2], 10);
-        let unit = 1000; // 3열 형식은 천원 단위
-
-        // 3열 파싱 실패 → 다중열 자동감지
-        if (isNaN(hiCapVal) || isNaN(curVal)) {
-          const mc = _detectMultiCol(parts);
-          if (!mc) return; // 감지 실패
-          empNo    = mc.empNo;
-          hiCapVal = mc.baseAmt;
-          curVal   = mc.curAmt;
-          unit     = mc.unit; // 원 단위
-        }
-
-        const s = searchPool.find((x) => x.empNo === empNo)
-                  || (!_pasteRgn ? null : state.students.find((x) => x.empNo === empNo)); // 전체 재탐색
-        if (!s) {
-          // 다른 지역단에서 탐색
-          const elsewhere = _pasteRgn ? state.students.find((x) => x.empNo === empNo && x.region !== _pasteRgn) : null;
-          if (elsewhere) {
-            crossRegionItems.push({ empNo, name: elsewhere.name, otherRegion: elsewhere.region, student: elsewhere });
-            crossRegionData.set(empNo, { hiCapVal, curVal, unit });
-          } else {
-            unmatched.push(empNo);
-          }
-          return;
-        }
-        // Step 인식: Step 2면 hiCap2·pgCurrent2에 저장
-        records.push({ ...s, [_hicField]: hiCapVal * unit, [_curField]: curVal * unit });
-        const hiCapInp = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="hiCap"]`);
-        const curInp   = document.querySelector(`.pg-input[data-emp="${escapeHtml(empNo)}"][data-f="current"]`);
-        if (hiCapInp) { hiCapInp.value = hiCapVal * unit; }
-        if (curInp)   { curInp.value   = curVal * unit;   curInp.dispatchEvent(new Event("input")); }
-      });
-      // 타 지역단 경고
-      if (crossRegionItems.length > 0) {
-        const doSave = await openCrossRegionModal(crossRegionItems);
-        if (doSave) {
-          crossRegionItems.forEach(({ empNo, student }) => {
-            const d = crossRegionData.get(empNo);
-            if (d) records.push({ ...student, [_hicField]: d.hiCapVal * d.unit, [_curField]: d.curVal * d.unit });
-          });
-        }
-      }
-      if (records.length === 0) {
-        if (m) { m.textContent = "❌ 매칭된 사번 없음. 탭 구분 및 사번을 확인하세요."; m.className = "pg-msg err"; }
-        return;
-      }
-      if (m) m.textContent = "저장중...";
-      pasteApply.disabled = true;
-      const { ok: ok3, failed: fail3 } = await saveWithRetry(records, "총괄월별실적 저장");
-      let msg3 = ok3 > 0 ? `✅ ${ok3}명 저장 완료` : "";
-      if (fail3 > 0) msg3 += (msg3 ? " · " : "") + `❌ ${fail3}건 실패(팝업 확인)`;
-      if (unmatched.length) msg3 += ` (미매칭 ${unmatched.length}건)`;
-      if (m) { m.textContent = msg3; m.className = fail3 > 0 ? "pg-msg err" : "pg-msg ok"; setTimeout(() => { m.textContent = ""; }, 6000); }
-      if (ok3 > 0) { toast(`${ok3}명 총괄월별실적 저장`, "success"); renderDebounced(); }
-      pasteApply.disabled = false;
-    });
-    const pasteClear = $("#btn-pg-paste-clear");
-    if (pasteClear) pasteClear.addEventListener("click", () => { $("#pg-paste").value = ""; });
 
     // ── 아너스목표 붙여넣기 핸들러 ──────────────────────────────
     const honorsPasteApply = $("#btn-pg-honors-paste-apply");
@@ -12045,7 +11849,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260708a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -13732,8 +13536,9 @@ ${piPagesHtml}`;
                 role === "지점장"   ? "#7a3a1a" : role === "파트장"     ? "#5a1a7a" : "#555";
       return `<span class="adm-role-tag" style="background:${c}">${escapeHtml(role)}</span>`;
     };
-    const userRow = (a) => `<div class="adm-user-row" data-empno="${escapeHtml(a.empNo)}">
+    const userRow = (a, showBranch = false) => `<div class="adm-user-row" data-empno="${escapeHtml(a.empNo)}">
       <span class="adm-user-name">${escapeHtml(a.name)}</span>
+      ${showBranch && a.branch ? `<span class="adm-user-branch">${escapeHtml(a.branch)}</span>` : ""}
       <span class="adm-user-empno">${escapeHtml(a.empNo)}</span>
       ${roleTag(a.role)}
       <span class="adm-user-actions">
@@ -13746,7 +13551,7 @@ ${piPagesHtml}`;
     let html = "";
     Object.keys(byRegion).sort().forEach(rg => {
       const members = byRegion[rg];
-      // 지역단 직속 (전임강사, 파트장)
+      // 지역단 직속 (전임강사, 파트장, 센터/지점 없는 멤버)
       const direct = members.filter(a => ["전임강사","파트장"].includes(a.role) || (!a.center && !a.branch));
       // 비전센터별
       const byCent = {};
@@ -13755,30 +13560,53 @@ ${piPagesHtml}`;
         byCent[a.center].push(a);
       });
 
-      html += `<div class="adm-region-block">
-        <div class="adm-region-head">${escapeHtml(rg)}</div>`;
-      direct.forEach(a => { html += `<div class="adm-indent-1">${userRow(a)}</div>`; });
+      let innerHtml = "";
+      direct.forEach(a => { innerHtml += `<div class="adm-indent-1">${userRow(a)}</div>`; });
+
       Object.keys(byCent).sort().forEach(ct => {
         const ctMembers = byCent[ct];
-        const ctDirect = ctMembers.filter(a => ["비전센터장"].includes(a.role) || !a.branch);
-        const byBranch = {};
-        ctMembers.filter(a => a.branch).forEach(a => {
-          if (!byBranch[a.branch]) byBranch[a.branch] = [];
-          byBranch[a.branch].push(a);
-        });
-        html += `<div class="adm-indent-1 adm-center-head">${escapeHtml(ct)}</div>`;
-        ctDirect.forEach(a => { html += `<div class="adm-indent-2">${userRow(a)}</div>`; });
-        Object.keys(byBranch).sort().forEach(br => {
-          html += `<div class="adm-indent-2 adm-branch-head">${escapeHtml(br)}</div>`;
-          byBranch[br].forEach(a => { html += `<div class="adm-indent-3">${userRow(a)}</div>`; });
-        });
+        const ctDirect  = ctMembers.filter(a => !a.branch);      // 비전센터장 등 지점 없는 멤버
+        const branchMem = ctMembers.filter(a => a.branch);       // 지점 배정 멤버 (지점장 등)
+
+        innerHtml += `<div class="adm-indent-1 adm-center-head">${escapeHtml(ct)}</div>`;
+        ctDirect.forEach(a => { innerHtml += `<div class="adm-indent-2">${userRow(a)}</div>`; });
+
+        if (branchMem.length > 0) {
+          const sorted = [...branchMem].sort((a, b) => (a.branch||"").localeCompare(b.branch||""));
+          innerHtml += `<div class="adm-branch-group">
+            <div class="adm-indent-2 adm-branch-group-head">
+              <span class="adm-toggle-icon">▶</span>
+              지점장
+              <span class="adm-toggle-count">${branchMem.length}명</span>
+            </div>
+            <div class="adm-branch-group-content">`;
+          sorted.forEach(a => { innerHtml += `<div class="adm-indent-3">${userRow(a, true)}</div>`; });
+          innerHtml += `</div></div>`;
+        }
       });
-      html += `</div>`;
+
+      html += `<div class="adm-region-block">
+        <div class="adm-region-head">
+          <span class="adm-toggle-icon">▶</span>
+          ${escapeHtml(rg)}
+          <span class="adm-toggle-count">${members.length}명</span>
+        </div>
+        <div class="adm-region-content">${innerHtml}</div>
+      </div>`;
     });
 
     tree.innerHTML = html;
 
-    // 이벤트 바인딩
+    // 토글 이벤트 위임
+    tree.addEventListener("click", (e) => {
+      if (e.target.closest(".adm-btn-edit,.adm-btn-pw,.adm-btn-del")) return;
+      const rHead = e.target.closest(".adm-region-head");
+      if (rHead) { rHead.closest(".adm-region-block").classList.toggle("open"); return; }
+      const bHead = e.target.closest(".adm-branch-group-head");
+      if (bHead) { bHead.closest(".adm-branch-group").classList.toggle("open"); return; }
+    });
+
+    // 수정 / 비번초기화 / 삭제 버튼
     tree.querySelectorAll(".adm-btn-edit").forEach(btn => {
       btn.addEventListener("click", () => openAdminModal(btn.dataset.empno));
     });
@@ -14059,7 +13887,9 @@ ${piPagesHtml}`;
       rp.className = "role-popup-backdrop";
       rp.innerHTML = `<div class="role-popup">
         <div class="role-popup-title">직책 선택</div>
-        ${ADMIN_ROLES.map(r=>`<button class="role-popup-btn${roleEl.value===r?" selected":""}" data-role="${escapeHtml(r)}">${escapeHtml(r)}</button>`).join("")}
+        <div class="role-popup-grid">
+          ${ADMIN_ROLES.map(r=>`<button class="role-popup-btn${roleEl.value===r?" selected":""}" data-role="${escapeHtml(r)}">${escapeHtml(r)}</button>`).join("")}
+        </div>
         <button class="role-popup-cancel">취소</button>
       </div>`;
       document.body.appendChild(rp);

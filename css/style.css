@@ -5871,12 +5871,26 @@ body {
 
 /* ── 관리자 계정 관리 UI ──────────────────────────────── */
 .admin-tree { margin-top: 12px; }
-.adm-region-block { margin-bottom: 14px; }
+.adm-region-block { margin-bottom: 6px; }
 .adm-region-head {
   font-size: 13px; font-weight: 800; color: var(--navy);
   background: #eef3fb; padding: 5px 10px; border-radius: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 6px;
 }
+.adm-region-head:hover { background: #dce8f8; }
+.adm-toggle-icon {
+  font-size: 9px; color: #888; display: inline-block;
+  transition: transform 0.15s; flex-shrink: 0; line-height: 1;
+}
+.adm-toggle-count {
+  font-size: 10px; color: #999; font-weight: 600; margin-left: 2px;
+}
+/* 지역단 펼치기/접기 */
+.adm-region-content { display: none; padding: 4px 0 6px; }
+.adm-region-block.open > .adm-region-content { display: block; }
+.adm-region-block.open > .adm-region-head > .adm-toggle-icon { transform: rotate(90deg); }
 .adm-center-head {
   font-size: 12px; font-weight: 700; color: #1a5a3a;
   background: #eafaf2; padding: 4px 10px; border-radius: 5px;
@@ -5886,6 +5900,24 @@ body {
   font-size: 11px; font-weight: 700; color: #7a3a1a;
   background: #fef5ee; padding: 3px 10px; border-radius: 5px;
   margin: 2px 0;
+}
+/* 지점장 그룹 (접이식) */
+.adm-branch-group { margin: 2px 0; }
+.adm-branch-group-head {
+  font-size: 11px; font-weight: 700; color: #7a3a1a;
+  background: #fef5ee; padding: 3px 10px; border-radius: 5px;
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 5px;
+}
+.adm-branch-group-head:hover { background: #fde8d4; }
+.adm-branch-group-content { display: none; }
+.adm-branch-group.open > .adm-branch-group-content { display: block; }
+.adm-branch-group.open > .adm-branch-group-head > .adm-toggle-icon { transform: rotate(90deg); }
+/* 지점장 그룹 내 지점명 인라인 뱃지 */
+.adm-user-branch {
+  font-size: 10px; color: #7a3a1a; font-weight: 600;
+  background: #fef5ee; border: 1px solid #f0d5be;
+  padding: 1px 5px; border-radius: 4px;
 }
 .adm-indent-1 { padding-left: 14px; }
 .adm-indent-2 { padding-left: 28px; }
@@ -5974,19 +6006,21 @@ body {
 }
 .role-popup {
   background: #fff; border-radius: 14px;
-  padding: 24px 28px; min-width: 220px;
+  padding: 24px 28px; min-width: 280px; max-width: 320px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center;
 }
 .role-popup-title { font-size: 15px; font-weight: 800; color: var(--navy); margin-bottom: 14px; }
+.role-popup-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;
+}
 .role-popup-btn {
-  display: block; width: 100%; margin-bottom: 8px;
-  padding: 10px; border-radius: 8px; border: 2px solid #ddd;
-  font-size: 14px; font-weight: 600; cursor: pointer; background: #fff;
+  padding: 10px 6px; border-radius: 8px; border: 2px solid #ddd;
+  font-size: 13px; font-weight: 600; cursor: pointer; background: #fff;
   transition: all .15s;
 }
 .role-popup-btn:hover, .role-popup-btn.selected { background: #1a4a8a; color: #fff; border-color: #1a4a8a; }
 .role-popup-cancel {
-  margin-top: 4px; width: 100%; padding: 8px; border-radius: 8px;
+  width: 100%; padding: 8px; border-radius: 8px;
   border: 1.5px solid #ddd; background: #f7f7f7; cursor: pointer; font-size: 13px;
 }
 
