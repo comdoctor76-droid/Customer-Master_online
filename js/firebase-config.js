@@ -161,6 +161,8 @@ window.DataAPI = {
     if (student.hiCap2 !== undefined)       record.hiCap2       = Number(student.hiCap2)       || 0;
     // 팀 배정
     if (student.team !== undefined)         record.team         = String(student.team || "");
+    // 직책
+    if (student.jobTitle !== undefined)     record.jobTitle     = String(student.jobTitle || "");
     await setDoc(doc(db, "students", empNo), record, { merge: true });
   },
 
