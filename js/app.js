@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.95";
+  const APP_VERSION = "2.96";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5675,7 +5675,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
             <ol class="pg-top3-list">${pcardIpumTop3}</ol>
           </div>
 
-          ${_groupEnabled ? `<div class="pg-pcard pg-pcard-group" data-pcard="group" role="button" tabindex="0">
+          ${(_groupEnabled && hasAnyTeam) ? `<div class="pg-pcard pg-pcard-group" data-pcard="group" role="button" tabindex="0">
             <div class="pg-pcard-head">
               <div class="pg-pcard-icon">🏅</div>
               <div class="pg-pcard-titles">
@@ -5699,13 +5699,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </div>` : ""}
         </div>` : ""}
 
-        <div class="pg-grid-ipum-group pg-desktop-only" style="${!_groupEnabled ? "grid-template-columns:1fr" : ""}">
+        <div class="pg-grid-ipum-group pg-desktop-only" style="${!(_groupEnabled && hasAnyTeam) ? "grid-template-columns:1fr" : ""}">
           <div class="pg-card">
             <h4 class="pg-modal-title" data-pg-modal="ipum" title="클릭하여 전체 순위 보기">✨ 인품왕 TOP10 <small>(신상품 판매액 기준)</small> <span class="pg-title-chev">›</span></h4>
             ${byIpum.length ? renderProgressTop10(byIpum, "ipum", undefined, _pa) : `<div class="pg-empty">실적관리 탭에서 인품 데이터를 입력하세요.</div>`}
           </div>
-          ${_groupEnabled ? `<div class="pg-card">
-            <h4 class="pg-modal-title" data-pg-modal="group" title="클릭하여 전체 순위 보기">🏅 ${hasAnyTeam ? "조별" : "지점별"} 순증 시상 <span class="pg-title-chev">›</span></h4>
+          ${(_groupEnabled && hasAnyTeam) ? `<div class="pg-card">
+            <h4 class="pg-modal-title" data-pg-modal="group" title="클릭하여 전체 순위 보기">🏅 조별 순증 시상 <span class="pg-title-chev">›</span></h4>
             <div class="pg-tbl-wrap">${renderGroupTable(groupRanking, _pa.plan, hasAnyTeam)}</div>
           </div>` : ""}
         </div>
@@ -5713,7 +5713,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
           <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small>(시상확정↓시상금액순 · 미확정↓마스터달성률순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle">펼쳐보기</button>
-            <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="margin-left:auto;font-size:12px;padding:4px 10px;">💾 변경 저장</button>
+            <button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="font-size:12px;padding:4px 10px;">💾 변경 저장</button>
+            <button type="button" class="btn-outline small" id="btn-pg-notice-share" style="margin-left:auto;font-size:12px;padding:4px 10px;">📢 공지하기</button>
           </h4>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
             <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th><th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th class="r" style="width:80px">예상<br>실적</th><th>전화번호</th><th>시상</th></tr></thead>
@@ -5869,7 +5870,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     ].filter(cat => {
       if (cat.key === "rate")  return _hrRateEnabled;
       if (cat.key === "amt")   return _hrAmtEnabled;
-      if (cat.key === "group") return _hrGroupEnabled;
+      if (cat.key === "group") return _hrGroupEnabled && hasAnyTeam;
       return true;
     });
 
@@ -6812,6 +6813,90 @@ ${piPagesHtml}`;
   }
 
 
+  async function shareProgressNotice() {
+    const btn = document.getElementById("btn-pg-notice-share");
+    const orig = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = "생성중..."; }
+    try {
+      if (typeof window.html2canvas !== "function") {
+        toast("이미지 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.", "error");
+        return;
+      }
+      const tbl = document.querySelector("#pg-full-tbl-card .pg-full-rank-tbl");
+      if (!tbl) { toast("표를 찾을 수 없습니다.", "error"); return; }
+      const region = state.filter.region || state.progressRegion || "";
+      const cohort = state.filter.cohort || state.progressCohort || "";
+      const step = state.filter.step || state.progressStep || "";
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const dateStr = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      const scopeStr = [region.replace(/지역단$|사업부$/,""), cohort, step ? `Step${step}` : ""].filter(Boolean).join(" · ");
+      // A4 landscape width
+      const A4W = 1050;
+      const PHONE_COL = 12; // 전화번호 열 (0-indexed)
+      const MASTER_COL = 6; // 마스터목표 열 (0-indexed)
+      const clone = tbl.cloneNode(true);
+      // 전화번호 열 제거, 편집 버튼 제거
+      Array.from(clone.querySelectorAll("tr")).forEach(tr => {
+        const cells = Array.from(tr.children);
+        if (cells[PHONE_COL]) cells[PHONE_COL].remove();
+      });
+      Array.from(clone.querySelectorAll(".pg-current-edit-btn,.pg-expected-edit-btn,.pg-goal-adj-btn,.pg-current-input,.pg-expected-input")).forEach(el => el.remove());
+      // 마스터목표 열 강조 (th)
+      Array.from(clone.querySelectorAll("thead th")).forEach((th, i) => {
+        th.style.cssText = `background:#1A2744;color:#fff;padding:6px 4px;border:1px solid #374a7a;text-align:center;font-weight:700;font-size:12px;white-space:nowrap;`;
+        if (i === MASTER_COL) th.style.cssText = `background:#4A148C;color:#FFE082;padding:6px 4px;border:1px solid #7B1FA2;text-align:center;font-weight:900;font-size:13px;white-space:nowrap;`;
+      });
+      // tbody/tfoot 셀 스타일
+      Array.from(clone.querySelectorAll("tbody td, tfoot td")).forEach((td, _idx) => {
+        const base = `padding:5px 4px;border:1px solid #e0e0e0;text-align:center;font-size:12px;`;
+        td.style.cssText = base + (td.style.cssText || "");
+        const colIdx = td.cellIndex;
+        if (colIdx === MASTER_COL) {
+          td.style.cssText = base + `font-weight:900;color:#4A148C;background:#F3E5F5;`;
+        }
+      });
+      Array.from(clone.querySelectorAll("tfoot td")).forEach(td => {
+        td.style.cssText = `padding:5px 4px;border:1px solid #374a7a;background:#1A2744;color:#fff;text-align:center;font-weight:700;font-size:12px;`;
+      });
+      clone.style.cssText = `width:100%;border-collapse:collapse;font-size:12px;`;
+      const wrap = document.createElement("div");
+      wrap.style.cssText = `position:fixed;left:-9999px;top:0;width:${A4W}px;background:#fff;padding:16px 20px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;box-sizing:border-box;`;
+      const hdrDiv = document.createElement("div");
+      hdrDiv.style.cssText = `background:linear-gradient(135deg,#1A2744,#2C3F6E);color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;`;
+      hdrDiv.innerHTML = `<div style="font-size:17px;font-weight:900;">📊 전체 교육생 실적표</div><div style="font-size:12px;opacity:0.8;">${escapeHtml(scopeStr)} · ${dateStr}</div>`;
+      wrap.appendChild(hdrDiv);
+      wrap.appendChild(clone);
+      document.body.appendChild(wrap);
+      await new Promise(r => setTimeout(r, 100));
+      const canvas = await window.html2canvas(wrap, {
+        scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+        width: A4W, height: wrap.scrollHeight,
+        windowWidth: A4W, windowHeight: wrap.scrollHeight
+      });
+      document.body.removeChild(wrap);
+      const filename = `실적표_${scopeStr.replace(/[·\s]/g,"_")}_${dateStr.replace(/[.: ]/g,"").replace(/:/g,"")}.png`;
+      const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+      const file = new File([blob], filename, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "전체 교육생 실적표" });
+      } else {
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        toast("이미지가 저장되었습니다. 카카오톡에서 직접 공유하세요.", "success");
+      }
+    } catch (e) {
+      if (e?.name !== "AbortError") {
+        console.error(e);
+        toast("공유 중 오류: " + e.message, "error");
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+    }
+  }
+
   function bindProgressHomeEvents(list) {
     document.querySelectorAll("#progress-body .pg-tr-click").forEach((tr) => {
       tr.addEventListener("click", (e) => {
@@ -6848,6 +6933,7 @@ ${piPagesHtml}`;
     });
     // PDF 인쇄 버튼
     document.getElementById("btn-pg-print")?.addEventListener("click", openProgressPrintWindow);
+    document.getElementById("btn-pg-notice-share")?.addEventListener("click", shareProgressNotice);
     // 모바일 카드 자체 클릭 → 풀스크린 TOP10 모달
     document.querySelectorAll("#progress-body .pg-pcard[data-pcard]").forEach((card) => {
       card.addEventListener("click", () => {
@@ -11934,7 +12020,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
