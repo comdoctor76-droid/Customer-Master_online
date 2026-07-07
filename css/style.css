@@ -4042,6 +4042,8 @@ body {
 /* 마스터목표 컬럼 강조 (7번째 열) */
 .pg-full-rank-tbl thead th:nth-child(7) { background: #4A148C !important; color: #FFE082 !important; font-weight: 900; }
 .pg-goal-cell span { font-weight: 700; color: #4A148C; }
+/* 스크롤 힌트 — 데스크탑에서는 숨김 */
+.pg-tbl-scroll-hint { display: none; font-size: 11px; color: #888; text-align: center; margin: 2px 0 4px; }
 .pg-full-tbl-toggle { display: none; }
 .pg-bdg {
   display: inline-block;
@@ -4675,12 +4677,30 @@ body {
   .pg-full-tbl-card > .pg-tbl-wrap { display: none; }
   .pg-full-tbl-card.show > .pg-tbl-wrap { display: block; }
   .pg-full-tbl-toggle { display: inline-block !important; }
-  /* 가로 스크롤 시 순위·성명 열 고정 */
-  .pg-full-rank-tbl th:nth-child(1),
-  .pg-full-rank-tbl td:nth-child(1) { position: sticky; left: 0; z-index: 2; background: #fff; }
-  .pg-full-rank-tbl th:nth-child(2),
-  .pg-full-rank-tbl td:nth-child(2) { position: sticky; left: 44px; z-index: 2; background: #fff; }
+  /* 스크롤 힌트 표시 */
+  .pg-tbl-scroll-hint { display: block; }
+  /* 모바일 간략표: 성명·기준실적·현재실적·마스터목표·마스터달성률·시상만 표시 */
   .pg-full-rank-tbl thead th:nth-child(1),
+  .pg-full-rank-tbl tbody td:nth-child(1) { display: none; }  /* 순위 */
+  .pg-full-rank-tbl thead th:nth-child(3),
+  .pg-full-rank-tbl tbody td:nth-child(3) { display: none; }  /* 사번 */
+  .pg-full-rank-tbl thead th:nth-child(4),
+  .pg-full-rank-tbl tbody td:nth-child(4) { display: none; }  /* 지점 */
+  .pg-full-rank-tbl thead th:nth-child(9),
+  .pg-full-rank-tbl tbody td:nth-child(9) { display: none; }  /* 마스터순증 */
+  .pg-full-rank-tbl thead th:nth-child(10),
+  .pg-full-rank-tbl tbody td:nth-child(10) { display: none; } /* 기준달성률 */
+  .pg-full-rank-tbl thead th:nth-child(11),
+  .pg-full-rank-tbl tbody td:nth-child(11) { display: none; } /* 기준순증 */
+  .pg-full-rank-tbl thead th:nth-child(12),
+  .pg-full-rank-tbl tbody td:nth-child(12) { display: none; } /* 예상실적 */
+  .pg-full-rank-tbl thead th:nth-child(13),
+  .pg-full-rank-tbl tbody td:nth-child(13) { display: none; } /* 전화번호 */
+  /* 합계 행: 모바일에서는 열 정렬이 달라 숨김 */
+  .pg-full-rank-tbl .pg-sum-row { display: none; }
+  /* 성명 열(2번) sticky — 순위 열 숨긴 후 맨 앞으로 */
+  .pg-full-rank-tbl th:nth-child(2),
+  .pg-full-rank-tbl td:nth-child(2) { position: sticky; left: 0; z-index: 2; background: #fff; }
   .pg-full-rank-tbl thead th:nth-child(2) { z-index: 3; background: var(--navy); }
 }
 @media (max-width: 600px) {
