@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "2.99";
+  const APP_VERSION = "3.00";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -6881,15 +6881,22 @@ ${piPagesHtml}`;
       wrap.appendChild(clone);
       wrap.appendChild(footerDiv);
       document.body.appendChild(wrap);
-      // 레이아웃 계산 대기 (더 긴 대기로 전체 행 렌더링 보장)
-      await new Promise(r => setTimeout(r, 200));
-      const totalH = wrap.scrollHeight;
+      // 레이아웃 완전 계산 대기 (모바일에서 셀 높이 확정까지 rAF 2회 추가)
+      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => requestAnimationFrame(r));
+      await new Promise(r => requestAnimationFrame(r));
+      const totalH = Math.ceil(wrap.getBoundingClientRect().height || wrap.offsetHeight);
+      // html2canvas는 document.body 높이를 클리핑 기준으로 사용하므로
+      // body를 요소 높이만큼 미리 확장해야 absolute 요소 하단이 잘리지 않음
+      const _savedBodyMH = document.body.style.minHeight;
+      document.body.style.minHeight = (totalH + 200) + "px";
       const canvas = await window.html2canvas(wrap, {
         scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
         width: A4W, height: totalH,
-        windowWidth: A4W + 200, windowHeight: totalH + 200,
+        windowWidth: A4W + 40, windowHeight: totalH + 200,
         scrollX: 0, scrollY: 0
       });
+      document.body.style.minHeight = _savedBodyMH;
       document.body.removeChild(wrap);
       const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
       const file = new File([blob], filename, { type: "image/png" });
@@ -11849,7 +11856,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260707a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260713a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
