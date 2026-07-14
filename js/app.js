@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.04";
+  const APP_VERSION = "3.05";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11927,50 +11927,16 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714e)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
     document.getElementById("btn-logout")?.addEventListener("click", () => {
       if (confirm("로그아웃 하시겠습니까?")) _doLogout();
     });
-    // 사원 연락처 참조 데이터 — 저장 / 삭제 / 일괄 업데이트
-    document.getElementById("btn-phone-lookup-save")?.addEventListener("click", () => {
-      const text = (document.getElementById("phone-lookup-paste")?.value || "").trim();
-      if (!text) { toast("붙여넣을 데이터가 없습니다.", "error"); return; }
-      const map = parseLookupText(text);
-      const count = Object.keys(map).length;
-      if (!count) { toast("매칭된 사번이 없습니다. 형식(탭 구분, 사번·전화번호 포함)을 확인하세요.", "error"); return; }
-      localStorage.setItem(CM_PHONE_LOOKUP_KEY, JSON.stringify(map));
-      const ta = document.getElementById("phone-lookup-paste");
-      if (ta) ta.value = "";
-      refreshLookupCount();
-      toast(`${count.toLocaleString()}건 저장 완료`, "success");
-    });
-    document.getElementById("btn-phone-lookup-clear")?.addEventListener("click", () => {
-      if (!confirm("저장된 참조 데이터를 삭제하시겠습니까?")) return;
-      localStorage.removeItem(CM_PHONE_LOOKUP_KEY);
-      refreshLookupCount();
-      toast("참조 데이터 삭제됨", "success");
-    });
-    document.getElementById("btn-phone-lookup-apply-all")?.addEventListener("click", async () => {
-      const map = (() => { try { return JSON.parse(localStorage.getItem(CM_PHONE_LOOKUP_KEY) || "{}"); } catch { return {}; } })();
-      if (!Object.keys(map).length) { toast("저장된 참조 데이터가 없습니다. 먼저 데이터를 저장하세요.", "error"); return; }
-      // 전화번호가 없는 교육생만 대상
-      const targets = state.students.filter((s) => !s.phone && map[s.empNo]);
-      if (!targets.length) { toast("매칭되는 미등록 연락처가 없습니다.", "success"); return; }
-      if (!confirm(`전체 교육생 중 ${targets.length}명의 연락처를 업데이트하시겠습니까?`)) return;
-      const updates = targets.map((s) => ({ ...s, phone: map[s.empNo] }));
-      try {
-        const { committed, errors } = await window.DataAPI.saveMany(updates);
-        toast(`${committed}명 연락처 업데이트 완료${errors.length ? ` (실패 ${errors.length}건)` : ""}`, committed ? "success" : "error");
-        if (committed) renderDebounced();
-      } catch (e) { toast("업데이트 오류: " + e.message, "error"); }
-    });
-
-    // 관리자 추가 / 일괄 추가 버튼
-    document.getElementById("btn-add-admin")?.addEventListener("click", () => openAdminModal(null));
-    document.getElementById("btn-bulk-add-admin")?.addEventListener("click", () => openAdminBulkModal());
+    // 플래너 연락처 업데이트 / 관리자 계정 관리 — 모달로 열기
+    document.getElementById("btn-open-phone-lookup")?.addEventListener("click", openPhoneLookupModal);
+    document.getElementById("btn-open-admin-manage")?.addEventListener("click", openAdminManageModal);
 
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
     $("#btn-open-award-plan")?.addEventListener("click", () =>
@@ -13674,6 +13640,109 @@ ${piPagesHtml}`;
         openAdminRegionPopup(key === "__unassigned__" ? "미지정" : key, members);
       });
     });
+  }
+
+  function openPhoneLookupModal() {
+    document.getElementById("phone-lookup-modal")?.remove();
+
+    let countText = "저장된 데이터 없음";
+    try {
+      const m = JSON.parse(localStorage.getItem(CM_PHONE_LOOKUP_KEY) || "{}");
+      const c = Object.keys(m).length;
+      if (c) countText = `${c.toLocaleString()}건 저장됨`;
+    } catch {}
+
+    const ov = document.createElement("div");
+    ov.id = "phone-lookup-modal";
+    ov.className = "modal";
+    ov.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" style="max-width:500px;">
+        <div class="modal-head">
+          <h3>📞 플래너 연락처 업데이트</h3>
+          <button class="modal-close-x" id="phone-lookup-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="settings-desc">엑셀에서 복사한 데이터(탭 구분)를 붙여넣어 저장합니다.<br>교육생 추가 시 사번이 일치하면 전화번호를 자동 입력합니다.</p>
+          <textarea id="phone-lookup-paste" rows="5" class="settings-textarea" placeholder="지역단&#9;지점&#9;성명&#9;사번&#9;전화번호&#10;(첫 줄 헤더 있어도 자동 감지)"></textarea>
+          <div class="settings-actions">
+            <button class="btn-primary small" id="btn-phone-lookup-save">💾 저장</button>
+            <button class="btn-outline small" id="btn-phone-lookup-clear">🗑 삭제</button>
+            <button class="btn-outline small" id="btn-phone-lookup-apply-all">🔄 기존 교육생 연락처 일괄 업데이트</button>
+            <span id="phone-lookup-count" class="settings-desc" style="margin-left:8px;">${countText}</span>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#phone-lookup-close").addEventListener("click", close);
+    ov.querySelector(".modal-backdrop").addEventListener("click", close);
+
+    ov.querySelector("#btn-phone-lookup-save").addEventListener("click", () => {
+      const text = (ov.querySelector("#phone-lookup-paste")?.value || "").trim();
+      if (!text) { toast("붙여넣을 데이터가 없습니다.", "error"); return; }
+      const map = parseLookupText(text);
+      const count = Object.keys(map).length;
+      if (!count) { toast("매칭된 사번이 없습니다. 형식(탭 구분, 사번·전화번호 포함)을 확인하세요.", "error"); return; }
+      localStorage.setItem(CM_PHONE_LOOKUP_KEY, JSON.stringify(map));
+      ov.querySelector("#phone-lookup-paste").value = "";
+      refreshLookupCount();
+      toast(`${count.toLocaleString()}건 저장 완료`, "success");
+    });
+    ov.querySelector("#btn-phone-lookup-clear").addEventListener("click", () => {
+      if (!confirm("저장된 참조 데이터를 삭제하시겠습니까?")) return;
+      localStorage.removeItem(CM_PHONE_LOOKUP_KEY);
+      refreshLookupCount();
+      toast("참조 데이터 삭제됨", "success");
+    });
+    ov.querySelector("#btn-phone-lookup-apply-all").addEventListener("click", async () => {
+      const map = (() => { try { return JSON.parse(localStorage.getItem(CM_PHONE_LOOKUP_KEY) || "{}"); } catch { return {}; } })();
+      if (!Object.keys(map).length) { toast("저장된 참조 데이터가 없습니다. 먼저 데이터를 저장하세요.", "error"); return; }
+      const targets = state.students.filter((s) => !s.phone && map[s.empNo]);
+      if (!targets.length) { toast("매칭되는 미등록 연락처가 없습니다.", "success"); return; }
+      if (!confirm(`전체 교육생 중 ${targets.length}명의 연락처를 업데이트하시겠습니까?`)) return;
+      const updates = targets.map((s) => ({ ...s, phone: map[s.empNo] }));
+      try {
+        const { committed, errors } = await window.DataAPI.saveMany(updates);
+        toast(`${committed}명 연락처 업데이트 완료${errors.length ? ` (실패 ${errors.length}건)` : ""}`, committed ? "success" : "error");
+        if (committed) renderDebounced();
+      } catch (e) { toast("업데이트 오류: " + e.message, "error"); }
+    });
+  }
+
+  function openAdminManageModal() {
+    document.getElementById("admin-manage-modal")?.remove();
+
+    const ov = document.createElement("div");
+    ov.id = "admin-manage-modal";
+    ov.className = "modal";
+    ov.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" style="max-width:640px;max-height:80vh;overflow-y:auto;">
+        <div class="modal-head">
+          <h3>👤 관리자 계정 관리</h3>
+          <button class="modal-close-x" id="admin-manage-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="settings-desc">로그인 계정을 등록·수정·삭제합니다. 초기 비밀번호는 0000입니다.</p>
+          <div class="settings-actions" style="margin-bottom:12px;">
+            <button class="btn-outline" id="btn-add-admin">+ 관리자 추가</button>
+            <button class="btn-outline" id="btn-bulk-add-admin">📋 일괄 추가</button>
+          </div>
+          <div id="admin-region-buttons"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#admin-manage-close").addEventListener("click", close);
+    ov.querySelector(".modal-backdrop").addEventListener("click", close);
+
+    ov.querySelector("#btn-add-admin").addEventListener("click", () => openAdminModal(null));
+    ov.querySelector("#btn-bulk-add-admin").addEventListener("click", () => openAdminBulkModal());
+
+    renderAdminTree();
   }
 
   function openAdminRegionPopup(regionLabel, members) {
