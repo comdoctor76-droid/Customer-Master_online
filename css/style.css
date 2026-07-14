@@ -4871,6 +4871,33 @@ body {
   resize: vertical; color: var(--ink-1); background: var(--surface);
   margin-bottom: 8px;
 }
+.settings-sub-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin: 14px 0 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.admin-region-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.admin-region-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.admin-region-btn .adm-cnt {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-left: 3px;
+}
+.admin-region-btn.unassigned {
+  border-color: var(--ink-3);
+  color: var(--ink-3);
+}
 .settings-actions {
   display: flex;
   gap: 8px;

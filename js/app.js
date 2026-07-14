@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.03";
+  const APP_VERSION = "3.04";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11927,7 +11927,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -13637,27 +13637,56 @@ ${piPagesHtml}`;
 
   // ── 관리자 계정 관리 UI ──────────────────────────────────────
   function renderAdminTree() {
-    const tree = document.getElementById("admin-user-tree");
-    if (!tree) return;
-    const admins = state.admins;
-    if (!admins.length) { tree.innerHTML = `<p class="settings-desc" style="color:#aaa;margin-top:8px;">등록된 관리자가 없습니다.</p>`; return; }
+    const container = document.getElementById("admin-region-buttons");
+    if (!container) return;
 
-    // 지역단별 그룹화
-    const byRegion = {};
-    admins.forEach(a => {
-      const rg = a.region || "미지정";
-      if (!byRegion[rg]) byRegion[rg] = [];
-      byRegion[rg].push(a);
+    const admins = state.admins || [];
+    if (!admins.length) {
+      container.innerHTML = `<p class="settings-desc" style="color:#aaa;margin-top:8px;">등록된 관리자가 없습니다.</p>`;
+      return;
+    }
+
+    // 지역단별 그룹화 (미지정 별도)
+    const grouped = {};
+    const unassigned = [];
+    admins.forEach((a) => {
+      const r = (a.region || "").trim();
+      if (!r || r === "미지정") { unassigned.push(a); return; }
+      if (!grouped[r]) grouped[r] = [];
+      grouped[r].push(a);
     });
+
+    const regions = Object.keys(grouped).sort();
+    let html = '<div class="admin-region-btns">';
+    regions.forEach((r) => {
+      html += `<button class="btn-outline small admin-region-btn" data-region="${escapeHtml(r)}">${escapeHtml(r)}<span class="adm-cnt">${grouped[r].length}명</span></button>`;
+    });
+    if (unassigned.length) {
+      html += `<button class="btn-outline small admin-region-btn unassigned" data-region="__unassigned__">미지정<span class="adm-cnt">${unassigned.length}명</span></button>`;
+    }
+    html += "</div>";
+    container.innerHTML = html;
+
+    container.querySelectorAll(".admin-region-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.region;
+        const members = key === "__unassigned__" ? unassigned : grouped[key];
+        openAdminRegionPopup(key === "__unassigned__" ? "미지정" : key, members);
+      });
+    });
+  }
+
+  function openAdminRegionPopup(regionLabel, members) {
+    document.getElementById("admin-region-popup")?.remove();
 
     const roleTag = (role) => {
       const c = role === "전임강사" ? "#1a5a3a" : role === "비전센터장" ? "#2a3d7a" :
                 role === "지점장"   ? "#7a3a1a" : role === "파트장"     ? "#5a1a7a" : "#555";
       return `<span class="adm-role-tag" style="background:${c}">${escapeHtml(role)}</span>`;
     };
-    const userRow = (a, showBranch = false) => `<div class="adm-user-row" data-empno="${escapeHtml(a.empNo)}">
+    const userRow = (a) => `<div class="adm-user-row" data-empno="${escapeHtml(a.empNo)}">
       <span class="adm-user-name">${escapeHtml(a.name)}</span>
-      ${showBranch && a.branch ? `<span class="adm-user-branch">${escapeHtml(a.branch)}</span>` : ""}
+      ${a.branch ? `<span class="adm-user-branch">${escapeHtml(a.branch)}</span>` : ""}
       <span class="adm-user-empno">${escapeHtml(a.empNo)}</span>
       ${roleTag(a.role)}
       <span class="adm-user-actions">
@@ -13667,81 +13696,65 @@ ${piPagesHtml}`;
       </span>
     </div>`;
 
-    let html = "";
-    Object.keys(byRegion).sort().forEach(rg => {
-      const members = byRegion[rg];
-      // 지역단 직속 (전임강사, 파트장, 센터/지점 없는 멤버)
-      const direct = members.filter(a => ["전임강사","파트장"].includes(a.role) || (!a.center && !a.branch));
-      // 비전센터별
-      const byCent = {};
-      members.filter(a => a.center).forEach(a => {
-        if (!byCent[a.center]) byCent[a.center] = [];
-        byCent[a.center].push(a);
-      });
+    // 직속 / 비전센터별 그룹
+    const direct = members.filter((a) => ["전임강사", "파트장"].includes(a.role) || (!a.center && !a.branch));
+    const byCent = {};
+    members.filter((a) => a.center).forEach((a) => {
+      if (!byCent[a.center]) byCent[a.center] = [];
+      byCent[a.center].push(a);
+    });
 
-      let innerHtml = "";
-      direct.forEach(a => { innerHtml += `<div class="adm-indent-1">${userRow(a)}</div>`; });
+    let bodyHtml = "";
+    direct.forEach((a) => { bodyHtml += `<div class="adm-indent-1">${userRow(a)}</div>`; });
+    Object.keys(byCent).sort().forEach((ct) => {
+      const ctDirect  = byCent[ct].filter((a) => !a.branch);
+      const branchMem = byCent[ct].filter((a) => a.branch).sort((a, b) => (a.branch || "").localeCompare(b.branch || ""));
+      bodyHtml += `<div class="adm-indent-1 adm-center-head">${escapeHtml(ct)}</div>`;
+      ctDirect.forEach((a) => { bodyHtml += `<div class="adm-indent-2">${userRow(a)}</div>`; });
+      if (branchMem.length) {
+        bodyHtml += `<div class="adm-indent-1 adm-branch-head">지점장 ${branchMem.length}명</div>`;
+        branchMem.forEach((a) => { bodyHtml += `<div class="adm-indent-2">${userRow(a)}</div>`; });
+      }
+    });
 
-      Object.keys(byCent).sort().forEach(ct => {
-        const ctMembers = byCent[ct];
-        const ctDirect  = ctMembers.filter(a => !a.branch);      // 비전센터장 등 지점 없는 멤버
-        const branchMem = ctMembers.filter(a => a.branch);       // 지점 배정 멤버 (지점장 등)
-
-        innerHtml += `<div class="adm-indent-1 adm-center-head">${escapeHtml(ct)}</div>`;
-        ctDirect.forEach(a => { innerHtml += `<div class="adm-indent-2">${userRow(a)}</div>`; });
-
-        if (branchMem.length > 0) {
-          const sorted = [...branchMem].sort((a, b) => (a.branch||"").localeCompare(b.branch||""));
-          innerHtml += `<div class="adm-branch-group">
-            <div class="adm-indent-2 adm-branch-group-head">
-              <span class="adm-toggle-icon">▶</span>
-              지점장
-              <span class="adm-toggle-count">${branchMem.length}명</span>
-            </div>
-            <div class="adm-branch-group-content">`;
-          sorted.forEach(a => { innerHtml += `<div class="adm-indent-3">${userRow(a, true)}</div>`; });
-          innerHtml += `</div></div>`;
-        }
-      });
-
-      html += `<div class="adm-region-block">
-        <div class="adm-region-head">
-          <span class="adm-toggle-icon">▶</span>
-          ${escapeHtml(rg)}
-          <span class="adm-toggle-count">${members.length}명</span>
+    const ov = document.createElement("div");
+    ov.id = "admin-region-popup";
+    ov.className = "modal";
+    ov.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" style="max-width:520px;max-height:80vh;overflow-y:auto;">
+        <div class="modal-head">
+          <h3>${escapeHtml(regionLabel)} 관리자 (${members.length}명)</h3>
+          <button class="modal-close-x" id="admin-region-close">✕</button>
         </div>
-        <div class="adm-region-content">${innerHtml}</div>
+        <div class="modal-body">
+          <div class="admin-tree">${bodyHtml || '<p class="settings-desc" style="color:#aaa;">관리자가 없습니다.</p>'}</div>
+        </div>
       </div>`;
-    });
+    document.body.appendChild(ov);
 
-    tree.innerHTML = html;
+    const close = () => ov.remove();
+    ov.querySelector("#admin-region-close").addEventListener("click", close);
+    ov.querySelector(".modal-backdrop").addEventListener("click", close);
 
-    // 토글 이벤트 위임
-    tree.addEventListener("click", (e) => {
-      if (e.target.closest(".adm-btn-edit,.adm-btn-pw,.adm-btn-del")) return;
-      const rHead = e.target.closest(".adm-region-head");
-      if (rHead) { rHead.closest(".adm-region-block").classList.toggle("open"); return; }
-      const bHead = e.target.closest(".adm-branch-group-head");
-      if (bHead) { bHead.closest(".adm-branch-group").classList.toggle("open"); return; }
+    ov.querySelectorAll(".adm-btn-edit").forEach((btn) => {
+      btn.addEventListener("click", () => { close(); openAdminModal(btn.dataset.empno); });
     });
-
-    // 수정 / 비번초기화 / 삭제 버튼
-    tree.querySelectorAll(".adm-btn-edit").forEach(btn => {
-      btn.addEventListener("click", () => openAdminModal(btn.dataset.empno));
-    });
-    tree.querySelectorAll(".adm-btn-pw").forEach(btn => {
+    ov.querySelectorAll(".adm-btn-pw").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm(`${btn.dataset.empno} 비밀번호를 0000으로 초기화하시겠습니까?`)) return;
         await window.DataAPI.saveAdmin({ empNo: btn.dataset.empno, password: "0000" });
         toast("비밀번호가 0000으로 초기화되었습니다.", "");
       });
     });
-    tree.querySelectorAll(".adm-btn-del").forEach(btn => {
+    ov.querySelectorAll(".adm-btn-del").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const a = state.admins.find(x => x.empNo === btn.dataset.empno);
+        const a = state.admins.find((x) => x.empNo === btn.dataset.empno);
         if (!confirm(`${a?.name || btn.dataset.empno} 관리자를 삭제하시겠습니까?`)) return;
         await window.DataAPI.removeAdmin(btn.dataset.empno);
         toast("관리자가 삭제되었습니다.", "");
+        close();
+        renderAdminTree();
       });
     });
   }
