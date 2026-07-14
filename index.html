@@ -168,19 +168,31 @@
           </div>
 
           <div class="settings-section">
-            <h3>실적관리</h3>
-            <p class="settings-desc">실적 데이터 입력, 팀 배정, 시상 현황을 관리합니다.</p>
+            <h3>데이터관리</h3>
+            <p class="settings-desc">실적 데이터, 시상안, 연락처, 관리자 계정을 관리합니다.</p>
             <div class="settings-actions">
               <button class="btn-outline" id="btn-go-progress-admin">⚙️ 실적관리 열기</button>
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <h3>시상안 편집</h3>
-            <p class="settings-desc">지역단별 실적진도 시상안 문구를 편집합니다. 저장 즉시 실적진도 화면에 반영됩니다.</p>
-            <div class="settings-actions">
               <button class="btn-outline" id="btn-open-award-plan">🏆 시상안 편집</button>
             </div>
+
+            <p class="settings-sub-label">📞 플래너 연락처 업데이트</p>
+            <p class="settings-desc">엑셀에서 복사한 데이터(탭 구분)를 붙여넣어 저장합니다. 교육생 추가 시 사번이 일치하면 전화번호를 자동 입력합니다.</p>
+            <textarea id="phone-lookup-paste" rows="4" class="settings-textarea" placeholder="지역단&#9;지점&#9;성명&#9;사번&#9;전화번호&#10;(첫 줄 헤더 있어도 자동 감지)"></textarea>
+            <div class="settings-actions">
+              <button class="btn-primary small" id="btn-phone-lookup-save">💾 저장</button>
+              <button class="btn-outline small" id="btn-phone-lookup-clear">🗑 삭제</button>
+              <button class="btn-outline small" id="btn-phone-lookup-apply-all">🔄 기존 교육생 연락처 일괄 업데이트</button>
+              <span id="phone-lookup-count" class="settings-desc" style="margin-left:8px;"></span>
+            </div>
+
+            <p class="settings-sub-label">👤 관리자 계정 관리</p>
+            <p class="settings-desc">로그인 계정을 등록·수정·삭제합니다. 초기 비밀번호는 0000입니다.</p>
+            <div class="settings-actions">
+              <button class="btn-outline" id="btn-add-admin">+ 관리자 추가</button>
+              <button class="btn-outline" id="btn-bulk-add-admin">📋 일괄 추가</button>
+            </div>
+            <div id="admin-region-buttons"></div>
+            <div id="admin-user-tree" class="admin-tree" hidden></div>
           </div>
 
           <div class="settings-section">
@@ -201,21 +213,9 @@
           </div>
 
           <div class="settings-section">
-            <h3>기본값 설정</h3>
+            <h3>마스터목표 일괄수정</h3>
             <p class="settings-desc">지역단별 마스터목표 기본값(원)을 설정합니다. 신규 교육생 등록 시 이 값이 자동으로 입력됩니다.</p>
             <div id="settings-default-targets"><p class="settings-desc" style="color:#999;">교육생 데이터 로딩 후 표시됩니다.</p></div>
-          </div>
-
-          <div class="settings-section">
-            <h3>📇 사원 연락처 참조 데이터</h3>
-            <p class="settings-desc">엑셀에서 복사한 데이터(탭 구분)를 붙여넣어 저장합니다. 교육생 추가 시 사번이 일치하면 전화번호를 자동 입력합니다.</p>
-            <textarea id="phone-lookup-paste" rows="4" class="settings-textarea" placeholder="지역단&#9;지점&#9;성명&#9;사번&#9;전화번호&#10;(첫 줄 헤더 있어도 자동 감지)"></textarea>
-            <div class="settings-actions">
-              <button class="btn-primary small" id="btn-phone-lookup-save">💾 저장</button>
-              <button class="btn-outline small" id="btn-phone-lookup-clear">🗑 삭제</button>
-              <button class="btn-outline small" id="btn-phone-lookup-apply-all">🔄 기존 교육생 연락처 일괄 업데이트</button>
-              <span id="phone-lookup-count" class="settings-desc" style="margin-left:8px;"></span>
-            </div>
           </div>
 
           <div class="settings-section danger">
@@ -236,16 +236,6 @@
             </table>
           </div>
 
-          <!-- 관리자 계정 관리 -->
-          <div class="settings-section" id="admin-users-section">
-            <h3>👤 관리자 계정 관리</h3>
-            <p class="settings-desc">로그인 계정을 등록·수정·삭제합니다. 초기 비밀번호는 0000입니다.</p>
-            <div class="settings-actions">
-              <button class="btn-outline" id="btn-add-admin">+ 관리자 추가</button>
-              <button class="btn-outline" id="btn-bulk-add-admin">📋 일괄 추가</button>
-            </div>
-            <div id="admin-user-tree" class="admin-tree"></div>
-          </div>
         </div>
       </section>
 
