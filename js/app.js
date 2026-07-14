@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.02";
+  const APP_VERSION = "3.03";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -9737,6 +9737,52 @@ ${piPagesHtml}`;
     loadAndRenderLogs();
   }
 
+  // ── 사원 연락처 참조 데이터 (localStorage "cmPhoneLookup") ──────────────────
+  const CM_PHONE_LOOKUP_KEY = "cmPhoneLookup";
+
+  function parseLookupText(text) {
+    const lines = text.split(/\r?\n/).map((l) => l.split("\t"));
+    if (!lines.length) return {};
+    // 헤더 자동 감지: 첫 줄에 "사번" 또는 "empno"(대소문자 무시) 포함 여부
+    const HDR_EMP  = ["사번", "empno", "사원번호", "직원번호"];
+    const HDR_PHN  = ["전화번호", "연락처", "휴대폰", "핸드폰", "phone", "tel", "mobile"];
+    const firstRow = lines[0].map((c) => c.trim().toLowerCase());
+    let empIdx = 3, phnIdx = 4; // 기본 순서 (지역단 지점 성명 사번 전화번호)
+    const hasHeader = firstRow.some((c) => HDR_EMP.includes(c) || HDR_PHN.includes(c));
+    let dataLines = lines;
+    if (hasHeader) {
+      empIdx = firstRow.findIndex((c) => HDR_EMP.includes(c));
+      phnIdx = firstRow.findIndex((c) => HDR_PHN.includes(c));
+      dataLines = lines.slice(1);
+      if (empIdx < 0) empIdx = 3;
+      if (phnIdx < 0) phnIdx = 4;
+    }
+    const map = {};
+    dataLines.forEach((cols) => {
+      const empNo = (cols[empIdx] || "").trim().replace(/[^a-zA-Z0-9]/g, "");
+      const phone = (cols[phnIdx] || "").trim();
+      if (empNo && phone) map[empNo] = phone;
+    });
+    return map;
+  }
+
+  function lookupPhone(empNo) {
+    try {
+      const map = JSON.parse(localStorage.getItem(CM_PHONE_LOOKUP_KEY) || "{}");
+      return map[String(empNo || "").trim()] || null;
+    } catch { return null; }
+  }
+
+  function refreshLookupCount() {
+    try {
+      const map = JSON.parse(localStorage.getItem(CM_PHONE_LOOKUP_KEY) || "{}");
+      const count = Object.keys(map).length;
+      const el = document.getElementById("phone-lookup-count");
+      if (el) el.textContent = count ? `${count.toLocaleString()}건 저장됨` : "저장된 데이터 없음";
+    } catch {}
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   function getMasterTargetDefault(region) {
     try {
       const stored = JSON.parse(localStorage.getItem(LS_DEFAULTS_KEY) || "{}");
@@ -9746,6 +9792,7 @@ ${piPagesHtml}`;
 
   function renderMasterTargetSettings() {
     renderAdminTree();
+    refreshLookupCount();
     const container = document.getElementById("settings-default-targets");
     if (!container) return;
     const regions = [...new Set(state.students.map((s) => s.region).filter((r) => r && r.endsWith("지역단")))].sort();
@@ -10568,6 +10615,9 @@ ${piPagesHtml}`;
 
     // 1. 파싱
     const { records, parseErrors, isFormatA } = parseBulkRecords(raw, colOverride);
+
+    // 참조 데이터로 빈 전화번호 보완
+    records.forEach((r) => { if (!r.phone) { const p = lookupPhone(r.empNo); if (p) r.phone = p; } });
 
     // Format A 에서 기수 미선택 경고
     if (isFormatA && !state._bulkCohort && !state.filter.cohort) {
@@ -11747,8 +11797,14 @@ ${piPagesHtml}`;
       if (editingEmpNo) return;
       const empNo = ($("#form-empno")?.value || "").trim();
       if (!empNo) return;
+      // 신규 교육생: 기존 데이터 없으면 참조 데이터에서 전화번호 자동 입력
       const s = state.students.find((x) => x.empNo === empNo);
-      if (!s) return;
+      if (!s) {
+        const looked = lookupPhone(empNo);
+        const phoneEl = $("#form-phone");
+        if (looked && phoneEl && !phoneEl.value) phoneEl.value = looked;
+        return;
+      }
       state.form = { region: s.region || "", center: s.center || "", branch: s.branch || "" };
       $("#form-name").value   = s.name   || "";
       $("#form-phone").value  = s.phone  || "";
@@ -11871,13 +11927,47 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
     document.getElementById("btn-logout")?.addEventListener("click", () => {
       if (confirm("로그아웃 하시겠습니까?")) _doLogout();
     });
+    // 사원 연락처 참조 데이터 — 저장 / 삭제 / 일괄 업데이트
+    document.getElementById("btn-phone-lookup-save")?.addEventListener("click", () => {
+      const text = (document.getElementById("phone-lookup-paste")?.value || "").trim();
+      if (!text) { toast("붙여넣을 데이터가 없습니다.", "error"); return; }
+      const map = parseLookupText(text);
+      const count = Object.keys(map).length;
+      if (!count) { toast("매칭된 사번이 없습니다. 형식(탭 구분, 사번·전화번호 포함)을 확인하세요.", "error"); return; }
+      localStorage.setItem(CM_PHONE_LOOKUP_KEY, JSON.stringify(map));
+      const ta = document.getElementById("phone-lookup-paste");
+      if (ta) ta.value = "";
+      refreshLookupCount();
+      toast(`${count.toLocaleString()}건 저장 완료`, "success");
+    });
+    document.getElementById("btn-phone-lookup-clear")?.addEventListener("click", () => {
+      if (!confirm("저장된 참조 데이터를 삭제하시겠습니까?")) return;
+      localStorage.removeItem(CM_PHONE_LOOKUP_KEY);
+      refreshLookupCount();
+      toast("참조 데이터 삭제됨", "success");
+    });
+    document.getElementById("btn-phone-lookup-apply-all")?.addEventListener("click", async () => {
+      const map = (() => { try { return JSON.parse(localStorage.getItem(CM_PHONE_LOOKUP_KEY) || "{}"); } catch { return {}; } })();
+      if (!Object.keys(map).length) { toast("저장된 참조 데이터가 없습니다. 먼저 데이터를 저장하세요.", "error"); return; }
+      // 전화번호가 없는 교육생만 대상
+      const targets = state.students.filter((s) => !s.phone && map[s.empNo]);
+      if (!targets.length) { toast("매칭되는 미등록 연락처가 없습니다.", "success"); return; }
+      if (!confirm(`전체 교육생 중 ${targets.length}명의 연락처를 업데이트하시겠습니까?`)) return;
+      const updates = targets.map((s) => ({ ...s, phone: map[s.empNo] }));
+      try {
+        const { committed, errors } = await window.DataAPI.saveMany(updates);
+        toast(`${committed}명 연락처 업데이트 완료${errors.length ? ` (실패 ${errors.length}건)` : ""}`, committed ? "success" : "error");
+        if (committed) renderDebounced();
+      } catch (e) { toast("업데이트 오류: " + e.message, "error"); }
+    });
+
     // 관리자 추가 / 일괄 추가 버튼
     document.getElementById("btn-add-admin")?.addEventListener("click", () => openAdminModal(null));
     document.getElementById("btn-bulk-add-admin")?.addEventListener("click", () => openAdminBulkModal());
@@ -13449,6 +13539,13 @@ ${piPagesHtml}`;
       registerBox.hidden = true;
       loginBox.hidden = false;
       empEl.focus();
+    });
+
+    // 사번 blur → 전화번호 자동 입력 (참조 데이터)
+    ov.querySelector("#reg-empno")?.addEventListener("blur", (e) => {
+      const phone = lookupPhone(e.target.value.trim());
+      const phoneEl = ov.querySelector("#reg-phone");
+      if (phone && phoneEl && !phoneEl.value) phoneEl.value = phone;
     });
 
     // 신청하기 처리

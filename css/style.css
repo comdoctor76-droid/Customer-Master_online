@@ -4864,10 +4864,18 @@ body {
   line-height: 1.55;
   margin-bottom: 10px;
 }
+.settings-textarea {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; font-size: 12px; font-family: inherit;
+  resize: vertical; color: var(--ink-1); background: var(--surface);
+  margin-bottom: 8px;
+}
 .settings-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 .settings-info {
   width: 100%;
