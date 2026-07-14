@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.00";
+  const APP_VERSION = "3.01";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11615,6 +11615,8 @@ ${piPagesHtml}`;
       state.filter.region = e.target.value;
       state.filter.center = "";
       state.filter.branch = "";
+      // 실적진도 지역단 동기화 (render → renderProgressPanel이 pg-region-sel에 반영)
+      state.progressRegion = e.target.value;
       syncFilterOrgSelects();
       persistFilter();
       render();
@@ -11648,6 +11650,10 @@ ${piPagesHtml}`;
       const prevCohortNum = parseInt(state.filter.cohort, 10) || 0;
       const newCohortNum  = parseInt(e.target.value, 10) || 0;
       state.filter.cohort = e.target.value;
+      // 실적진도 기수 동기화 ("1기" → "1")
+      state.progressCohort = e.target.value ? e.target.value.replace(/기$/, "") : "";
+      const pgCohortSel = document.getElementById("pg-cohort-sel");
+      if (pgCohortSel) pgCohortSel.value = state.progressCohort;
       // 뒤 기수 → 앞 기수: Step 2 / 앞 기수 → 뒤 기수: Step 1
       const autoStep = (newCohortNum > 0 && prevCohortNum > 0 && newCohortNum < prevCohortNum) ? "2" : "1";
       state.filter.step = autoStep;
@@ -11850,13 +11856,22 @@ ${piPagesHtml}`;
     // 실적진도 — 지역단 선택
     document.getElementById("pg-region-sel")?.addEventListener("change", (e) => {
       state.progressRegion = e.target.value;
+      // 사이드바 지역단 동기화
+      state.filter.region = e.target.value;
+      state.filter.center = "";
+      state.filter.branch = "";
+      const filterRegSel = document.getElementById("filter-region-select");
+      if (filterRegSel) filterRegSel.value = e.target.value;
+      syncFilterOrgSelects();
+      persistFilter();
       if (isPanelVisible("progress-panel")) renderProgressPanel();
+      render();
     });
     // 실적진도 — 시상내역 엑셀 저장하기
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260713a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
