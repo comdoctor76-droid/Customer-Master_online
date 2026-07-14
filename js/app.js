@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.01";
+  const APP_VERSION = "3.02";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4965,10 +4965,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const pgRegSel = document.getElementById("pg-region-sel");
     if (pgRegSel) {
       const allRegions = [...new Set(state.students.map((s) => s.region).filter(Boolean))].sort();
-      const prev = pgRegSel.value;
       pgRegSel.innerHTML = '<option value="">지역단 미선택</option>' +
         allRegions.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
-      const want = prev || state.progressRegion || state.filter.region || "";
+      // state.progressRegion을 최우선으로 (prev는 stale DOM값이라 state 변경 시 덮어쓰면 안 됨)
+      const want = state.progressRegion || state.filter.region || "";
       if (want) pgRegSel.value = want;
     }
     const region = pgRegSel?.value || state.progressRegion || state.filter.region || "";
@@ -11871,7 +11871,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
