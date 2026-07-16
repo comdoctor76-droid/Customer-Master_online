@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.05";
+  const APP_VERSION = "3.06";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -11927,15 +11927,16 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260714e)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260716a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
     document.getElementById("btn-logout")?.addEventListener("click", () => {
       if (confirm("로그아웃 하시겠습니까?")) _doLogout();
     });
-    // 플래너 연락처 업데이트 / 관리자 계정 관리 — 모달로 열기
+    // 데이터관리 버튼 → 각 모달
     document.getElementById("btn-open-phone-lookup")?.addEventListener("click", openPhoneLookupModal);
+    document.getElementById("btn-open-master-target")?.addEventListener("click", openMasterTargetModal);
     document.getElementById("btn-open-admin-manage")?.addEventListener("click", openAdminManageModal);
 
     $("#btn-open-backup-modal").addEventListener("click", openBackupModal);
@@ -13640,6 +13641,33 @@ ${piPagesHtml}`;
         openAdminRegionPopup(key === "__unassigned__" ? "미지정" : key, members);
       });
     });
+  }
+
+  function openMasterTargetModal() {
+    document.getElementById("master-target-modal")?.remove();
+
+    const ov = document.createElement("div");
+    ov.id = "master-target-modal";
+    ov.className = "modal";
+    ov.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+        <div class="modal-head">
+          <h3>🎯 마스터목표 일괄수정</h3>
+          <button class="modal-close-x" id="master-target-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="settings-desc">지역단별 마스터목표 기본값(원)을 설정합니다. 신규 교육생 등록 시 이 값이 자동으로 입력됩니다.</p>
+          <div id="settings-default-targets"><p class="settings-desc" style="color:#999;">로딩 중...</p></div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#master-target-close").addEventListener("click", close);
+    ov.querySelector(".modal-backdrop").addEventListener("click", close);
+
+    renderMasterTargetSettings();
   }
 
   function openPhoneLookupModal() {
