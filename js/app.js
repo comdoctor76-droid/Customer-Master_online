@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.06";
+  const APP_VERSION = "3.07";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4734,6 +4734,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         modal = document.createElement("div");
         modal.id = "modal-cross-region";
         modal.className = "modal";
+        modal.style.zIndex = "10002";
         document.body.appendChild(modal);
       }
       const listHtml = items.map((it) =>
@@ -6912,7 +6913,8 @@ ${piPagesHtml}`;
         link.download = filename;
         link.href = canvas.toDataURL("image/png");
         link.click();
-        toast(`이미지가 저장되었습니다. (${filename})`, "success");
+        toast(`이미지가 저장되었습니다. 카카오톡이 열립니다. (${filename})`, "success");
+        setTimeout(() => { window.location.href = "kakaotalk://"; }, 700);
       }
     } catch (e) {
       if (e?.name !== "AbortError") {
@@ -7695,7 +7697,7 @@ ${piPagesHtml}`;
               <strong>📌 저장 대상:</strong>
               <select id="pg-global-region-sel" class="pg-paste-global-sel">
                 <option value="">전체 지역단</option>
-                ${_rgnEntries.map(([r]) => `<option value="${escapeHtml(r)}"${r === state.progressRegion ? ' selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+                ${_rgnEntries.map(([r]) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('')}
               </select>
               <select id="pg-global-cohort-sel" class="pg-paste-global-sel">
                 <option value="">기수 선택 ▾</option>
@@ -7981,7 +7983,6 @@ ${piPagesHtml}`;
     // 공통 붙여넣기 저장 대상 초기화 (지역단·기수)
     const _globalRegionSel = root.querySelector("#pg-global-region-sel");
     const _globalCohortSel = root.querySelector("#pg-global-cohort-sel");
-    if (_globalRegionSel && state.progressRegion) _globalRegionSel.value = state.progressRegion;
     if (_globalCohortSel && state.filter.cohort) _globalCohortSel.value = state.filter.cohort;
 
     // ── 공통 필터 → 편집 테이블 행 표시/숨김 ─────────────────────────────
@@ -8008,7 +8009,19 @@ ${piPagesHtml}`;
       }
     };
     if (_globalRegionSel) _globalRegionSel.addEventListener("change", _applyEditFilter);
-    if (_globalCohortSel) _globalCohortSel.addEventListener("change", _applyEditFilter);
+    if (_globalCohortSel) {
+      _globalCohortSel.addEventListener("change", _applyEditFilter);
+      // 기수 변경 시 스텝 자동 선택 (상위기수→하위: Step2, 하위→상위: Step1)
+      let _prevCohortNum = parseInt((_globalCohortSel.value || "").replace(/기$/, ""), 10) || 0;
+      _globalCohortSel.addEventListener("change", () => {
+        const newNum = parseInt((_globalCohortSel.value || "").replace(/기$/, ""), 10) || 0;
+        if (newNum > 0 && _prevCohortNum > 0) {
+          const autoStep = newNum < _prevCohortNum ? "2" : "1";
+          root.querySelectorAll('input[name="pg-global-step"]').forEach((r) => { r.checked = r.value === autoStep; });
+        }
+        _prevCohortNum = newNum || _prevCohortNum;
+      });
+    }
     // 초기 적용 (기수가 미리 선택된 경우 필터 반영)
     if ((state.filter.cohort || "") !== "") _applyEditFilter();
 
@@ -11927,7 +11940,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260716a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260722a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
