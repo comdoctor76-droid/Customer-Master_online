@@ -153,6 +153,11 @@ window.DataAPI = {
     if (student.pgPreIncome !== undefined)  record.pgPreIncome  = Number(student.pgPreIncome)  || 0;
     if (student.pgLeader    !== undefined)  record.pgLeader     = student.pgLeader || "";
     if (student.pgMonth     !== undefined)  record.pgMonth      = student.pgMonth  || "";
+    // 예상실적
+    if (student.pgExpected  !== undefined)  record.pgExpected   = Number(student.pgExpected)   || 0;
+    if (student.pgExpected2 !== undefined)  record.pgExpected2  = Number(student.pgExpected2)  || 0;
+    // hiCap (Step 1)
+    if (student.hiCap !== undefined)        record.hiCap        = Number(student.hiCap)        || 0;
     // Step 2 전용 필드
     if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
     if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
@@ -207,6 +212,9 @@ window.DataAPI = {
       if (student.pgPreIncome !== undefined)  record.pgPreIncome  = Number(student.pgPreIncome)  || 0;
       if (student.pgLeader    !== undefined)  record.pgLeader     = student.pgLeader || "";
       if (student.pgMonth     !== undefined)  record.pgMonth      = student.pgMonth  || "";
+      // 예상실적
+      if (student.pgExpected  !== undefined)  record.pgExpected   = Number(student.pgExpected)   || 0;
+      if (student.pgExpected2 !== undefined)  record.pgExpected2  = Number(student.pgExpected2)  || 0;
       // Step 2 전용 필드
       if (student.pgBase2 !== undefined)      record.pgBase2      = Number(student.pgBase2)      || 0;
       if (student.pgCurrent2 !== undefined)   record.pgCurrent2   = Number(student.pgCurrent2)   || 0;
@@ -214,6 +222,7 @@ window.DataAPI = {
       if (student.pgIpumAmt2 !== undefined)   record.pgIpumAmt2   = Number(student.pgIpumAmt2)   || 0;
       if (student.hiCap2 !== undefined)       record.hiCap2       = Number(student.hiCap2)       || 0;
       if (student.team !== undefined)         record.team         = String(student.team || "");
+      if (student.jobTitle !== undefined)     record.jobTitle     = String(student.jobTitle || "");
       valid.push({ empNo, record });
     });
 
