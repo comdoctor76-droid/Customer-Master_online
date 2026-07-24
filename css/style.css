@@ -592,6 +592,22 @@ body {
 .pg-expected-edit-btn:hover { opacity: 1; background: #dbeafe; }
 .pg-expected-pending .pg-expected-val { color: #7c3aed; font-weight: 700; }
 .pg-expected-pending { background: #f5f3ff !important; }
+/* Step2 보기 전용 — Step1 마감실적 열 */
+.pg-step1-fin-th {
+  background: #e0e7ff !important;
+  color: #3730a3 !important;
+}
+.pg-step1-fin-col {
+  background: #f0f4ff;
+  color: #3730a3;
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) {
+  .pg-step1-fin-th { background: #312e81 !important; color: #c7d2fe !important; }
+  .pg-step1-fin-col { background: #1e1b4b; color: #a5b4fc; }
+}
+:root[data-theme="dark"] .pg-step1-fin-th { background: #312e81 !important; color: #c7d2fe !important; }
+:root[data-theme="dark"] .pg-step1-fin-col { background: #1e1b4b; color: #a5b4fc; }
 .pg-goal-adj-popup {
   position: fixed;
   z-index: 9000;
