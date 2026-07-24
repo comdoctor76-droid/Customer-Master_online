@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.09";
+  const APP_VERSION = "3.10";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5403,23 +5403,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
     const byRate = [...stats].sort((a, b) => (b.net / (b.base || 1)) - (a.net / (a.base || 1)));
     const byAmt  = [...stats].sort((a, b) => b.net - a.net);
     const byIpum = [...stats].filter((s) => s.ipumAmt > 0).sort((a, b) => b.ipumAmt - a.ipumAmt || b.ipumCount - a.ipumCount);
+    // 전체 교육생 실적표 정렬: 기준순증(현재실적-기준실적) 내림차순, 동점 시 기준달성률 순
     const byMasterRate = [...stats].sort((a, b) => {
-      const aAward = tierAward(a.net, undefined, _pa);
-      const bAward = tierAward(b.net, undefined, _pa);
-      const aHas = aAward > 0;
-      const bHas = bAward > 0;
-      // 시상 확정자끼리 → 시상금액 내림차순 (동액이면 마스터달성률 순)
-      if (aHas && bHas) {
-        if (bAward !== aAward) return bAward - aAward;
-      }
-      // 시상 확정자 → 미확정자보다 앞
-      if (aHas && !bHas) return -1;
-      if (!aHas && bHas) return 1;
-      // 둘 다 미확정 → 마스터달성률 내림차순
-      const ag = Number(a.s.target) > 0 ? Number(a.s.target) : a.base;
-      const bg = Number(b.s.target) > 0 ? Number(b.s.target) : b.base;
-      const ar = ag > 0 ? a.current / ag : 0;
-      const br = bg > 0 ? b.current / bg : 0;
+      if (b.net !== a.net) return b.net - a.net;
+      const ar = a.base > 0 ? a.current / a.base : 0;
+      const br = b.base > 0 ? b.current / b.base : 0;
       return br - ar;
     });
 
@@ -5714,7 +5702,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         </div>
 
         <div class="pg-card pg-full-tbl-card" id="pg-full-tbl-card">
-          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small class="pg-desktop-only">(시상확정↓시상금액순 · 미확정↓마스터달성률순, 클릭 시 상세)</small>
+          <h4 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">📊 전체 교육생 실적표 <small class="pg-desktop-only">(기준순증↓순, 클릭 시 상세)</small>
             <button type="button" class="pg-full-tbl-toggle btn-outline small" id="btn-pg-full-toggle">펼쳐보기</button>
             ${!state.pgShareMode && !isStudentMode() ? `<button type="button" class="btn-primary small" id="btn-pg-tbl-save" hidden style="font-size:12px;padding:4px 10px;">💾 변경 저장</button>` : ""}
             ${!state.pgShareMode ? `<button type="button" class="btn-outline small" id="btn-pg-notice-share" style="margin-left:auto;font-size:12px;padding:4px 10px;"><span class="pg-notice-btn-mobile">📢 카카오톡 공지하기</span><span class="pg-notice-btn-desktop">📢 공지하기</span></button>` : ""}
@@ -11945,7 +11933,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260724b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260724c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
