@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.11";
+  const APP_VERSION = "3.12";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7298,32 +7298,11 @@ ${piPagesHtml}`;
         </div>
 
         <div class="pg-si-section">
-          <div class="pg-si-head">📋 기본 정보</div>
-          <div class="pg-si-grid">
-            ${row("사번", escapeHtml(s.empNo || ""))}
-            ${row("성명", escapeHtml(s.name || ""))}
-            ${s.phone ? row("연락처", `<a href="tel:${escapeHtml(s.phone)}" class="pg-si-phone-link">${escapeHtml(s.phone)}</a>`) : row("연락처", "")}
-            ${row("기수", escapeHtml(s.cohort || ""))}
-            ${row("지역단", escapeHtml(s.region || ""))}
-            ${row("비전센터", escapeHtml(s.center || ""))}
-            ${row("지점", escapeHtml(s.branch || ""))}
-            ${row("조편성", s.team ? `${escapeHtml(String(s.team))}조` : "")}
-          </div>
-        </div>
-
-        <div class="pg-si-section">
-          <div class="pg-si-head">🎯 실적 목표</div>
+          <div class="pg-si-head">🎯 실적 목표 · 현재 실적</div>
           <div class="pg-si-grid">
             ${row("기준실적", `${Nf(st.base)}원`)}
             ${row("마스터목표", targetDisp ? `${Nf(targetDisp)}원` : "")}
-            ${row("아너스목표", Number(s.honors) ? `${Nf(Number(s.honors))}원` : "")}
             ${st.hiCap ? row("장기하이캡", `${Nf(st.hiCap)}원`) : ""}
-          </div>
-        </div>
-
-        <div class="pg-si-section">
-          <div class="pg-si-head">📊 현재 실적</div>
-          <div class="pg-si-grid">
             ${row("현재실적", `${Nf(st.current)}원`)}
             ${row("달성률", `<span style="color:${rateC};font-weight:700">${st.base > 0 ? st.rate.toFixed(1) + "%" : "—"}</span>`)}
             ${row("순증", `<span style="color:${netC};font-weight:700">${st.net >= 0 ? "+" : ""}${Nf(st.net)}원</span>`)}
@@ -7335,10 +7314,26 @@ ${piPagesHtml}`;
           <div class="pg-si-head">🏆 예상 시상</div>
           <div class="pg-si-award-val">${awdText}</div>
         </div>
+
+        <div class="pg-si-section">
+          <div class="pg-si-head" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>💬 상담 고객 입력</span>
+            <small class="pg-quick-hint">저장 시 면담기록 + 예상실적 반영</small>
+          </div>
+          <div id="pg-quick-clients"></div>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button type="button" id="pg-quick-add" class="btn-outline small" style="font-size:12px;">+ 고객 추가 (최대 5)</button>
+            <span id="pg-quick-msg" class="pg-quick-msg"></span>
+          </div>
+          <div style="margin-top:10px;text-align:right;">
+            <button type="button" id="pg-quick-save" class="btn-primary small">💾 저장</button>
+          </div>
+        </div>
       `,
       closeLabel: pushStack ? "← 목록으로" : "← 돌아가기",
       pushStack: !!pushStack
     });
+
     // 면담관리 버튼 설정 (교육생 모드에서는 숨김)
     const pgModal = document.getElementById("modal-pg-full");
     const extraBtn = pgModal && pgModal.querySelector("#pg-full-modal-extra");
@@ -7354,6 +7349,82 @@ ${piPagesHtml}`;
           switchView("#students");
         };
       }
+    }
+
+    // 약식 상담 고객 입력 폼 초기화
+    if (!isStudentMode()) {
+      const qClients = pgModal.querySelector("#pg-quick-clients");
+      const qAdd     = pgModal.querySelector("#pg-quick-add");
+      const qSave    = pgModal.querySelector("#pg-quick-save");
+      const qMsg     = pgModal.querySelector("#pg-quick-msg");
+
+      const addQuickRow = () => {
+        if (!qClients || qClients.children.length >= 5) return;
+        const div = document.createElement("div");
+        div.className = "pg-quick-row";
+        div.innerHTML = `<input type="text" class="pg-quick-name" placeholder="고객 성명" autocomplete="off">
+          <input type="number" class="pg-quick-amt" placeholder="제안금액(만원)" min="0" step="1">
+          <button type="button" class="pg-quick-rm btn-outline small">✕</button>`;
+        div.querySelector(".pg-quick-rm").addEventListener("click", () => div.remove());
+        qClients.appendChild(div);
+        div.querySelector(".pg-quick-name").focus();
+      };
+      addQuickRow();
+
+      if (qAdd) qAdd.addEventListener("click", addQuickRow);
+
+      if (qSave) qSave.addEventListener("click", async () => {
+        const rows = Array.from(qClients.querySelectorAll(".pg-quick-row"));
+        const clients = rows.map((r) => ({
+          name: r.querySelector(".pg-quick-name").value.trim(),
+          amountDirect: r.querySelector(".pg-quick-amt").value.trim(),
+          types: [], consult: [], material: [], bj: [], memo: "", amount: []
+        })).filter((c) => c.name || c.amountDirect);
+
+        if (!clients.length) {
+          if (qMsg) qMsg.textContent = "⚠️ 고객 성명 또는 제안금액을 입력하세요.";
+          return;
+        }
+        qSave.disabled = true;
+        if (qMsg) qMsg.textContent = "저장 중...";
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          await window.DataAPI.addConsultation(empNo, {
+            date: today, seq: "", content: "약식 상담",
+            clients,
+            ins: 0, tgt: 0, pct: 0, curAct: 0, plan: 0, hap: 0,
+            exp: 0, close1: 0, close2: 0,
+            coach: "", calcAvg: "", calcBaseTgt: "", calcTgt: "", calcComment: ""
+          });
+
+          // 제안금액 합계 (만원 → 원)
+          const totalAmt = clients.reduce((sum, c) => sum + (parseFloat(c.amountDirect) || 0) * 10000, 0);
+          if (totalAmt > 0) {
+            const sfx = _pgStepSfx();
+            const expField = sfx ? `pgExpected${sfx}` : "pgExpected";
+            const curExpected = Number(s[expField] || 0);
+            const newExpected = Math.max(curExpected, st.current + totalAmt);
+            await window.DataAPI.save({ ...s, [expField]: newExpected });
+            // 테이블 셀 즉시 반영
+            const expTd = document.querySelector(`#pg-full-tbl-card td.pg-expected-cell[data-emp="${CSS.escape(empNo)}"]`);
+            if (expTd) {
+              const span = expTd.querySelector(".pg-expected-val");
+              if (span) span.textContent = Nf(newExpected);
+              expTd.dataset.expected = newExpected;
+            }
+            if (qMsg) qMsg.textContent = `✅ 저장! 예상실적 ${Nf(newExpected)}원 반영됨`;
+          } else {
+            if (qMsg) qMsg.textContent = "✅ 면담기록 저장 완료!";
+          }
+          // 입력 초기화
+          qClients.innerHTML = "";
+          addQuickRow();
+        } catch (err) {
+          if (qMsg) qMsg.textContent = "❌ 저장 실패: " + (err.message || err);
+        } finally {
+          qSave.disabled = false;
+        }
+      });
     }
   }
 
@@ -11941,7 +12012,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
