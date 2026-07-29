@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.10";
+  const APP_VERSION = "3.11";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5709,7 +5709,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </h4>
           <div class="pg-tbl-scroll-hint">← 좌우로 스크롤해서 볼 수 있습니다 →</div>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:44px">순위</th><th style="white-space:nowrap">성명</th><th style="width:76px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:68px">기준실적</th><th class="r" style="width:68px">현재실적</th>${_showStep1Col ? '<th class="r pg-step1-fin-th" style="width:68px">Step1<br>마감실적</th>' : ''}<th class="r" style="width:96px">마스터목표</th><th style="width:52px">마스터<br>달성률</th><th class="r" style="width:74px">마스터<br>순증</th><th style="width:52px">기준<br>달성률</th><th class="r" style="width:74px">기준<br>순증</th><th class="r" style="width:80px">예상<br>실적</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:40px">순위</th><th style="white-space:nowrap">성명</th><th style="width:70px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:62px">기준실적</th><th class="r" style="width:62px">현재실적</th>${_showStep1Col ? '<th class="r pg-step1-fin-th" style="width:62px">Step1<br>마감실적</th>' : ''}<th class="r" style="width:84px">마스터목표</th><th style="width:48px">마스터<br>달성률</th><th class="r" style="width:66px">마스터<br>순증</th><th style="width:48px">기준<br>달성률</th><th class="r" style="width:66px">기준<br>순증</th><th class="r" style="width:70px">예상<br>실적</th><th style="width:52px">순증<br>달성률</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byMasterRate.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
@@ -5728,8 +5728,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const rawExp = Number(st.s[_expField] || 0);
               const expectedVal = rawExp > st.current ? rawExp : st.current;
               const step1Current = _showStep1Col ? Number(st.s.pgCurrent || st.s.current || 0) : 0;
+              const targetNet = masterGoal - st.base;
+              const netAchieveRate = targetNet > 0 ? (st.net / targetNet) * 100 : null;
+              const nac = netAchieveRate === null ? "" : netAchieveRate >= 120 ? "pg-c-over" : netAchieveRate >= 100 ? "pg-c-good" : netAchieveRate >= 80 ? "pg-c-mid" : "pg-c-low";
+              const naDisp = netAchieveRate !== null ? netAchieveRate.toFixed(1) + "%" : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
-              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span>${_canEdit ? `<button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button>` : ""}</td>${_showStep1Col ? `<td class="r pg-step1-fin-col">${step1Current > 0 ? Nf(step1Current) : "—"}</td>` : ""}<td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span>${_canEdit ? `<button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button>` : ""}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="r pg-expected-cell" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}"><span class="pg-expected-val">${Nf(expectedVal)}</span>${_canEdit ? `<button type="button" class="pg-expected-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button>` : ""}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
+              return `<tr data-emp="${escapeHtml(st.s.empNo)}" class="pg-tr-click"><td>${RB(i + 1)}</td><td style="white-space:nowrap"><strong>${escapeHtml(st.s.name || "")}</strong></td><td class="pg-empno-cell">${escapeHtml(st.s.empNo || "")}</td><td style="white-space:nowrap">${escapeHtml(st.s.branch || "")}</td><td class="r">${baseDisp}</td><td class="r pg-current-cell" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}"><span class="pg-current-val">${Nf(st.current)}</span>${_canEdit ? `<button type="button" class="pg-current-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button>` : ""}</td>${_showStep1Col ? `<td class="r pg-step1-fin-col">${step1Current > 0 ? Nf(step1Current) : "—"}</td>` : ""}<td class="r pg-goal-cell" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}"><span class="pg-goal-val">${goalDisp}</span>${_canEdit ? `<button type="button" class="pg-goal-adj-btn" data-emp="${escapeHtml(st.s.empNo)}" data-goal="${masterGoal}" data-base="${st.base}" onclick="event.stopPropagation()">±</button>` : ""}</td><td class="${nc}">${rateDisp}</td><td class="r ${netC}">${masterNet >= 0 ? "+" : ""}${Nf(masterNet)}</td><td class="${bc}">${baseRateDisp}</td><td class="r ${bnetC}">${baseNet >= 0 ? "+" : ""}${Nf(baseNet)}</td><td class="r pg-expected-cell" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}"><span class="pg-expected-val">${Nf(expectedVal)}</span>${_canEdit ? `<button type="button" class="pg-expected-edit-btn" data-emp="${escapeHtml(st.s.empNo)}" data-expected="${expectedVal}" data-current="${st.current}" onclick="event.stopPropagation()">✏️</button>` : ""}</td><td class="${nac}" style="white-space:nowrap">${naDisp}</td><td class="pg-tel-cell">${phone}</td><td>${aw}</td></tr>`;
             }).join("")}</tbody>
             ${(() => {
               const _tBase    = byMasterRate.reduce((a, st) => a + st.base, 0);
@@ -5745,6 +5749,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const _tnc = _tMRate >= 120 ? "pg-c-over" : _tMRate >= 100 ? "pg-c-good" : _tMRate >= 80 ? "pg-c-mid" : "pg-c-low";
               const _tbc = _tBRate >= 120 ? "pg-c-over" : _tBRate >= 100 ? "pg-c-good" : _tBRate >= 80 ? "pg-c-mid" : "pg-c-low";
               const _tStep1 = _showStep1Col ? byMasterRate.reduce((a, st) => a + Number(st.s.pgCurrent || st.s.current || 0), 0) : 0;
+              const _tTargetNet = byMasterRate.reduce((a, st) => { const mg = Number(st.s.target) > 0 ? Number(st.s.target) : st.base; return a + Math.max(0, mg - st.base); }, 0);
+              const _tNARate = _tTargetNet > 0 ? (_tBNet / _tTargetNet * 100) : null;
+              const _tNAC = _tNARate === null ? "" : _tNARate >= 120 ? "pg-c-over" : _tNARate >= 100 ? "pg-c-good" : _tNARate >= 80 ? "pg-c-mid" : "pg-c-low";
               return `<tfoot><tr class="pg-sum-row">
                 <td colspan="4">합계 (${byMasterRate.length}명)</td>
                 <td class="r">${Nf(_tBase)}</td>
@@ -5756,6 +5763,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
                 <td class="${_tbc}">${_tBRate.toFixed(1)}%</td>
                 <td class="r ${_tbC}">${_tBNet >= 0 ? "+" : ""}${Nf(_tBNet)}</td>
                 <td class="r">${Nf(_tExp)}</td>
+                <td class="${_tNAC}">${_tNARate !== null ? _tNARate.toFixed(1) + "%" : "—"}</td>
                 <td colspan="2"></td>
               </tr></tfoot>`;
             })()}
@@ -6836,7 +6844,7 @@ ${piPagesHtml}`;
       // A4 landscape width
       const A4W = 1050;
       const _isStep2Share = step && step !== "1";
-      const PHONE_COL = _isStep2Share ? 13 : 12; // Step2는 Step1마감실적 열이 추가되어 +1
+      const PHONE_COL = _isStep2Share ? 14 : 13; // Step2: Step1마감실적+순증달성률 열 추가로 +2
       const MASTER_COL = _isStep2Share ? 7 : 6;
       const clone = tbl.cloneNode(true);
       // 전화번호 열 제거, 편집 버튼 제거
@@ -11933,7 +11941,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260724c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
