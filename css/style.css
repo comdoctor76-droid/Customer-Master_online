@@ -1275,6 +1275,13 @@ body {
 .pg-si-award .pg-si-head { border-bottom-color: var(--orange-l); color: var(--orange-dark); }
 .pg-si-award-val { font-size: 17px; font-weight: 900; color: var(--orange); }
 
+/* 약식 상담 고객 입력 폼 */
+.pg-quick-hint { font-size: 11px; color: var(--ink-3); }
+.pg-quick-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.pg-quick-name { flex: 1; min-width: 0; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.pg-quick-amt  { width: 110px; flex-shrink: 0; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.pg-quick-msg  { font-size: 12px; color: var(--ink-2); }
+
 /* 실적진도 모달 하단 닫기/돌아가기 버튼 */
 .pg-full-modal .modal-foot {
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
