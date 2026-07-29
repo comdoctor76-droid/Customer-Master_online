@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.12";
+  const APP_VERSION = "3.13";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -5709,7 +5709,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
           </h4>
           <div class="pg-tbl-scroll-hint">← 좌우로 스크롤해서 볼 수 있습니다 →</div>
           <div class="pg-tbl-wrap"><table class="pg-tbl pg-full-rank-tbl">
-            <thead><tr><th style="width:40px">순위</th><th style="white-space:nowrap">성명</th><th style="width:70px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:62px">기준실적</th><th class="r" style="width:62px">현재실적</th>${_showStep1Col ? '<th class="r pg-step1-fin-th" style="width:62px">Step1<br>마감실적</th>' : ''}<th class="r" style="width:84px">마스터목표</th><th style="width:48px">마스터<br>달성률</th><th class="r" style="width:66px">마스터<br>순증</th><th style="width:48px">기준<br>달성률</th><th class="r" style="width:66px">기준<br>순증</th><th class="r" style="width:70px">예상<br>실적</th><th style="width:52px">순증<br>달성률</th><th>전화번호</th><th>시상</th></tr></thead>
+            <thead><tr><th style="width:40px">순위</th><th style="white-space:nowrap">성명</th><th style="width:70px">사번</th><th style="white-space:nowrap">지점</th><th class="r" style="width:62px">기준실적</th><th class="r" style="width:62px">현재실적</th>${_showStep1Col ? '<th class="r pg-step1-fin-th" style="width:62px">Step1<br>마감실적</th>' : ''}<th class="r" style="width:84px">마스터목표</th><th style="width:48px">마스터<br>달성률</th><th class="r" style="width:66px">마스터<br>순증</th><th style="width:48px">기준<br>달성률</th><th class="r" style="width:66px">기준<br>순증</th><th class="r" style="width:70px">예상<br>실적</th><th style="width:52px">예상<br>달성률</th><th>전화번호</th><th>시상</th></tr></thead>
             <tbody>${byMasterRate.map((st, i) => {
               const masterGoal = Number(st.s.target) > 0 ? Number(st.s.target) : st.base;
               const masterRate = masterGoal > 0 ? (st.current / masterGoal * 100) : 0;
@@ -5728,8 +5728,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const rawExp = Number(st.s[_expField] || 0);
               const expectedVal = rawExp > st.current ? rawExp : st.current;
               const step1Current = _showStep1Col ? Number(st.s.pgCurrent || st.s.current || 0) : 0;
-              const targetNet = masterGoal - st.base;
-              const netAchieveRate = targetNet > 0 ? (st.net / targetNet) * 100 : null;
+              const netAchieveRate = st.base > 0 ? (expectedVal / st.base) * 100 : null;
               const nac = netAchieveRate === null ? "" : netAchieveRate >= 120 ? "pg-c-over" : netAchieveRate >= 100 ? "pg-c-good" : netAchieveRate >= 80 ? "pg-c-mid" : "pg-c-low";
               const naDisp = netAchieveRate !== null ? netAchieveRate.toFixed(1) + "%" : "—";
               const phone = st.s.phone ? `<a href="tel:${escapeHtml(st.s.phone)}" class="pg-tel-link" onclick="event.stopPropagation()">${escapeHtml(st.s.phone)}</a>` : "—";
@@ -5749,8 +5748,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
               const _tnc = _tMRate >= 120 ? "pg-c-over" : _tMRate >= 100 ? "pg-c-good" : _tMRate >= 80 ? "pg-c-mid" : "pg-c-low";
               const _tbc = _tBRate >= 120 ? "pg-c-over" : _tBRate >= 100 ? "pg-c-good" : _tBRate >= 80 ? "pg-c-mid" : "pg-c-low";
               const _tStep1 = _showStep1Col ? byMasterRate.reduce((a, st) => a + Number(st.s.pgCurrent || st.s.current || 0), 0) : 0;
-              const _tTargetNet = byMasterRate.reduce((a, st) => { const mg = Number(st.s.target) > 0 ? Number(st.s.target) : st.base; return a + Math.max(0, mg - st.base); }, 0);
-              const _tNARate = _tTargetNet > 0 ? (_tBNet / _tTargetNet * 100) : null;
+              const _tNARate = _tBase > 0 ? (_tExp / _tBase * 100) : null;
               const _tNAC = _tNARate === null ? "" : _tNARate >= 120 ? "pg-c-over" : _tNARate >= 100 ? "pg-c-good" : _tNARate >= 80 ? "pg-c-mid" : "pg-c-low";
               return `<tfoot><tr class="pg-sum-row">
                 <td colspan="4">합계 (${byMasterRate.length}명)</td>
@@ -12012,7 +12010,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
