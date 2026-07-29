@@ -1281,6 +1281,7 @@ body {
 .pg-quick-name { flex: 1; min-width: 0; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg); color: var(--ink); }
 .pg-quick-amt  { width: 110px; flex-shrink: 0; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg); color: var(--ink); }
 .pg-quick-msg  { font-size: 12px; color: var(--ink-2); }
+.pg-quick-coach { width: 100%; box-sizing: border-box; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg); color: var(--ink); resize: vertical; line-height: 1.5; }
 
 /* 실적진도 모달 하단 닫기/돌아가기 버튼 */
 .pg-full-modal .modal-foot {
