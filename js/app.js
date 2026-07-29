@@ -230,7 +230,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.13";
+  const APP_VERSION = "3.14";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7321,9 +7321,14 @@ ${piPagesHtml}`;
           <div id="pg-quick-clients"></div>
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <button type="button" id="pg-quick-add" class="btn-outline small" style="font-size:12px;">+ 고객 추가 (최대 5)</button>
-            <span id="pg-quick-msg" class="pg-quick-msg"></span>
           </div>
-          <div style="margin-top:10px;text-align:right;">
+        </div>
+
+        <div class="pg-si-section">
+          <div class="pg-si-head">📌 핵심 코칭포인트 / 후속조치 / 다음주 계획</div>
+          <textarea id="pg-quick-coach" class="pg-quick-coach" rows="4" placeholder="핵심 코칭포인트, 후속조치, 다음주 계획을 상세히 기록하세요"></textarea>
+          <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span id="pg-quick-msg" class="pg-quick-msg"></span>
             <button type="button" id="pg-quick-save" class="btn-primary small">💾 저장</button>
           </div>
         </div>
@@ -7355,6 +7360,7 @@ ${piPagesHtml}`;
       const qAdd     = pgModal.querySelector("#pg-quick-add");
       const qSave    = pgModal.querySelector("#pg-quick-save");
       const qMsg     = pgModal.querySelector("#pg-quick-msg");
+      const qCoach   = pgModal.querySelector("#pg-quick-coach");
 
       const addQuickRow = () => {
         if (!qClients || qClients.children.length >= 5) return;
@@ -7378,9 +7384,10 @@ ${piPagesHtml}`;
           amountDirect: r.querySelector(".pg-quick-amt").value.trim(),
           types: [], consult: [], material: [], bj: [], memo: "", amount: []
         })).filter((c) => c.name || c.amountDirect);
+        const coachText = qCoach ? qCoach.value.trim() : "";
 
-        if (!clients.length) {
-          if (qMsg) qMsg.textContent = "⚠️ 고객 성명 또는 제안금액을 입력하세요.";
+        if (!clients.length && !coachText) {
+          if (qMsg) qMsg.textContent = "⚠️ 고객 정보 또는 코칭포인트를 입력하세요.";
           return;
         }
         qSave.disabled = true;
@@ -7392,7 +7399,7 @@ ${piPagesHtml}`;
             clients,
             ins: 0, tgt: 0, pct: 0, curAct: 0, plan: 0, hap: 0,
             exp: 0, close1: 0, close2: 0,
-            coach: "", calcAvg: "", calcBaseTgt: "", calcTgt: "", calcComment: ""
+            coach: coachText, calcAvg: "", calcBaseTgt: "", calcTgt: "", calcComment: ""
           });
 
           // 제안금액 합계 (만원 → 원)
@@ -7417,6 +7424,7 @@ ${piPagesHtml}`;
           // 입력 초기화
           qClients.innerHTML = "";
           addQuickRow();
+          if (qCoach) qCoach.value = "";
         } catch (err) {
           if (qMsg) qMsg.textContent = "❌ 저장 실패: " + (err.message || err);
         } finally {
@@ -12010,7 +12018,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
