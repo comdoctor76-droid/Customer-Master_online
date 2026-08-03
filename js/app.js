@@ -233,7 +233,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.16";
+  const APP_VERSION = "3.17";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -12044,7 +12044,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260803b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260803c)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -15138,7 +15138,7 @@ ${piPagesHtml}`;
           <td>${escapeHtml(s.empNo || "")}</td>
           <td class="r">${Nf(base)}</td>
           <td>${escapeHtml(s.phone || "")}</td>
-          <td><select class="ta-grp-sel${team ? " ta-grp-set" : ""}" data-emp="${escapeHtml(s.empNo)}" data-base="${base}">
+          <td><select class="ta-grp-sel${team ? " ta-grp-set" : ""}" data-emp="${escapeHtml(s.empNo)}" data-base="${base}" data-name="${escapeHtml(s.name || "")}" data-branch="${escapeHtml(s.branch || "")}">
             <option value="0"${!team ? " selected" : ""}>-</option>
             ${opts}
           </select></td>
@@ -15157,23 +15157,36 @@ ${piPagesHtml}`;
     function _taUpdateSums() {
       const bar = document.getElementById("ta-sum-bar");
       if (!bar) return;
-      const sums = {}, counts = {};
+      const teams = {};
       document.querySelectorAll(".ta-grp-sel").forEach((sel) => {
         const g = Number(sel.value);
-        const base = Number(sel.dataset.base || 0);
-        if (g > 0) {
-          sums[g] = (sums[g] || 0) + base;
-          counts[g] = (counts[g] || 0) + 1;
-        }
+        if (g <= 0) return;
+        if (!teams[g]) teams[g] = { total: 0, members: [] };
+        teams[g].total += Number(sel.dataset.base || 0);
+        teams[g].members.push({
+          name: sel.dataset.name || "",
+          branch: sel.dataset.branch || "",
+          base: Number(sel.dataset.base || 0)
+        });
       });
-      const keys = Object.keys(sums).map(Number).sort((a, b) => a - b);
+      const keys = Object.keys(teams).map(Number).sort((a, b) => a - b);
       if (!keys.length) {
         bar.innerHTML = `<span class="ta-sum-empty">조를 배정하면 합계가 표시됩니다.</span>`;
-      } else {
-        bar.innerHTML = keys.map((g) =>
-          `<span class="ta-sum-item">${g}조: ${sums[g].toLocaleString()}원 <small>(${counts[g]}명)</small></span>`
-        ).join(" &nbsp;|&nbsp; ");
+        return;
       }
+      bar.innerHTML = keys.map((g) => {
+        const t = teams[g];
+        const cnt = t.members.length;
+        const avg = cnt > 0 ? Math.round(t.total / cnt) : 0;
+        const mHtml = t.members
+          .sort((a, b) => b.base - a.base)
+          .map((m) => `<span class="ta-mbr">${escapeHtml(m.branch)} <b>${escapeHtml(m.name)}</b> <em>${m.base.toLocaleString()}</em></span>`)
+          .join("");
+        return `<div class="ta-team-card">
+          <div class="ta-team-hdr"><strong>${g}조</strong><span class="ta-cnt">${cnt}명</span><span class="ta-total">${t.total.toLocaleString()}원</span><span class="ta-avg">· 평균 ${avg.toLocaleString()}원</span></div>
+          <div class="ta-team-members">${mHtml}</div>
+        </div>`;
+      }).join("");
     }
 
     async function _taSave() {
@@ -15207,6 +15220,21 @@ ${piPagesHtml}`;
       }
     }
 
+    function _taSortByTeam() {
+      const tbody = document.getElementById("ta-tbody");
+      if (!tbody) return;
+      const rows = [...tbody.querySelectorAll("tr")];
+      rows.sort((a, b) => {
+        const ta = Number(a.querySelector(".ta-grp-sel")?.value) || 99;
+        const tb = Number(b.querySelector(".ta-grp-sel")?.value) || 99;
+        if (ta !== tb) return ta - tb;
+        const brA = a.cells[3]?.textContent || "";
+        const brB = b.cells[3]?.textContent || "";
+        return brA.localeCompare(brB);
+      });
+      rows.forEach((row) => tbody.appendChild(row));
+    }
+
     function _taAutoAssign() {
       if (!_taStudents.length) return;
       const raw = prompt(`총 ${_taStudents.length}명 교육생을 자동 배정합니다.\n한 팀을 몇 명으로 구성할까요?`, "5");
@@ -15224,43 +15252,56 @@ ${piPagesHtml}`;
       const totalBase = _taStudents.reduce((s, x) => s + (Number(x.base) || 0), 0);
       const avgPerTeam = nTeams > 0 ? Math.round(totalBase / nTeams) : 0;
 
-      // 비전센터 → 지점별 그룹화 후 기준실적 내림차순 정렬
-      const branchMap = {};
-      _taStudents.forEach((s) => {
-        const key = `${s.center || ""}||${s.branch || ""}`;
-        if (!branchMap[key]) branchMap[key] = [];
-        branchMap[key].push(s);
-      });
-
-      // 서브그룹 생성: 5명 이상 지점은 짝수/홀수 인덱스로 교차 분산하여 2팀으로 분할
-      const subGroups = [];
-      Object.values(branchMap).forEach((members) => {
-        members.sort((a, b) => (Number(b.base) || 0) - (Number(a.base) || 0));
-        if (members.length >= 5) {
-          subGroups.push(members.filter((_, i) => i % 2 === 0)); // 1위·3위·5위… (홀수 순위)
-          subGroups.push(members.filter((_, i) => i % 2 === 1)); // 2위·4위·6위… (짝수 순위)
-        } else {
-          subGroups.push(members);
-        }
-      });
-
-      // 서브그룹을 기준실적 합계 내림차순 정렬
-      subGroups.sort((a, b) => {
-        const sa = a.reduce((s, x) => s + (Number(x.base) || 0), 0);
-        const sb = b.reduce((s, x) => s + (Number(x.base) || 0), 0);
-        return sb - sa;
-      });
-
-      // 스네이크 드래프트: 고실적 그룹이 각 팀에 골고루 분산되도록 배정
+      // 1단계: 기준실적 내림차순 정렬 후 개인 단위 스네이크 드래프트 (평균 균형 최우선)
+      const sorted = [..._taStudents].sort((a, b) => (Number(b.base) || 0) - (Number(a.base) || 0));
       const teamMap = {};
-      subGroups.forEach((grp, i) => {
+      sorted.forEach((s, i) => {
         const row = Math.floor(i / nTeams);
         const col = i % nTeams;
         const teamIdx = row % 2 === 0 ? col : (nTeams - 1 - col);
-        grp.forEach((s) => { teamMap[s.empNo] = teamIdx + 1; });
+        teamMap[s.empNo] = teamIdx + 1;
       });
 
-      // DOM 반영
+      // 2단계: 지점별 응집 보정 — 같은 지점 인원이 최대한 같은 팀에 모이도록 스왑
+      const byBranch = {};
+      _taStudents.forEach((s) => {
+        const b = s.branch || "";
+        if (!byBranch[b]) byBranch[b] = [];
+        byBranch[b].push(s);
+      });
+
+      Object.values(byBranch).forEach((members) => {
+        if (members.length <= 1) return;
+        const maxGroups = members.length >= 5 ? 2 : 1;
+
+        const teamCount = {};
+        members.forEach((m) => {
+          const t = teamMap[m.empNo];
+          teamCount[t] = (teamCount[t] || 0) + 1;
+        });
+        const assignedTeams = Object.keys(teamCount).map(Number);
+        if (assignedTeams.length <= maxGroups) return;
+
+        const targetTeams = assignedTeams.sort((a, b) => teamCount[b] - teamCount[a]).slice(0, maxGroups);
+
+        members.forEach((m) => {
+          const curTeam = teamMap[m.empNo];
+          if (targetTeams.includes(curTeam)) return;
+          const mBase = Number(m.base) || 0;
+          // 목표 팀에서 유사 기준실적(±30%) 다른 지점 인원과 스왑
+          const candidate = _taStudents.find((s) =>
+            teamMap[s.empNo] === targetTeams[0] &&
+            (s.branch || "") !== (m.branch || "") &&
+            Math.abs((Number(s.base) || 0) - mBase) <= Math.max(mBase, 1) * 0.3
+          );
+          if (candidate) {
+            teamMap[m.empNo] = targetTeams[0];
+            teamMap[candidate.empNo] = curTeam;
+          }
+        });
+      });
+
+      // 3단계: DOM 반영
       document.querySelectorAll(".ta-grp-sel").forEach((sel) => {
         const t = teamMap[sel.dataset.emp];
         if (t !== undefined) {
@@ -15269,6 +15310,7 @@ ${piPagesHtml}`;
         }
       });
       _taUpdateSums();
+      _taSortByTeam(); // 배정 후 조번호 순 자동 정렬
       toast(`⚡ ${nTeams}팀 자동 배정 완료 · 팀당 평균 ${Nf(avgPerTeam)}원 · 저장 버튼을 눌러 저장하세요.`, "ok");
     }
 

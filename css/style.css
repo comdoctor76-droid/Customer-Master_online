@@ -5789,18 +5789,27 @@ body {
 .ta-panel { max-width: 920px; width: 96vw; display: flex; flex-direction: column; max-height: 90vh; }
 .ta-sum-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  padding: 8px 16px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 12px;
   background: #f0f4ff;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 13px;
-  min-height: 36px;
-  align-items: center;
+  font-size: 12px;
+  max-height: 26vh;
+  overflow-y: auto;
   flex-shrink: 0;
 }
-.ta-sum-item { font-weight: 700; color: var(--navy); }
-.ta-sum-empty { color: #aaa; font-size: 12px; }
+.ta-sum-empty { color: #aaa; font-size: 12px; align-self: center; }
+.ta-team-card { background:#fff; border:1px solid #dce3f5; border-radius:6px; padding:5px 10px; }
+.ta-team-hdr { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+.ta-team-hdr strong { color:var(--navy); font-size:13px; min-width:30px; }
+.ta-team-hdr .ta-cnt { color:#666; font-size:11px; }
+.ta-team-hdr .ta-total { font-weight:700; color:var(--navy); }
+.ta-team-hdr .ta-avg { color:#0d9488; font-size:11px; }
+.ta-team-members { display:flex; flex-wrap:wrap; gap:3px 6px; }
+.ta-mbr { font-size:11px; color:#374151; background:#f3f4f6; border-radius:4px; padding:1px 6px; white-space:nowrap; }
+.ta-mbr b { color:var(--navy); }
+.ta-mbr em { color:#1565c0; font-style:normal; font-weight:600; }
 .ta-action-bar {
   display: flex;
   flex-wrap: wrap;
