@@ -44,9 +44,11 @@
         { field: "converted", threshold: 80 }
       ]
     },
-    // 5. 신상품시상
+    // 5. 전임강사가 쏜다 시상
+    instructorAward: { enabled: false, items: [] },
+    // 6. 신상품시상
     newProductAward: { enabled: false, items: [] },
-    // 6. 기타사항
+    // 7. 기타사항
     notes: "※ 환산실적 80만원 미만 시상제외 | 합산 하이캡 배수 15 미만시 50% 지급"
   };
 
@@ -69,6 +71,7 @@
         groupAward1:   saved.groupAward1   ?? DEFAULT_AWARD_PLAN.groupAward1,
         groupAward2:   saved.groupAward2   ?? DEFAULT_AWARD_PLAN.groupAward2,
         eligibility:     saved.eligibility     ?? DEFAULT_AWARD_PLAN.eligibility,
+        instructorAward: saved.instructorAward ?? DEFAULT_AWARD_PLAN.instructorAward,
         newProductAward: saved.newProductAward ?? DEFAULT_AWARD_PLAN.newProductAward,
         notes:           saved.notes           ?? DEFAULT_AWARD_PLAN.notes
       };
@@ -230,7 +233,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.14";
+  const APP_VERSION = "3.15";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -4110,6 +4113,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
     }
 
+    // 전임강사가 쏜다 시상
+    let instSection = "";
+    if (plan.instructorAward?.enabled) {
+      const instItems = plan.instructorAward.items || [];
+      if (instItems.length) {
+        const instRowsHtml = instItems.map((item) => {
+          const cond = escapeHtml(item.condition || "");
+          const name = escapeHtml(item.productName || "");
+          const tierParts = (item.tiers || []).map((t) => {
+            const pay = t.payType === "item"
+              ? escapeHtml(String(t.payVal || ""))
+              : `${t.payVal || 0}만원`;
+            const fc = t.firstCome ? ` (선착순 ${t.firstComeCount || 1}명)` : "";
+            return `${t.amount}만↑→${pay}${fc}`;
+          });
+          const tierStr = tierParts.length ? ` — ${tierParts.join(" / ")}` : "";
+          return `<div class="hl-none" style="margin-bottom:3px;">🍺 <strong>${name || "전임강사 시상"}</strong>${cond ? ` [${cond}]` : ""}${tierStr}</div>`;
+        }).join("");
+        instSection = `<div class="sec-title" style="color:#1565C0;">🍺 전임강사가 쏜다</div>${instRowsHtml}`;
+      }
+    }
+
     // 신상품시상
     let npSection = "";
     if (plan.newProductAward?.enabled) {
@@ -4136,7 +4161,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       }
     }
 
-    const hasAny = piSection || rankSection || teamSection || npSection;
+    const hasAny = piSection || rankSection || teamSection || instSection || npSection;
     return `
       <div class="pg">
         <div class="hdr">
@@ -4154,6 +4179,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
         ${piSection}
         ${rankSection}
         ${teamSection}
+        ${instSection}
         ${npSection}
         ${!hasAny ? '<div class="hl-none" style="text-align:center;margin-top:8px;">저장된 시상안이 없습니다. 시상안 편집에서 설정해주세요.</div>' : ""}
       </div>`;
@@ -12018,7 +12044,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260729d)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260803a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -12469,6 +12495,82 @@ ${piPagesHtml}`;
     </div>`;
   }
 
+  function _apRenderInstructorTier(tier, ti) {
+    const payType = tier.payType || "cash";
+    const firstCome = !!tier.firstCome;
+    return `<div class="ap-inst-tier" data-ti="${ti}">
+      <div class="ap-np-row" style="gap:4px;flex-wrap:wrap;align-items:center;">
+        <input type="number" class="pg-input ap-inst-amt" value="${tier.amount || 0}" min="0" step="1" style="width:75px;" placeholder="기준금액">
+        <span style="font-size:12px;">만원↑</span>
+        <button type="button" class="ap-toggle-btn ap-inst-paytype" data-val="${payType}">${payType === "item" ? "물품" : "시상금"}</button>
+        <input type="number" class="pg-input ap-inst-cash" value="${payType !== "item" ? (Number(tier.payVal) || 0) : 0}" min="0" step="1" style="width:65px;${payType === "item" ? "display:none;" : ""}" placeholder="금액">
+        <span class="ap-inst-cash-unit" style="font-size:12px;${payType === "item" ? "display:none;" : ""}">만원</span>
+        <input type="text" class="pg-input ap-inst-item" value="${payType === "item" ? escapeHtml(String(tier.payVal || "")) : ""}" style="width:110px;${payType !== "item" ? "display:none;" : ""}" placeholder="물품명">
+        <label style="font-size:12px;display:flex;align-items:center;gap:3px;white-space:nowrap;">
+          <input type="checkbox" class="ap-inst-fc" ${firstCome ? "checked" : ""}> 선착순
+        </label>
+        <input type="number" class="pg-input ap-inst-fc-count" value="${tier.firstComeCount || 1}" min="1" step="1" style="width:46px;${!firstCome ? "display:none;" : ""}">
+        <span class="ap-inst-fc-unit" style="font-size:12px;${!firstCome ? "display:none;" : ""}">명</span>
+        <button type="button" class="ap-del-btn ap-inst-tier-del" title="삭제" style="margin-left:auto;">✕</button>
+      </div>
+    </div>`;
+  }
+
+  function _apRenderInstructor(items) {
+    const el = document.getElementById("ap-inst-list");
+    if (!el) return;
+    if (!items || items.length === 0) { el.innerHTML = ""; return; }
+    el.innerHTML = items.map((item, i) => {
+      const tiers = item.tiers?.length ? item.tiers : [];
+      const tiersHtml = tiers.map((t, ti) => _apRenderInstructorTier(t, ti)).join("");
+      return `
+        <div class="ap-np-card" data-i="${i}">
+          <div class="ap-np-row">
+            <span class="ap-label-sm" style="font-weight:700;color:var(--ink-1);">▸ 항목 ${i + 1}</span>
+            <button type="button" class="ap-del-btn ap-inst-item-del" title="항목삭제" style="margin-left:auto;">✕</button>
+          </div>
+          <div class="ap-np-row">
+            <label class="ap-label-sm" style="white-space:nowrap;">시상조건</label>
+            <input type="text" class="pg-input ap-inst-cond" value="${escapeHtml(item.condition || "")}" placeholder="예: 마스터 달성, 기준실적 50만원 이상" style="flex:1;min-width:0;">
+          </div>
+          <div class="ap-np-row" style="margin-top:4px;">
+            <label class="ap-label-sm" style="white-space:nowrap;">상품명</label>
+            <input type="text" class="pg-input ap-inst-name" value="${escapeHtml(item.productName || "")}" placeholder="예: 삼겹살 파티, 저녁 한 턱" style="flex:1;min-width:0;">
+          </div>
+          <div class="ap-inst-tiers" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+            ${tiersHtml}
+          </div>
+          <button type="button" class="btn-outline small ap-inst-tier-add" style="width:fit-content;margin-top:6px;">＋ 조건추가</button>
+        </div>`;
+    }).join("");
+  }
+
+  function _apCollectInstructor() {
+    const items = [];
+    document.querySelectorAll("#ap-inst-list .ap-np-card").forEach((card) => {
+      const tiers = [];
+      card.querySelectorAll(".ap-inst-tier").forEach((tierEl) => {
+        const payType = tierEl.querySelector(".ap-inst-paytype")?.dataset.val || "cash";
+        const firstCome = tierEl.querySelector(".ap-inst-fc")?.checked ?? false;
+        tiers.push({
+          amount: Number(tierEl.querySelector(".ap-inst-amt")?.value) || 0,
+          payType,
+          payVal: payType === "item"
+            ? (tierEl.querySelector(".ap-inst-item")?.value.trim() || "")
+            : (Number(tierEl.querySelector(".ap-inst-cash")?.value) || 0),
+          firstCome,
+          firstComeCount: firstCome ? (Number(tierEl.querySelector(".ap-inst-fc-count")?.value) || 1) : 0
+        });
+      });
+      items.push({
+        condition: card.querySelector(".ap-inst-cond")?.value.trim() || "",
+        productName: card.querySelector(".ap-inst-name")?.value.trim() || "",
+        tiers
+      });
+    });
+    return items;
+  }
+
   function _apRenderNp(items) {
     const el = document.getElementById("ap-np-list");
     if (!el) return;
@@ -12616,6 +12718,9 @@ ${piPagesHtml}`;
       ? plan.groupAward2.items
       : [{ rateThreshold: plan.groupAward2?.rateThreshold ?? 110, payout: plan.groupAward2?.payout ?? 15 }];
     _apRenderGa2(ga2Items);
+    // 전임강사가 쏜다
+    document.getElementById("ap-inst-en").checked = !!plan.instructorAward?.enabled;
+    _apRenderInstructor(plan.instructorAward?.items || []);
     // 신상품시상
     document.getElementById("ap-np-en").checked = !!plan.newProductAward?.enabled;
     _apRenderNp(plan.newProductAward?.items || []);
@@ -12717,6 +12822,10 @@ ${piPagesHtml}`;
           return arr.length ? arr : [{ rateThreshold: 110, payout: { type: "cash", val: 15 } }];
         })()
       },
+      instructorAward: {
+        enabled: document.getElementById("ap-inst-en")?.checked ?? false,
+        items: _apCollectInstructor()
+      },
       newProductAward: {
         enabled: document.getElementById("ap-np-en")?.checked ?? false,
         items: _apCollectNp()
@@ -12767,6 +12876,19 @@ ${piPagesHtml}`;
             if (txtInp) txtInp.style.display = next === "item" ? "" : "none";
             if (rateEl) rateEl.style.display = next === "item" ? "none" : "";
           }
+        } else if (tg.classList.contains("ap-inst-paytype")) {
+          const newType = tg.dataset.val === "item" ? "cash" : "item";
+          tg.dataset.val = newType;
+          tg.textContent = newType === "item" ? "물품" : "시상금";
+          const tierEl = tg.closest(".ap-inst-tier");
+          if (tierEl) {
+            const cashInp  = tierEl.querySelector(".ap-inst-cash");
+            const cashUnit = tierEl.querySelector(".ap-inst-cash-unit");
+            const itemInp  = tierEl.querySelector(".ap-inst-item");
+            if (cashInp)  cashInp.style.display  = newType === "item" ? "none" : "";
+            if (cashUnit) cashUnit.style.display  = newType === "item" ? "none" : "";
+            if (itemInp)  itemInp.style.display   = newType === "item" ? "" : "none";
+          }
         } else if (tg.classList.contains("ap-np-cond-type")) {
           // 신상품 조건 유형 3-way 순환: amount → text → slab → amount
           const cur = tg.dataset.val;
@@ -12792,6 +12914,17 @@ ${piPagesHtml}`;
           tg.textContent = next === "pct" ? "%" : "정액";
           const condEl = tg.closest(".ap-np-cond");
           condEl?.querySelectorAll(".ap-np-slab-payunit").forEach((u) => { u.textContent = next === "pct" ? "%" : "만원"; });
+        }
+        return;
+      }
+      // 전임강사 조건추가
+      const instTierAdd = e.target.closest(".ap-inst-tier-add");
+      if (instTierAdd) {
+        const card = instTierAdd.closest(".ap-np-card");
+        const tiersEl = card?.querySelector(".ap-inst-tiers");
+        if (tiersEl) {
+          const ti = tiersEl.querySelectorAll(".ap-inst-tier").length;
+          tiersEl.insertAdjacentHTML("beforeend", _apRenderInstructorTier({ amount: 0, payType: "cash", payVal: 0, firstCome: false, firstComeCount: 1 }, ti));
         }
         return;
       }
@@ -12830,6 +12963,8 @@ ${piPagesHtml}`;
       if (del) {
         if (del.classList.contains("ap-np-cond-del")) {
           del.closest(".ap-np-cond")?.remove();
+        } else if (del.classList.contains("ap-inst-tier-del")) {
+          del.closest(".ap-inst-tier")?.remove();
         } else {
           const row = del.closest(".ap-row, .ap-pi-card, .ap-np-card, .ap-np-slab");
           if (row) row.remove();
@@ -12842,6 +12977,14 @@ ${piPagesHtml}`;
       if (e.target.classList.contains("ap-np-cond-en")) {
         const condEl = e.target.closest(".ap-np-cond");
         if (condEl) condEl.style.opacity = e.target.checked ? "1" : "0.55";
+      }
+      if (e.target.classList.contains("ap-inst-fc")) {
+        const tierEl = e.target.closest(".ap-inst-tier");
+        const show = e.target.checked;
+        if (tierEl) {
+          tierEl.querySelector(".ap-inst-fc-count").style.display = show ? "" : "none";
+          tierEl.querySelector(".ap-inst-fc-unit").style.display = show ? "" : "none";
+        }
       }
     });
 
@@ -12879,6 +13022,11 @@ ${piPagesHtml}`;
       const cur = _apCollect().groupAward2.items || [];
       cur.push({ rateThreshold: 110, payout: { type: "cash", val: 15 } });
       _apRenderGa2(cur);
+    });
+    document.getElementById("ap-inst-add")?.addEventListener("click", () => {
+      const cur = _apCollectInstructor();
+      cur.push({ condition: "", productName: "", tiers: [{ amount: 0, payType: "cash", payVal: 0, firstCome: false, firstComeCount: 1 }] });
+      _apRenderInstructor(cur);
     });
     document.getElementById("ap-np-add")?.addEventListener("click", () => {
       const cur = _apCollectNp();
