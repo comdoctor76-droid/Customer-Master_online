@@ -233,7 +233,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.17";
+  const APP_VERSION = "3.18";
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -12044,7 +12044,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260803c)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260803d)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -15252,56 +15252,51 @@ ${piPagesHtml}`;
       const totalBase = _taStudents.reduce((s, x) => s + (Number(x.base) || 0), 0);
       const avgPerTeam = nTeams > 0 ? Math.round(totalBase / nTeams) : 0;
 
-      // 1단계: 기준실적 내림차순 정렬 후 개인 단위 스네이크 드래프트 (평균 균형 최우선)
-      const sorted = [..._taStudents].sort((a, b) => (Number(b.base) || 0) - (Number(a.base) || 0));
-      const teamMap = {};
-      sorted.forEach((s, i) => {
-        const row = Math.floor(i / nTeams);
-        const col = i % nTeams;
-        const teamIdx = row % 2 === 0 ? col : (nTeams - 1 - col);
-        teamMap[s.empNo] = teamIdx + 1;
-      });
-
-      // 2단계: 지점별 응집 보정 — 같은 지점 인원이 최대한 같은 팀에 모이도록 스왑
+      // ── 1단계: 지점별 그룹화 (우선순위 1 — 같은 지점은 반드시 같은 팀) ──
       const byBranch = {};
       _taStudents.forEach((s) => {
-        const b = s.branch || "";
-        if (!byBranch[b]) byBranch[b] = [];
-        byBranch[b].push(s);
+        const key = `${s.center || ""}||${s.branch || ""}`;
+        if (!byBranch[key]) byBranch[key] = [];
+        byBranch[key].push(s);
       });
 
+      // 각 지점 멤버를 기준실적 내림차순 정렬
+      // 5명 이상 지점은 짝수·홀수 인덱스 교차로 2개 서브그룹으로 분리
+      // (분리 시 고·저 실적이 섞이도록 하여 두 팀 간 균형 유지)
+      const subGroups = [];
       Object.values(byBranch).forEach((members) => {
-        if (members.length <= 1) return;
-        const maxGroups = members.length >= 5 ? 2 : 1;
-
-        const teamCount = {};
-        members.forEach((m) => {
-          const t = teamMap[m.empNo];
-          teamCount[t] = (teamCount[t] || 0) + 1;
-        });
-        const assignedTeams = Object.keys(teamCount).map(Number);
-        if (assignedTeams.length <= maxGroups) return;
-
-        const targetTeams = assignedTeams.sort((a, b) => teamCount[b] - teamCount[a]).slice(0, maxGroups);
-
-        members.forEach((m) => {
-          const curTeam = teamMap[m.empNo];
-          if (targetTeams.includes(curTeam)) return;
-          const mBase = Number(m.base) || 0;
-          // 목표 팀에서 유사 기준실적(±30%) 다른 지점 인원과 스왑
-          const candidate = _taStudents.find((s) =>
-            teamMap[s.empNo] === targetTeams[0] &&
-            (s.branch || "") !== (m.branch || "") &&
-            Math.abs((Number(s.base) || 0) - mBase) <= Math.max(mBase, 1) * 0.3
-          );
-          if (candidate) {
-            teamMap[m.empNo] = targetTeams[0];
-            teamMap[candidate.empNo] = curTeam;
-          }
-        });
+        members.sort((a, b) => (Number(b.base) || 0) - (Number(a.base) || 0));
+        if (members.length >= 5) {
+          subGroups.push(members.filter((_, i) => i % 2 === 0)); // 1위·3위·5위…
+          subGroups.push(members.filter((_, i) => i % 2 === 1)); // 2위·4위·6위…
+        } else {
+          subGroups.push(members);
+        }
       });
 
-      // 3단계: DOM 반영
+      // ── 2단계: 그리디 균형 배정 (우선순위 2 — 팀 합계 평균이 비슷하도록) ──
+      // 서브그룹 합계 내림차순 정렬 후, 매번 현재 합계가 가장 낮은 팀에 배정
+      subGroups.sort((a, b) => {
+        const sa = a.reduce((s, x) => s + (Number(x.base) || 0), 0);
+        const sb = b.reduce((s, x) => s + (Number(x.base) || 0), 0);
+        return sb - sa;
+      });
+
+      const teamTotals = new Array(nTeams).fill(0);
+      const teamMap = {};
+
+      subGroups.forEach((grp) => {
+        const grpTotal = grp.reduce((s, x) => s + (Number(x.base) || 0), 0);
+        // 현재 합계가 가장 낮은 팀 선택
+        let minIdx = 0;
+        for (let i = 1; i < nTeams; i++) {
+          if (teamTotals[i] < teamTotals[minIdx]) minIdx = i;
+        }
+        grp.forEach((s) => { teamMap[s.empNo] = minIdx + 1; });
+        teamTotals[minIdx] += grpTotal;
+      });
+
+      // ── 3단계: DOM 반영 → 조순 정렬 ──
       document.querySelectorAll(".ta-grp-sel").forEach((sel) => {
         const t = teamMap[sel.dataset.emp];
         if (t !== undefined) {
@@ -15310,7 +15305,7 @@ ${piPagesHtml}`;
         }
       });
       _taUpdateSums();
-      _taSortByTeam(); // 배정 후 조번호 순 자동 정렬
+      _taSortByTeam();
       toast(`⚡ ${nTeams}팀 자동 배정 완료 · 팀당 평균 ${Nf(avgPerTeam)}원 · 저장 버튼을 눌러 저장하세요.`, "ok");
     }
 
