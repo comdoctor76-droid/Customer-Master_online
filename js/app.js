@@ -233,7 +233,31 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.19";
+  const APP_VERSION = "3.20";
+
+  // ── 기수 목록 단일 관리 ──────────────────────────────────────────────
+  // 기수를 추가할 때는 이 배열 하나만 수정하면 모든 기수 드롭다운에 반영된다.
+  const COHORT_NUMBERS = [1, 2, 3, 4, 5, 6, 7];
+
+  // 기수 <option> 목록 HTML 생성
+  //   fmt "suffix" → value="4기"  : Firestore 의 cohort 필드와 직접 비교·저장하는 셀렉트용
+  //   fmt "number" → value="4"    : 시상안/목표금액 복합키를 구성하는 셀렉트용
+  // ※ 두 형식은 저장 데이터 및 키 구조와 직결되므로 셀렉트별로 반드시 유지해야 한다.
+  function cohortOptionsHtml(fmt = "suffix") {
+    return COHORT_NUMBERS
+      .map((n) => `<option value="${fmt === "number" ? n : n + "기"}">${n}기</option>`)
+      .join("");
+  }
+
+  // data-cohort-fmt 속성을 가진 정적 <select> 에 기수 옵션을 주입한다.
+  // 맨 앞의 플레이스홀더 <option value=""> 는 문구가 화면마다 다르므로 HTML 의 것을 그대로 보존한다.
+  // (플레이스홀더가 없는 셀렉트 — award-plan-cohort — 는 첫 기수가 선택된 상태를 유지)
+  function populateCohortSelects(root = document) {
+    root.querySelectorAll("select[data-cohort-fmt]").forEach((sel) => {
+      const ph = sel.querySelector('option[value=""]');
+      sel.innerHTML = (ph ? ph.outerHTML : "") + cohortOptionsHtml(sel.dataset.cohortFmt);
+    });
+  }
 
   // 실적진도현황 열 매핑 — 저장 필드 선택지
   const PG_FIELD_OPTIONS = [
@@ -7805,13 +7829,7 @@ ${piPagesHtml}`;
               </select>
               <select id="pg-global-cohort-sel" class="pg-paste-global-sel">
                 <option value="">기수 선택 ▾</option>
-                <option value="1기">1기</option>
-                <option value="2기">2기</option>
-                <option value="3기">3기</option>
-                <option value="4기">4기</option>
-                <option value="5기">5기</option>
-                <option value="6기">6기</option>
-                <option value="7기">7기</option>
+                ${cohortOptionsHtml("suffix")}
               </select>
               <span class="pg-paste-step-sep">│</span>
               <strong>스텝:</strong>
@@ -12046,7 +12064,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260908a)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260908b)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
@@ -14416,6 +14434,9 @@ ${piPagesHtml}`;
   }
 
   function init() {
+    // 기수 드롭다운 주입 — 이후의 .value 대입보다 반드시 먼저 실행되어야 한다
+    // (옵션이 없는 상태에서 .value 를 넣으면 조용히 "" 로 떨어진다)
+    populateCohortSelects();
     bindEvents();
     bindRegionMgrEvents();
     initDraggableModals();
