@@ -80,15 +80,8 @@
             <input type="search" id="search-box-side" class="side-input" placeholder="이름 또는 사번">
           </label>
           <label class="side-field">과정 기수
-            <select id="filter-cohort" class="side-input">
+            <select id="filter-cohort" class="side-input" data-cohort-fmt="suffix">
               <option value="">전체</option>
-              <option value="1기">1기</option>
-              <option value="2기">2기</option>
-              <option value="3기">3기</option>
-              <option value="4기">4기</option>
-              <option value="5기">5기</option>
-              <option value="6기">6기</option>
-              <option value="7기">7기</option>
             </select>
           </label>
           <label class="side-field">과정 스텝
@@ -230,15 +223,8 @@
             <select id="pg-region-sel" class="pg-input pg-context-sel pg-region-sel" title="지역단 선택">
               <option value="">지역단 미선택</option>
             </select>
-            <select id="pg-cohort-sel" class="pg-input pg-context-sel" title="기수 선택">
+            <select id="pg-cohort-sel" class="pg-input pg-context-sel" title="기수 선택" data-cohort-fmt="number">
               <option value="">기수 전체</option>
-              <option value="1">1기</option>
-              <option value="2">2기</option>
-              <option value="3">3기</option>
-              <option value="4">4기</option>
-              <option value="5">5기</option>
-              <option value="6">6기</option>
-              <option value="7">7기</option>
             </select>
             <select id="pg-step-sel" class="pg-input pg-context-sel" title="Step 선택">
               <option value="">Step 전체</option>
@@ -327,15 +313,8 @@
               </select>
             </label>
             <label>마스터과정 기수
-              <select id="form-cohort">
+              <select id="form-cohort" data-cohort-fmt="suffix">
                 <option value="">선택</option>
-                <option>1기</option>
-                <option>2기</option>
-                <option>3기</option>
-                <option>4기</option>
-                <option>5기</option>
-                <option>6기</option>
-                <option>7기</option>
               </select>
             </label>
             <label>사번 <span class="req">*</span>
@@ -383,15 +362,8 @@
           <div class="bulk-cohort-row">
             <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px">
               📋 기수 선택
-              <select id="bulk-cohort-sel" style="font-size:13px;padding:4px 8px;border:2px solid var(--orange);border-radius:6px">
+              <select id="bulk-cohort-sel" data-cohort-fmt="suffix" style="font-size:13px;padding:4px 8px;border:2px solid var(--orange);border-radius:6px">
                 <option value="">-- 데이터에 기수 열이 없을 경우 선택 --</option>
-                <option value="1기">1기</option>
-                <option value="2기">2기</option>
-                <option value="3기">3기</option>
-                <option value="4기">4기</option>
-                <option value="5기">5기</option>
-                <option value="6기">6기</option>
-                <option value="7기">7기</option>
               </select>
             </label>
           </div>
@@ -573,15 +545,8 @@
       <!-- 기수 / 스텝 선택 바 (한 줄) -->
       <div class="rm-filter-bar">
         <span class="rm-filter-label">기수</span>
-        <select id="rm-cohort-sel" class="rm-sel">
+        <select id="rm-cohort-sel" class="rm-sel" data-cohort-fmt="suffix">
           <option value="">기수 선택</option>
-          <option value="1기">1기</option>
-          <option value="2기">2기</option>
-          <option value="3기">3기</option>
-          <option value="4기">4기</option>
-          <option value="5기">5기</option>
-          <option value="6기">6기</option>
-          <option value="7기">7기</option>
         </select>
         <span class="rm-filter-sep">│</span>
         <span class="rm-filter-label">스텝</span>
@@ -789,15 +754,8 @@
           </div>
           <div class="ap-key-field">
             <label class="ap-key-label">기수</label>
-            <select id="tg-cohort" class="pg-input ap-key-sel">
+            <select id="tg-cohort" class="pg-input ap-key-sel" data-cohort-fmt="number">
               <option value="">전체</option>
-              <option value="1">1기</option>
-              <option value="2">2기</option>
-              <option value="3">3기</option>
-              <option value="4">4기</option>
-              <option value="5">5기</option>
-              <option value="6">6기</option>
-              <option value="7">7기</option>
             </select>
           </div>
           <div class="ap-key-field">
@@ -870,14 +828,7 @@
           </div>
           <div class="ap-key-field">
             <label class="ap-key-label">기수</label>
-            <select id="award-plan-cohort" class="pg-input ap-key-sel">
-              <option value="1">1기</option>
-              <option value="2">2기</option>
-              <option value="3">3기</option>
-              <option value="4">4기</option>
-              <option value="5">5기</option>
-              <option value="6">6기</option>
-              <option value="7">7기</option>
+            <select id="award-plan-cohort" class="pg-input ap-key-sel" data-cohort-fmt="number">
             </select>
           </div>
           <div class="ap-key-field">
