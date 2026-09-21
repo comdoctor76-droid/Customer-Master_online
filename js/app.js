@@ -233,7 +233,7 @@
     });
   }
   // 앱 버전 — 코드 수정(커밋)마다 0.01 씩 증가
-  const APP_VERSION = "3.20";
+  const APP_VERSION = "3.21";
 
   // ── 기수 목록 단일 관리 ──────────────────────────────────────────────
   // 기수를 추가할 때는 이 배열 하나만 수정하면 모든 기수 드롭다운에 반영된다.
@@ -451,6 +451,35 @@
     el.hidden = false;
     clearTimeout(toast._t);
     toast._t = setTimeout(() => (el.hidden = true), 2200);
+  }
+
+  // ── 이미지 공유 공통 처리 ────────────────────────────────────────────
+  // navigator.share() 는 클릭 직후의 짧은 시간(transient user activation) 안에서만
+  // 호출할 수 있다. html2canvas 캡처가 길어지면 그 사이 활성화가 만료돼
+  // NotAllowedError("The request is not allowed by the user agent or the platform
+  // in the current context...") 가 발생한다.
+  // navigator.canShare() 는 파일 "형식"만 검사하므로 이 상황을 걸러내지 못한다.
+  // → 공유가 실패하면 반드시 이미지 저장으로 폴백해서 작업이 막히지 않게 한다.
+  // 반환값: "shared" | "aborted"(사용자가 공유 시트를 닫음) | "downloaded"
+  async function shareImageOrDownload(blob, filename, shareData = {}) {
+    if (!blob) throw new Error("이미지 생성에 실패했습니다.");
+    const file = new File([blob], filename, { type: blob.type || "image/png" });
+    if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], ...shareData });
+        return "shared";
+      } catch (e) {
+        if (e?.name === "AbortError") return "aborted"; // 사용자 취소 — 정상 종료
+        console.warn("[share] 공유 실패 → 이미지 저장으로 대체:", e?.name, e?.message);
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = url;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return "downloaded";
   }
 
   function openModal(id) { $(id).hidden = false; }
@@ -1650,29 +1679,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
       return canvas;
     };
 
-    const shareOrDownload = async (blob, mimeType, ext) => {
-      const file = new File([blob], `${filename}.${ext}`, { type: mimeType });
-      let shared = false;
-      if (typeof navigator.canShare === "function") {
-        try {
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file] });
-            shared = true;
-          }
-        } catch (e) {
-          if (e.name !== "AbortError") throw e; // 사용자 취소는 무시
-          shared = true; // 취소도 정상 종료
-        }
-      }
-      if (!shared) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${filename}.${ext}`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 15000);
-      }
-    };
+    // 공유 시도 → 실패 시 파일 저장 폴백 (공통 헬퍼 사용)
+    const shareOrDownload = (blob, mimeType, ext) =>
+      shareImageOrDownload(blob, `${filename}.${ext}`);
 
     const doPrint = () => {
       if (iframe && iframe.contentWindow) { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
@@ -6782,15 +6791,13 @@ ${piPagesHtml}`;
         restore();
         canvas.toBlob(async (blob) => {
           if (!blob) { toast("이미지 변환에 실패했습니다.", "error"); return; }
-          const file = new File([blob], `${title}_${today}.png`, { type: "image/png" });
-          if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ files: [file], title: `${title} 실적진도`, text: `${today} 기준 실적진도` }); }
-            catch(e) { if (e.name !== "AbortError") toast("공유에 실패했습니다.", "error"); }
-          } else if (navigator.share) {
-            navigator.share({ title: `${title} 실적진도`, text: `${today} 기준 실적진도`, url: shareUrl }).catch(() => {});
-          } else {
-            const link = document.createElement("a"); link.download = `${title}_${today}.png`; link.href = canvas.toDataURL("image/png"); link.click();
-          }
+          const fname = `${title}_${today}.png`;
+          try {
+            const result = await shareImageOrDownload(blob, fname, {
+              title: `${title} 실적진도`, text: `${today} 기준 실적진도`
+            });
+            if (result === "downloaded") toast(`이미지가 저장되었습니다. (${fname})`, "success");
+          } catch (e) { console.error(e); toast("공유에 실패했습니다.", "error"); }
         }, "image/png");
       } catch(e) { restore(); toast("이미지 준비에 실패했습니다.", "error"); console.error(e); }
     });
@@ -6949,19 +6956,12 @@ ${piPagesHtml}`;
       document.body.style.minHeight = _savedBodyMH;
       document.body.removeChild(wrap);
       const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
-      const file = new File([blob], filename, { type: "image/png" });
-      const isMobile = navigator.canShare && navigator.canShare({ files: [file] });
-      if (isMobile) {
-        await navigator.share({
-          files: [file],
-          title: "전체 교육생 실적표",
-          text: "전일 마감 실적 기준 입니다"
-        });
-      } else {
-        const link = document.createElement("a");
-        link.download = filename;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
+      const result = await shareImageOrDownload(blob, filename, {
+        title: "전체 교육생 실적표",
+        text: "전일 마감 실적 기준 입니다"
+      });
+      // 공유 시트를 못 띄웠거나 공유가 거부된 경우 — 이미지는 저장됐으므로 카카오톡으로 유도
+      if (result === "downloaded") {
         toast(`이미지가 저장되었습니다. 카카오톡이 열립니다. (${filename})`, "success");
         setTimeout(() => { window.location.href = "kakaotalk://"; }, 700);
       }
@@ -12064,7 +12064,7 @@ ${piPagesHtml}`;
     document.getElementById("btn-pg-excel")?.addEventListener("click", exportProgressAwardExcel);
 
     // 설정 탭 / 푸터 / 헤더 — 앱 버전 (커밋마다 +0.01)
-    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260908b)`;
+    const v = $("#app-version"); if (v) v.textContent = `v${APP_VERSION} (build 20260921a)`;
     const fv = $("#app-footer-ver"); if (fv) fv.textContent = APP_VERSION;
     const hv = $("#app-header-ver"); if (hv) hv.textContent = APP_VERSION;
     // 로그아웃
